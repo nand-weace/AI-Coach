@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexa - Platform Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #f8fafc;
+            --glass-bg: rgba(255, 255, 255, 0.7);
+            --glass-border: rgba(0, 0, 0, 0.08);
+            --primary-color: #2563eb;
+            --primary-hover: #1d4ed8;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --accent-gradient: linear-gradient(135deg, #2563eb 0%, #8b5cf6 100%);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            background-image:
+                radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.07), transparent 25%),
+                radial-gradient(circle at 85% 30%, rgba(139, 92, 246, 0.07), transparent 25%);
+        }
+
+        /* ── Header ── */
+        .app-header {
+            padding: 16px 32px;
+            border-bottom: 1px solid var(--glass-border);
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .header-brand { display: flex; align-items: baseline; gap: 8px; }
+        .header-brand h1 { font-size: 1.25rem; font-weight: 600; letter-spacing: -0.02em; }
+        .header-brand .subtitle { font-size: 0.8rem; color: var(--text-muted); font-weight: 400; position: relative; top: 0.2em; }
+        .header-right { display: flex; align-items: center; gap: 12px; }
+        .nav-link {
+            font-size: 0.85rem; color: var(--text-muted); text-decoration: none;
+            padding: 6px 14px; border-radius: 999px; border: 1px solid var(--glass-border);
+            background: rgba(248, 250, 252, 0.8); transition: color 0.2s, border-color 0.2s;
+        }
+        .nav-link:hover { color: var(--primary-color); border-color: rgba(59, 130, 246, 0.3); }
+        .user-chip {
+            display: flex; align-items: center; gap: 8px;
+            background: rgba(248, 250, 252, 0.8); border: 1px solid var(--glass-border);
+            border-radius: 999px; padding: 4px 12px 4px 4px;
+        }
+        .user-chip-avatar {
+            width: 28px; height: 28px; border-radius: 50%;
+            background: var(--accent-gradient);
+            color: white; font-size: 0.7rem; font-weight: 600;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; overflow: hidden;
+        }
+        .user-chip-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+        .user-display { font-size: 0.85rem; font-weight: 500; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .logout-btn {
+            background: none; border: none; padding: 0;
+            font-family: inherit; font-size: 0.8rem; color: var(--text-muted);
+            cursor: pointer; transition: color 0.2s; white-space: nowrap;
+        }
+        .logout-btn:hover { color: var(--primary-color); }
+
+        /* ── Page body ── */
+        .page { max-width: 1200px; margin: 0 auto; padding: 32px 24px 64px; }
+
+        .page-title { margin-bottom: 8px; }
+        .page-title h2 { font-size: 1.4rem; font-weight: 600; letter-spacing: -0.02em; }
+        .page-title .admin-badge {
+            display: inline-block; margin-top: 4px; font-size: 0.8rem;
+            color: #7c3aed; background: rgba(124, 58, 237, 0.08);
+            border-radius: 999px; padding: 2px 10px; font-weight: 500;
+        }
+
+        /* ── Stat cards ── */
+        .stats-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px; margin: 24px 0 32px;
+        }
+        .stat-card {
+            background: var(--glass-bg); border: 1px solid var(--glass-border);
+            border-radius: 16px; padding: 20px 24px;
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+        }
+        .stat-label { font-size: 0.78rem; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 8px; }
+        .stat-value { font-size: 2rem; font-weight: 600; letter-spacing: -0.03em; color: var(--text-main); }
+        .stat-value.loading { color: var(--glass-border); }
+
+        /* ── Table ── */
+        .table-card {
+            background: var(--glass-bg); border: 1px solid var(--glass-border);
+            border-radius: 16px; backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px); overflow: hidden;
+        }
+        .table-header {
+            padding: 16px 24px; border-bottom: 1px solid var(--glass-border);
+            display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+        }
+        .table-header h3 { font-size: 0.95rem; font-weight: 600; }
+        .table-search {
+            padding: 6px 14px; border: 1px solid var(--glass-border);
+            border-radius: 999px; background: rgba(248, 250, 252, 0.9);
+            font-family: inherit; font-size: 0.85rem; color: var(--text-main);
+            outline: none; transition: border-color 0.2s, box-shadow 0.2s; width: 220px;
+        }
+        .table-search:focus { border-color: rgba(59, 130, 246, 0.4); box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15); }
+        .table-search::placeholder { color: var(--text-muted); }
+        table { width: 100%; border-collapse: collapse; }
+        thead tr { background: rgba(248, 250, 252, 0.6); }
+        th {
+            padding: 12px 16px; text-align: left; font-size: 0.75rem;
+            font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
+            color: var(--text-muted); border-bottom: 1px solid var(--glass-border);
+            white-space: nowrap;
+        }
+        td {
+            padding: 13px 16px; font-size: 0.875rem;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.04); color: var(--text-main);
+        }
+        tbody tr:last-child td { border-bottom: none; }
+        tbody tr:hover { background: rgba(59, 130, 246, 0.03); }
+        .cell-name { font-weight: 500; }
+        .cell-muted { color: var(--text-muted); font-size: 0.82rem; }
+        .empty-row td { text-align: center; color: var(--text-muted); padding: 40px; }
+        .skeleton { background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 4px; height: 14px; }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+        /* ── Access till inline edit ── */
+        .access-till-cell { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+        .access-till-date {
+            font-size: 0.82rem; color: var(--text-muted); cursor: pointer;
+            border-bottom: 1px dashed var(--text-muted); transition: color 0.15s, border-color 0.15s;
+        }
+        .access-till-date:hover { color: var(--primary-color); border-color: var(--primary-color); }
+        .access-till-input {
+            padding: 3px 8px; border: 1px solid rgba(37,99,235,0.4); border-radius: 6px;
+            font-family: inherit; font-size: 0.82rem; color: var(--text-main);
+            background: white; outline: none;
+        }
+        .access-till-save-btn {
+            padding: 3px 10px; border: none; border-radius: 6px; cursor: pointer;
+            font-family: inherit; font-size: 0.78rem; font-weight: 500;
+            background: var(--primary-color); color: white; transition: background 0.15s;
+        }
+        .access-till-save-btn:hover { background: var(--primary-hover); }
+        .access-till-cancel-btn {
+            background: none; border: none; padding: 3px 6px; cursor: pointer;
+            font-size: 0.78rem; color: var(--text-muted); font-family: inherit;
+        }
+
+        /* ── Nexa access toggle ── */
+        .nexa-toggle {
+            padding: 4px 14px; border-radius: 999px; border: none;
+            cursor: pointer; font-size: 0.78rem; font-weight: 500;
+            font-family: inherit; transition: all 0.15s;
+        }
+        .nexa-on { background: rgba(16, 185, 129, 0.1); color: #059669; }
+        .nexa-on:hover { background: rgba(16, 185, 129, 0.22); }
+        .nexa-off { background: rgba(100, 116, 139, 0.1); color: var(--text-muted); }
+        .nexa-off:hover { background: rgba(100, 116, 139, 0.22); }
+        .nexa-toggle:disabled { opacity: 0.5; cursor: default; }
+    </style>
+</head>
+<body>
+
+<header class="app-header">
+    <div style="display:flex; align-items:center; gap:14px;">
+        <img src="/static/we-ace-logo.png" alt="We-Ace" style="height:20px; width:auto;">
+        <div class="header-brand">
+            <h1>Nexa</h1>
+            <span class="subtitle">Platform Admin</span>
+        </div>
+    </div>
+    <div class="header-right">
+        <a href="/" class="nav-link">Open Chat</a>
+        <div class="user-chip">
+            <div class="user-chip-avatar" id="header-avatar">
+                {% if profile_image %}
+                    <img src="{{ profile_image }}" alt="{{ user_name }}" onerror="this.parentElement.textContent='{{ initials }}'">
+                {% else %}
+                    {{ initials }}
+                {% endif %}
+            </div>
+            <span class="user-display">{{ user_name }}</span>
+            <button class="logout-btn" id="logout-button">Logout</button>
+        </div>
+    </div>
+</header>
+
+<div class="page">
+    <div class="page-title">
+        <h2>Platform Admin</h2>
+        <span class="admin-badge">weace_super_admin</span>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-label">Total Users</div>
+            <div class="stat-value loading" id="stat-users">—</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Total Sessions</div>
+            <div class="stat-value loading" id="stat-sessions">—</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Total Chats</div>
+            <div class="stat-value loading" id="stat-chats">—</div>
+        </div>
+    </div>
+
+    <div class="table-card">
+        <div class="table-header">
+            <h3>All Users</h3>
+            <input type="text" class="table-search" id="search-input" placeholder="Search name, email, org…">
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Active Since</th>
+                    <th>Last Login</th>
+                    <th>Sessions</th>
+                    <th>Chats</th>
+                    <th>Access Till</th>
+                    <th>Nexa Access</th>
+                </tr>
+            </thead>
+            <tbody id="user-table-body">
+                <tr><td colspan="8"><div class="skeleton" style="width:60%; margin:0 auto;"></div></td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    let allUsers = [];
+
+    function formatDate(str) {
+        if (!str) return '—';
+        return new Date(str).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    }
+
+    function activeSince(str) {
+        if (!str) return '—';
+        const days = Math.floor((Date.now() - new Date(str).getTime()) / 86400000);
+        if (days < 1) return 'Today';
+        if (days < 30) return `${days}d`;
+        if (days < 365) return `${Math.floor(days / 30)}mo`;
+        const yrs = Math.floor(days / 365);
+        const mos = Math.floor((days % 365) / 30);
+        return mos > 0 ? `${yrs}y ${mos}mo` : `${yrs}y`;
+    }
+
+    function escHtml(str) {
+        if (!str) return '—';
+        return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function renderTable(users) {
+        const tbody = document.getElementById('user-table-body');
+        if (!users.length) {
+            tbody.innerHTML = '<tr class="empty-row"><td colspan="8">No users found.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = users.map(u => {
+            const tillDate = u.access_last_date ? u.access_last_date.slice(0, 10) : '';
+            const tillDisplay = tillDate ? formatDate(tillDate) : '—';
+            return `
+            <tr>
+                <td class="cell-name">${escHtml(u.user_name)}</td>
+                <td class="cell-muted">${escHtml(u.email)}</td>
+                <td class="cell-muted">${activeSince(u.first_login)}</td>
+                <td class="cell-muted">${formatDate(u.last_login)}</td>
+                <td>${u.session_count}</td>
+                <td>${u.chat_count}</td>
+                <td>
+                    <div class="access-till-cell" id="till-cell-${escHtml(u.user_id)}">
+                        <span class="access-till-date" onclick="showAccessTillEdit('${escHtml(u.user_id)}', '${tillDate}')" title="Click to change">${tillDisplay}</span>
+                    </div>
+                </td>
+                <td>
+                    <button
+                        class="nexa-toggle ${u.nexa_access ? 'nexa-on' : 'nexa-off'}"
+                        data-user-id="${escHtml(u.user_id)}"
+                        data-access="${u.nexa_access ? '1' : '0'}"
+                        onclick="toggleNexaAccess(this)">
+                        ${u.nexa_access ? 'Enabled' : 'Disabled'}
+                    </button>
+                </td>
+            </tr>
+        `}).join('');
+    }
+
+    function showAccessTillEdit(userId, currentDate) {
+        const cell = document.getElementById(`till-cell-${userId}`);
+        cell.innerHTML = `
+            <input type="date" class="access-till-input" id="till-input-${userId}" value="${currentDate}">
+            <button class="access-till-save-btn" onclick="saveAccessTill('${userId}')">Save</button>
+            <button class="access-till-cancel-btn" onclick="cancelAccessTillEdit('${userId}', '${currentDate}')">✕</button>
+        `;
+    }
+
+    function cancelAccessTillEdit(userId, currentDate) {
+        const cell = document.getElementById(`till-cell-${userId}`);
+        const display = currentDate ? formatDate(currentDate) : '—';
+        cell.innerHTML = `
+            <span class="access-till-date" onclick="showAccessTillEdit('${userId}', '${currentDate}')" title="Click to change">${display}</span>
+        `;
+    }
+
+    async function saveAccessTill(userId) {
+        const input = document.getElementById(`till-input-${userId}`);
+        const date = input.value;
+        if (!date) { alert('Please select a date.'); return; }
+
+        input.disabled = true;
+        try {
+            const res = await fetch(`/api/admin/users/${encodeURIComponent(userId)}/access_till`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ access_till: date }),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                alert(data.error || 'Failed to update access date.');
+                input.disabled = false;
+                return;
+            }
+            const cell = document.getElementById(`till-cell-${userId}`);
+            cell.innerHTML = `
+                <span class="access-till-date" onclick="showAccessTillEdit('${userId}', '${date}')" title="Click to change">${formatDate(date)}</span>
+            `;
+            const user = allUsers.find(u => u.user_id === userId);
+            if (user) user.access_last_date = date;
+        } catch (_) {
+            alert('Connection error. Please try again.');
+            input.disabled = false;
+        }
+    }
+
+    async function toggleNexaAccess(btn) {
+        const userId = btn.dataset.userId;
+        const current = btn.dataset.access === '1';
+        const next = !current;
+
+        btn.disabled = false;
+        btn.textContent = '…';
+
+        try {
+            const res = await fetch(`/api/admin/users/${encodeURIComponent(userId)}/nexa_access`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nexa_access: next }),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                alert(data.error || 'Failed to update access.');
+                btn.disabled = false;
+                btn.textContent = current ? 'Enabled' : 'Disabled';
+                return;
+            }
+            btn.dataset.access = next ? '1' : '0';
+            btn.className = `nexa-toggle ${next ? 'nexa-on' : 'nexa-off'}`;
+            btn.textContent = next ? 'Enabled' : 'Disabled';
+            btn.disabled = false;
+
+            // Update local stats
+            const user = allUsers.find(u => u.user_id === userId);
+            if (user) user.nexa_access = next;
+        } catch (_) {
+            alert('Connection error. Please try again.');
+            btn.disabled = false;
+            btn.textContent = current ? 'Enabled' : 'Disabled';
+        }
+    }
+
+    async function loadUsers() {
+        try {
+            const res = await fetch('/api/admin/users');
+            if (res.status === 401 || res.status === 403) { window.location.href = '/'; return; }
+            const data = await res.json();
+
+            allUsers = data.users || [];
+
+            const totalSessions = allUsers.reduce((s, u) => s + u.session_count, 0);
+            const totalChats = allUsers.reduce((s, u) => s + u.chat_count, 0);
+
+            document.getElementById('stat-users').textContent = allUsers.length;
+            document.getElementById('stat-sessions').textContent = totalSessions;
+            document.getElementById('stat-chats').textContent = totalChats;
+            document.querySelectorAll('.stat-value').forEach(el => el.classList.remove('loading'));
+
+            renderTable(allUsers);
+        } catch (_) {
+            document.getElementById('user-table-body').innerHTML =
+                '<tr class="empty-row"><td colspan="8">Failed to load data. Please refresh.</td></tr>';
+        }
+    }
+
+    document.getElementById('search-input').addEventListener('input', (e) => {
+        const q = e.target.value.toLowerCase();
+        renderTable(allUsers.filter(u =>
+            (u.user_name || '').toLowerCase().includes(q) ||
+            (u.email || '').toLowerCase().includes(q) ||
+            (u.org_name || '').toLowerCase().includes(q)
+        ));
+    });
+
+    document.getElementById('logout-button').addEventListener('click', async () => {
+        await fetch('/logout', { method: 'POST' });
+        window.location.href = '/';
+    });
+
+    loadUsers();
+</script>
+</body>
+</html>
