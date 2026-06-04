@@ -6,16 +6,16 @@ import pymysql
 import pymysql.cursors
 
 _SENTIMENT_DIMS = [
-    'emotional_tone', 'self_compassion', 'stress_anxiety', 'confidence_language',
-    'empathy_expression', 'frustration_disengagement', 'growth_mindset', 'psychological_safety',
+    'work_life_balance', 'job_satisfaction', 'stress_anxiety', 'self_confidence',
+    'empathy', 'frustration_disengagement', 'growth_mindset', 'psychological_safety',
 ]
 
 _SENTIMENT_SEEDS = [
-    ('emotional_tone',            'Language negativity to positivity across sessions',       'Positive'),
-    ('self_compassion',           'Self-critical vs compassionate language about mistakes',  'Positive'),
+    ('work_life_balance',         'Boundary-setting and balance language',                   'Positive'),
+    ('job_satisfaction',          'Fulfilment and motivation signals',                       'Positive'),
     ('stress_anxiety',            'Urgency, overwhelm, and pressure signals',                'Negative'),
-    ('confidence_language',       'Assertive vs hedging phrases',                            'Positive'),
-    ('empathy_expression',        "References to others' feelings and perspectives",         'Positive'),
+    ('self_confidence',           'Assertive vs self-doubting phrases',                      'Positive'),
+    ('empathy',                   "References to others' feelings and perspectives",         'Positive'),
     ('frustration_disengagement', 'Cynical, dismissive, or disengaged patterns',             'Negative'),
     ('growth_mindset',            'Effort, learning, and challenge framing',                 'Positive'),
     ('psychological_safety',      'Willingness to share failures and fears openly',          'Positive'),
@@ -135,6 +135,13 @@ def init_db():
                 CREATE TABLE IF NOT EXISTS user_settings (
                     user_id VARCHAR(36) PRIMARY KEY,
                     nexa_access TINYINT(1) DEFAULT 0,
+                    first_name VARCHAR(255) DEFAULT NULL,
+                    last_name VARCHAR(255) DEFAULT NULL,
+                    email VARCHAR(255) DEFAULT NULL,
+                    org_id VARCHAR(255) DEFAULT NULL,
+                    cohort_id VARCHAR(255) DEFAULT NULL,
+                    cohort_name VARCHAR(255) DEFAULT NULL,
+                    country VARCHAR(100) DEFAULT NULL,
                     first_login DATETIME DEFAULT CURRENT_TIMESTAMP,
                     last_login DATETIME DEFAULT CURRENT_TIMESTAMP,
                     access_last_date DATETIME DEFAULT NULL,
@@ -142,8 +149,15 @@ def init_db():
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """)
             for col, definition in [
-                ('first_login', 'DATETIME DEFAULT CURRENT_TIMESTAMP AFTER nexa_access'),
+                ('first_login',   'DATETIME DEFAULT CURRENT_TIMESTAMP AFTER nexa_access'),
                 ('access_last_date', 'DATETIME DEFAULT NULL AFTER last_login'),
+                ('first_name',    'VARCHAR(255) DEFAULT NULL AFTER nexa_access'),
+                ('last_name',     'VARCHAR(255) DEFAULT NULL AFTER first_name'),
+                ('email',         'VARCHAR(255) DEFAULT NULL AFTER last_name'),
+                ('org_id',        'VARCHAR(255) DEFAULT NULL AFTER email'),
+                ('cohort_id',     'VARCHAR(255) DEFAULT NULL AFTER org_id'),
+                ('cohort_name',   'VARCHAR(255) DEFAULT NULL AFTER cohort_id'),
+                ('country',       'VARCHAR(100) DEFAULT NULL AFTER cohort_name'),
             ]:
                 cur.execute(
                     "SELECT COUNT(*) AS cnt FROM information_schema.COLUMNS "
@@ -291,13 +305,16 @@ def get_org_analytics(org_slug: str) -> dict:
             cur.execute("""
                 SELECT
                     s.user_id,
-                    MAX(s.user_name) AS user_name,
-                    MAX(s.email)     AS email,
+                    MAX(s.user_name)    AS user_name,
+                    MAX(s.email)        AS email,
                     COUNT(DISTINCT s.session_id) AS session_count,
                     SUM(CASE WHEN m.role = 'user' THEN 1 ELSE 0 END) AS message_count,
-                    MAX(m.created_at) AS last_active
+                    MAX(m.created_at)   AS last_active,
+                    MAX(us.country)     AS country,
+                    MAX(us.cohort_name) AS cohort_name
                 FROM ai_coach_sessions s
                 LEFT JOIN ai_coach_messages m ON s.session_id = m.session_id
+                LEFT JOIN user_settings us ON s.user_id = us.user_id
                 WHERE s.org_slug = %s
                 GROUP BY s.user_id
                 ORDER BY last_active DESC
@@ -308,20 +325,10 @@ def get_org_analytics(org_slug: str) -> dict:
                     u['last_active'] = str(u['last_active'])
                 u['message_count'] = int(u['message_count'] or 0)
 
-            cur.execute("""
-                SELECT COUNT(DISTINCT m.user_id) AS active_week
-                FROM ai_coach_messages m
-                JOIN ai_coach_sessions s ON m.session_id = s.session_id
-                WHERE s.org_slug = %s AND m.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-            """, (org_slug,))
-            row = cur.fetchone()
-            active_week = int(row['active_week']) if row else 0
-
             return {
                 'total_users': len(users),
                 'total_sessions': sum(u['session_count'] for u in users),
                 'total_messages': sum(u['message_count'] for u in users),
-                'active_week': active_week,
                 'users': users,
             }
     finally:
@@ -434,10 +441,7 @@ def upsert_org_sentiment(org_slug: str, sentiment_data: dict):
 
 def insert_org_sentiment_history(org_slug: str, sentiment_data: dict):
     """Append a score snapshot to the history table. Keeps only the 8 dimension scores."""
-    _DIMS = [
-        'emotional_tone', 'self_compassion', 'stress_anxiety', 'confidence_language',
-        'empathy_expression', 'frustration_disengagement', 'growth_mindset', 'psychological_safety',
-    ]
+    _DIMS = _SENTIMENT_DIMS
     scores = {
         dim: sentiment_data[dim]['score']
         for dim in _DIMS
@@ -480,18 +484,40 @@ def get_org_sentiment_history(org_slug: str, limit: int = 12) -> list:
         conn.close()
 
 
-def upsert_user_login(user_id: str) -> dict:
+def upsert_user_login(user_id: str, first_name: str = None, last_name: str = None,
+                      email: str = None, org_id: str = None, cohort_id: str = None,
+                      cohort_name: str = None, country: str = None) -> dict:
     """Create or refresh a user_settings row; enables nexa_access. Returns nexa_access and access_last_date."""
     conn = get_connection()
     try:
         with conn.cursor() as cur:
+            _fn = first_name or None
+            _ln = last_name  or None
+            _em = email      or None
+            _oi = org_id     or None
+            _ci = cohort_id  or None
+            _cn = cohort_name or None
+            _co = country    or None
             cur.execute(
                 """
-                INSERT INTO user_settings (user_id, nexa_access, first_login, last_login, access_last_date)
-                VALUES (%s, 1, NOW(), NOW(), DATE_ADD(NOW(), INTERVAL 7 DAY))
-                ON DUPLICATE KEY UPDATE last_login = NOW(), nexa_access = 1
+                INSERT INTO user_settings
+                    (user_id, nexa_access, first_name, last_name, email,
+                     org_id, cohort_id, cohort_name, country,
+                     first_login, last_login, access_last_date)
+                VALUES (%s, 1, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW(), DATE_ADD(NOW(), INTERVAL 7 DAY))
+                ON DUPLICATE KEY UPDATE
+                    last_login  = NOW(),
+                    nexa_access = 1,
+                    first_name  = COALESCE(%s, first_name),
+                    last_name   = COALESCE(%s, last_name),
+                    email       = COALESCE(%s, email),
+                    org_id      = COALESCE(%s, org_id),
+                    cohort_id   = COALESCE(%s, cohort_id),
+                    cohort_name = COALESCE(%s, cohort_name),
+                    country     = COALESCE(%s, country)
                 """,
-                (user_id,),
+                (user_id, _fn, _ln, _em, _oi, _ci, _cn, _co,
+                 _fn, _ln, _em, _oi, _ci, _cn, _co),
             )
             conn.commit()
             cur.execute(

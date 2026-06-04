@@ -18,8 +18,8 @@ from database import (
 # ── Constants ────────────────────────────────────────────────────────────────
 
 _DIMS = [
-    'emotional_tone', 'self_compassion', 'stress_anxiety', 'confidence_language',
-    'empathy_expression', 'frustration_disengagement', 'growth_mindset', 'psychological_safety',
+    'work_life_balance', 'job_satisfaction', 'stress_anxiety', 'self_confidence',
+    'empathy', 'frustration_disengagement', 'growth_mindset', 'psychological_safety',
 ]
 _MAX_CHARS = 40_000   # org-level prompt cap (~10k tokens)
 _USER_MAX_CHARS = 6_000  # per-user cap (keeps per-user calls cheap)
@@ -32,22 +32,22 @@ Analyse the following collection of questions and messages written by organisati
 
 Score each dimension 0–100 based purely on the language patterns present:
 
-- emotional_tone: 0=very negative/distressed, 50=neutral, 100=very positive/energised
-- self_compassion: 0=highly self-critical, 100=highly self-compassionate about mistakes
+- work_life_balance: 0=severe imbalance/always-on language, 100=healthy boundaries and balance
+- job_satisfaction: 0=very dissatisfied/disengaged, 100=highly fulfilled and motivated
 - stress_anxiety: 0=no stress signals, 100=extreme stress/anxiety/urgency language
-- confidence_language: 0=very hedging/uncertain, 100=very assertive/confident
-- empathy_expression: 0=no empathy shown, 100=very high empathy toward others
+- self_confidence: 0=very uncertain/self-doubting, 100=very assertive/confident
+- empathy: 0=no empathy shown, 100=very high empathy toward others
 - frustration_disengagement: 0=no frustration, 100=extreme frustration/cynicism/dismissiveness
 - growth_mindset: 0=fixed-mindset language, 100=strong growth/learning/effort framing
 - psychological_safety: 0=no vulnerability shared, 100=high openness about failures and fears
 
 Return ONLY a valid JSON object with no markdown fences:
 {
-  "emotional_tone": {"score": <0-100 int>, "insight": "<one concise sentence>"},
-  "self_compassion": {"score": <0-100 int>, "insight": "<one concise sentence>"},
+  "work_life_balance": {"score": <0-100 int>, "insight": "<one concise sentence>"},
+  "job_satisfaction": {"score": <0-100 int>, "insight": "<one concise sentence>"},
   "stress_anxiety": {"score": <0-100 int>, "insight": "<one concise sentence>"},
-  "confidence_language": {"score": <0-100 int>, "insight": "<one concise sentence>"},
-  "empathy_expression": {"score": <0-100 int>, "insight": "<one concise sentence>"},
+  "self_confidence": {"score": <0-100 int>, "insight": "<one concise sentence>"},
+  "empathy": {"score": <0-100 int>, "insight": "<one concise sentence>"},
   "frustration_disengagement": {"score": <0-100 int>, "insight": "<one concise sentence>"},
   "growth_mindset": {"score": <0-100 int>, "insight": "<one concise sentence>"},
   "psychological_safety": {"score": <0-100 int>, "insight": "<one concise sentence>"}
@@ -61,11 +61,11 @@ Messages to analyse:
 # Compact prompt — scores only, no insights. Keeps per-user calls cheap.
 _USER_PROMPT = """Score these leadership coaching messages on 8 dimensions (0–100 each).
 Return ONLY this compact JSON with no other text:
-{"emotional_tone":N,"self_compassion":N,"stress_anxiety":N,"confidence_language":N,"empathy_expression":N,"frustration_disengagement":N,"growth_mindset":N,"psychological_safety":N}
+{"work_life_balance":N,"job_satisfaction":N,"stress_anxiety":N,"self_confidence":N,"empathy":N,"frustration_disengagement":N,"growth_mindset":N,"psychological_safety":N}
 
-Scoring guide: emotional_tone(0=negative,100=positive), self_compassion(0=self-critical,100=compassionate), \
-stress_anxiety(0=calm,100=stressed), confidence_language(0=hedging,100=assertive), \
-empathy_expression(0=none,100=high), frustration_disengagement(0=none,100=high), \
+Scoring guide: work_life_balance(0=imbalanced,100=balanced), job_satisfaction(0=dissatisfied,100=fulfilled), \
+stress_anxiety(0=calm,100=stressed), self_confidence(0=self-doubting,100=assertive), \
+empathy(0=none,100=high), frustration_disengagement(0=none,100=high), \
 growth_mindset(0=fixed,100=growth), psychological_safety(0=closed,100=open)
 
 Messages:

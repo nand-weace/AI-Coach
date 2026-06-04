@@ -1,5 +1,7 @@
 import os
 import uuid
+import logging
+import requests as http_requests
 from flask import Flask, request, jsonify, render_template, session, redirect
 from dotenv import load_dotenv
 from ai_coach import SYSTEM_INSTRUCTION
@@ -22,6 +24,13 @@ from database import (
 )
 
 load_dotenv()
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S',
+)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'dev-secret-change-in-prod')
@@ -138,26 +147,69 @@ def me():
 @app.route('/session', methods=['POST'])
 def create_session():
     """
-    Called by the frontend after it has successfully authenticated against
-    https://api.we-ace.com/api/v1/auth/login. Receives the parsed profile
-    and tokens; sets up the DB chat session and Flask cookie.
+    Called by the frontend after authentication. Receives accessToken + refreshToken,
+    verifies them by fetching the user profile from the we-ace API, then sets up the
+    DB chat session and Flask cookie.
     """
+    ip = request.remote_addr
     data = request.json or {}
-    user_id = (data.get('userId') or '').strip()
     access_token = (data.get('accessToken') or '').strip()
     refresh_token = (data.get('refreshToken') or '').strip()
-    first = (data.get('firstName') or '').strip()
-    last = (data.get('lastName') or '').strip()
-    email = (data.get('email') or '').strip()
-    user_name = f"{first} {last}".strip() or email.split('@')[0]
-    profile_image = (data.get('profileImage') or '').strip()
-    role = (data.get('role') or 'user').strip()
-    org_name = (data.get('orgName') or '').strip()
-    org_slug = (data.get('orgSlug') or '').strip()
-    cohort_id = (data.get('cohortId') or '').strip() or None
 
-    if not user_id or not access_token:
-        return jsonify({'error': 'userId and accessToken are required'}), 400
+    logger.info("[create_session] request from ip=%s has_access_token=%s has_refresh_token=%s",
+                ip, bool(access_token), bool(refresh_token))
+
+    if not access_token:
+        logger.warning("[create_session] rejected: missing accessToken from ip=%s", ip)
+        return jsonify({'error': 'accessToken is required'}), 400
+
+    # Verify token and fetch user details from profile API
+    logger.info("[create_session] fetching profile from we-ace API")
+    try:
+        profile_resp = http_requests.get(
+            'https://api.we-ace.com/api/v1/users/profile',
+            headers={'Authorization': f'Bearer {access_token}'},
+            timeout=10,
+        )
+        logger.info("[create_session] profile API responded with status=%s", profile_resp.status_code)
+        if not profile_resp.ok:
+            logger.warning("[create_session] profile API rejected token: status=%s ip=%s",
+                           profile_resp.status_code, ip)
+            return jsonify({'error': 'Invalid or expired access token'}), 401
+        profile_data = profile_resp.json()
+    except Exception as e:
+        logger.error("[create_session] profile API request failed: %s", e)
+        return jsonify({'error': f'Profile fetch failed: {e}'}), 502
+
+    # Parse profile response — user data is nested under 'data'
+    profile = profile_data.get('data') or {}
+
+    raw_roles = profile.get('roles') or []
+    roles_arr = raw_roles if isinstance(raw_roles, list) else [raw_roles]
+    role_slugs = [r.get('slug', '') for r in roles_arr if isinstance(r, dict)]
+    if 'weace_super_admin' in role_slugs:
+        role = 'weace_super_admin'
+    elif 'corporate_super_admin' in role_slugs:
+        role = 'corporate_super_admin'
+    else:
+        role = 'user'
+
+    user_id = (profile.get('userId') or profile.get('_id') or '').strip()
+    first = (profile.get('firstName') or '').strip()
+    last = (profile.get('lastName') or '').strip()
+    email = (profile.get('email') or '').strip()
+    user_name = f"{first} {last}".strip() or email.split('@')[0]
+    profile_image = (profile.get('profileImage') or '').strip()
+    org_name = (profile.get('companyName') or '').strip()
+    org_slug = (profile.get('parentId') or '').strip()
+    cohort_id = (profile.get('cohortId') or '').strip() or None
+
+    logger.info("[create_session] parsed profile: user_id=%s email=%s role=%s org_slug=%s",
+                user_id or 'MISSING', email or 'MISSING', role, org_slug or 'none')
+
+    if not user_id:
+        logger.warning("[create_session] could not determine user_id from profile data ip=%s", ip)
+        return jsonify({'error': 'Could not determine user ID from profile'}), 400
 
     try:
         returning = has_previous_sessions(user_id)
@@ -165,6 +217,8 @@ def create_session():
 
         session_uuid = str(uuid.uuid4())
         create_chat_session(session_uuid, user_id, user_name, email, org_name, org_slug, cohort_id)
+        logger.info("[create_session] chat session created: session_uuid=%s user_id=%s returning=%s",
+                    session_uuid, user_id, returning)
 
         prompt = _build_personalized_prompt(user_name, highlights)
         sessions_cache[session_uuid] = [{"role": "system", "content": prompt}]
@@ -185,12 +239,24 @@ def create_session():
         if role in ('weace_super_admin', 'corporate_super_admin'):
             nexa_access = True
             access_last_date = None
+            upsert_user_login(
+                user_id,
+                first_name=first, last_name=last, email=email,
+                org_id=org_slug, cohort_id=cohort_id,
+            )
         else:
-            settings = upsert_user_login(user_id)
+            settings = upsert_user_login(
+                user_id,
+                first_name=first, last_name=last, email=email,
+                org_id=org_slug, cohort_id=cohort_id,
+            )
             nexa_access = settings['nexa_access']
             access_last_date = settings['access_last_date']
         session['nexa_access'] = nexa_access
         session['access_last_date'] = access_last_date
+
+        logger.info("[create_session] session established: user_id=%s user_name=%r nexa_access=%s",
+                    user_id, user_name, nexa_access)
 
         initials = ''.join(w[0].upper() for w in user_name.split()[:2])
         return jsonify({
@@ -203,6 +269,7 @@ def create_session():
             'access_last_date': access_last_date,
         })
     except Exception as e:
+        logger.exception("[create_session] unexpected error for user_id=%s: %s", user_id, e)
         return jsonify({'error': str(e)}), 500
 
 
@@ -268,11 +335,30 @@ def auto_login():
     """
     Deep-link entry point for external platforms.
     URL: /auth?access_token=<token>&refresh_token=<token>
-    Serves the main page; the frontend detects the tokens in the URL and
-    authenticates via the same /session endpoint used by the normal login flow.
+    If only refresh_token is provided, exchanges it for a new token pair via the auth API,
+    then redirects back so the frontend can pick up the fresh tokens normally.
     """
-    if not request.args.get('access_token', '').strip():
+    refresh_token = request.args.get('refresh_token', '').strip()
+
+    if not refresh_token:
         return redirect('/')
+    else:
+        try:
+            resp = http_requests.post(
+                'https://api.we-ace.com/api/v1/auth/refresh',
+                json={'refreshToken': refresh_token},
+                timeout=10,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            new_access = (data.get('accessToken') or data.get('access_token') or '').strip()
+            new_refresh = (data.get('refreshToken') or data.get('refresh_token') or '').strip()
+            if new_access:
+                return redirect(f'/auth?access_token={new_access}&refresh_token={new_refresh}')
+        except Exception:
+            pass
+        return redirect('/')
+
     return render_template('index.html')
 
 

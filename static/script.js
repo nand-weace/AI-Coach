@@ -7,70 +7,139 @@ document.addEventListener('DOMContentLoaded', async () => {
         marked.setOptions({ breaks: true, gfm: true });
     }
 
-    // Token-based auth from external platform redirect (/auth?access_token=...&refresh_token=...)
+    // ── Token persistence helpers ────────────────────────────────────────────
+    function storeTokens(accessToken, refreshToken) {
+        if (accessToken) localStorage.setItem('we_ace_access_token', accessToken);
+        if (refreshToken) localStorage.setItem('we_ace_refresh_token', refreshToken);
+    }
+    function clearTokens() {
+        localStorage.removeItem('we_ace_access_token');
+        localStorage.removeItem('we_ace_refresh_token');
+    }
+
+    // ── Build Flask session — server verifies tokens and fetches profile ────
+    async function buildSession(accessToken, refreshToken) {
+        const res = await fetch('/session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ accessToken, refreshToken }),
+        });
+        if (!res.ok) return null;
+        return await res.json();
+    }
+
+    // ── Auth Step 1a: ?refresh_token= in URL — exchange → store → profile → session
     const _qp = new URLSearchParams(window.location.search);
+    const _urlRefreshToken = _qp.get('refresh_token');
     const _extToken = _qp.get('access_token');
     let _authed = false;
 
-    if (_extToken) {
-        history.replaceState({}, '', '/'); // strip tokens from URL immediately
-        const _extRefresh = _qp.get('refresh_token') || '';
+    if (_urlRefreshToken && !_extToken) {
+        history.replaceState({}, '', '/'); // strip token from URL immediately
         try {
-            const _pRes = await fetch('https://api.we-ace.com/api/v1/auth/profile', {
-                headers: { 'Authorization': `Bearer ${_extToken}` },
+            const _rrRes = await fetch('https://api.we-ace.com/api/v1/auth/refresh', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ refreshToken: _urlRefreshToken }),
             });
-            if (_pRes.ok) {
-                const _ad = await _pRes.json();
-                const _pr = _ad.profileDetails || {};
-                const _org = _ad.organisation || _ad.organization ||
-                             _pr.organisation || _pr.organization || {};
-                const _rr = _ad.roles || _ad.role || _pr.roles || _pr.role || [];
-                const _ra = Array.isArray(_rr) ? _rr : [_rr];
-                const _role = _ra.some(r => r && r.slug === 'weace_super_admin')
-                    ? 'weace_super_admin'
-                    : _ra.some(r => r && r.slug === 'corporate_super_admin')
-                        ? 'corporate_super_admin' : 'user';
-                const _sr = await fetch('/session', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        userId: _pr.userId || _pr._id,
-                        firstName: _pr.firstName,
-                        lastName: _pr.lastName,
-                        email: _pr.email,
-                        profileImage: _pr.profileImage,
-                        accessToken: _extToken,
-                        refreshToken: _extRefresh,
-                        role: _role,
-                        orgName: _org.name || _ad.orgName || _pr.orgName || '',
-                        orgSlug: _ad.parentId || _pr.parentId || '',
-                        cohortId: _ad.cohortId || _pr.cohortId || _org.cohortId || '',
-                    }),
-                });
-                if (_sr.ok) {
-                    const _sd = await _sr.json();
-                    showApp(_sd.user_name, _sd.initials, _sd.profile_image, _sd.returning,
-                            _sd.role, _sd.nexa_access, _sd.access_last_date);
-                    _authed = true;
+            if (_rrRes.ok) {
+                const _rrData = await _rrRes.json();
+                const _newAccess = (
+                    _rrData.accessToken || _rrData.access_token ||
+                    _rrData.AccessToken ||
+                    (_rrData.data && (_rrData.data.accessToken || _rrData.data.access_token)) ||
+                    ''
+                ).trim();
+                const _newRefresh = (
+                    _rrData.refreshToken || _rrData.refresh_token ||
+                    _rrData.RefreshToken ||
+                    (_rrData.data && (_rrData.data.refreshToken || _rrData.data.refresh_token)) ||
+                    ''
+                ).trim();
+                if (_newAccess) {
+                    storeTokens(_newAccess, _newRefresh);
+                    const _sd = await buildSession(_newAccess, _newRefresh);
+                    if (_sd) {
+                        showApp(_sd.user_name, _sd.initials, _sd.profile_image, _sd.returning,
+                                _sd.role, _sd.nexa_access, _sd.access_last_date);
+                        _authed = true;
+                    }
                 }
+            } else if (_rrRes.status === 401 || _rrRes.status === 403) {
+                clearTokens();
+                await fetch('/logout', { method: 'POST' }).catch(() => {});
+                showLoginForm();
+                return;
             }
         } catch (_) {}
     }
 
-    if (!_authed) {
-        // Normal flow: resume existing session if cookie is present
+    // ── Auth Step 1b: ?access_token= in URL (external platform redirect) ─────
+    if (!_authed && _extToken) {
+        history.replaceState({}, '', '/'); // strip tokens from URL immediately
+        const _extRefresh = _qp.get('refresh_token') || '';
         try {
-            const meRes = await fetch('/me');
-            const meData = await meRes.json();
-            if (meData.logged_in) {
-                const nsRes = await fetch('/new-session', { method: 'POST' });
-                if (nsRes.ok) {
-                    const nsData = await nsRes.json();
-                    showApp(nsData.user_name, nsData.initials, nsData.profile_image, nsData.returning, nsData.role, nsData.nexa_access, nsData.access_last_date);
-                    _authed = true;
-                }
+            const _sd = await buildSession(_extToken, _extRefresh);
+            if (_sd) {
+                storeTokens(_extToken, _extRefresh);
+                showApp(_sd.user_name, _sd.initials, _sd.profile_image, _sd.returning,
+                        _sd.role, _sd.nexa_access, _sd.access_last_date);
+                _authed = true;
             }
         } catch (_) {}
+    }
+
+    // ── Auth Step 2: localStorage refresh token (primary persistent auth) ────
+    if (!_authed) {
+        const storedRefresh = localStorage.getItem('we_ace_refresh_token');
+        if (storedRefresh) {
+            try {
+                const refreshRes = await fetch('https://api.we-ace.com/api/v1/auth/refresh', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ refreshToken: storedRefresh }),
+                });
+                if (refreshRes.ok) {
+                    const refreshData = await refreshRes.json();
+                    const newAccess = (refreshData.accessToken || refreshData.access_token || '').trim();
+                    const newRefresh = (refreshData.refreshToken || refreshData.refresh_token || storedRefresh).trim();
+                    if (newAccess) {
+                        const sd = await buildSession(newAccess, newRefresh);
+                        if (sd) {
+                            storeTokens(newAccess, newRefresh);
+                            showApp(sd.user_name, sd.initials, sd.profile_image, sd.returning,
+                                    sd.role, sd.nexa_access, sd.access_last_date);
+                            _authed = true;
+                        }
+                    }
+                } else if (refreshRes.status === 401 || refreshRes.status === 403) {
+                    // Token revoked or expired — fully log out and stop
+                    clearTokens();
+                    await fetch('/logout', { method: 'POST' }).catch(() => {});
+                    showLoginForm();
+                    return;
+                } else {
+                    // Other error (network hiccup, 5xx) — clear tokens, fall through
+                    clearTokens();
+                }
+            } catch (_) {}
+        }
+    }
+
+    // ── Auth Step 3: stored access token fallback (page reload) ─────────────
+    if (!_authed) {
+        const storedAccess = localStorage.getItem('we_ace_access_token');
+        const storedRefresh = localStorage.getItem('we_ace_refresh_token');
+        if (storedAccess) {
+            try {
+                const sd = await buildSession(storedAccess, storedRefresh || '');
+                if (sd) {
+                    showApp(sd.user_name, sd.initials, sd.profile_image, sd.returning,
+                            sd.role, sd.nexa_access, sd.access_last_date);
+                    _authed = true;
+                }
+            } catch (_) {}
+        }
     }
 
     if (!_authed) {
@@ -131,44 +200,17 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        // Step 2: establish our backend session with the returned profile + tokens
-        const profile = authData.profileDetails || {};
-        const org = authData.organisation || authData.organization || profile.organisation || profile.organization || {};
-        const rawRoles = authData.roles || authData.role || profile.roles || profile.role || [];
-        const rolesArr = Array.isArray(rawRoles) ? rawRoles : [rawRoles];
-        const role = rolesArr.some(r => r && r.slug === 'weace_super_admin')
-            ? 'weace_super_admin'
-            : rolesArr.some(r => r && r.slug === 'corporate_super_admin')
-                ? 'corporate_super_admin'
-                : 'user';
-        const orgName = org.name || authData.orgName || profile.orgName || '';
-        const orgSlug = authData.parentId || profile.parentId || '';
-        const cohortId = authData.cohortId || profile.cohortId || org.cohortId || '';
+        // Step 2: establish our backend session — server fetches and verifies the profile
         try {
-            const res = await fetch('/session', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    userId: profile.userId || profile._id,
-                    firstName: profile.firstName,
-                    lastName: profile.lastName,
-                    email: profile.email || email,
-                    profileImage: profile.profileImage,
-                    accessToken: authData.accessToken,
-                    refreshToken: authData.refreshToken,
-                    role,
-                    orgName,
-                    orgSlug,
-                    cohortId,
-                }),
-            });
-            const data = await res.json();
-            if (!res.ok) {
-                errorEl.textContent = data.error || 'Session error. Please try again.';
+            const data = await buildSession(authData.accessToken, authData.refreshToken);
+            if (!data) {
+                errorEl.textContent = 'Session error. Please try again.';
                 resetBtn();
                 return;
             }
-            showApp(data.user_name, data.initials, data.profile_image, data.returning, data.role, data.nexa_access, data.access_last_date);
+            storeTokens(authData.accessToken, authData.refreshToken);
+            showApp(data.user_name, data.initials, data.profile_image, data.returning,
+                    data.role, data.nexa_access, data.access_last_date);
         } catch (err) {
             errorEl.textContent = 'Connection error. Please try again.';
             resetBtn();
@@ -178,6 +220,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Logout
     document.getElementById('logout-button').addEventListener('click', async () => {
         await fetch('/logout', { method: 'POST' });
+        clearTokens();
         location.reload();
     });
 

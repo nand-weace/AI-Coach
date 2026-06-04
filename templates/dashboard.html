@@ -153,6 +153,25 @@
         }
         .table-search:focus { border-color: rgba(59, 130, 246, 0.4); box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15); }
         .table-search::placeholder { color: var(--text-muted); }
+        .table-filter {
+            padding: 6px 28px 6px 14px;
+            border: 1px solid var(--glass-border);
+            border-radius: 999px;
+            background: rgba(248, 250, 252, 0.9);
+            font-family: inherit;
+            font-size: 0.85rem;
+            color: var(--text-main);
+            outline: none;
+            cursor: pointer;
+            appearance: none;
+            -webkit-appearance: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2364748b' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+        }
+        .table-filter:focus { border-color: rgba(59, 130, 246, 0.4); box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15); }
+        .table-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
         table { width: 100%; border-collapse: collapse; }
         thead tr { background: rgba(248, 250, 252, 0.6); }
         th {
@@ -268,6 +287,7 @@
             font-weight: 600;
             letter-spacing: 0.09em;
             text-transform: uppercase;
+            color: var(--text-muted);
             margin-bottom: -4px;
         }
         .sentiment-group-label .group-line {
@@ -275,8 +295,6 @@
             height: 1px;
             background: rgba(0,0,0,0.08);
         }
-        .positive-group-label { color: #059669; }
-        .negative-group-label { color: #d97706; }
         /* score-based colour helpers applied via JS */
         .score-green  { color: #059669; }
         .score-amber  { color: #d97706; }
@@ -327,16 +345,146 @@
         .trend-modal-score-sub { font-size: 0.78rem; color: var(--text-muted); }
         .trend-chart-wrap { width: 100%; overflow: hidden; }
         .trend-modal-divider { height: 1px; background: rgba(0,0,0,0.07); margin: 20px 0; }
+        .trend-modal-bands-label { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 10px; }
         .trend-modal-insight { font-size: 0.82rem; color: var(--text-muted); line-height: 1.6; }
         .sentiment-card { cursor: pointer; transition: box-shadow 0.18s, transform 0.18s; }
         .sentiment-card:hover { box-shadow: 0 4px 24px rgba(0,0,0,0.10); transform: translateY(-1px); }
+        .sentiment-score-meaning { font-size: 0.80rem; color: var(--text-muted); line-height: 1.55; margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(0,0,0,0.06); }
+
+        /* ── Employee Distribution bar ── */
+        .emp-dist {
+            background: rgba(248, 250, 252, 0.6);
+            border-radius: 12px;
+            padding: 12px 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .emp-dist-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+        }
+        .emp-dist-icon { color: var(--text-muted); flex-shrink: 0; margin-top: 1px; }
+        .emp-dist-title {
+            font-size: 0.68rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+            line-height: 1.2;
+        }
+        .emp-dist-sub { font-size: 0.72rem; color: var(--text-muted); margin-top: 2px; }
+        .emp-dist-bar {
+            display: flex;
+            height: 10px;
+            border-radius: 99px;
+            overflow: hidden;
+        }
+        .emp-dist-seg { height: 100%; }
+        .emp-dist-high { background: #10b981; }
+        .emp-dist-mod  { background: #f59e0b; }
+        .emp-dist-low  { background: #ef4444; }
+        .emp-dist-legend { display: flex; gap: 14px; flex-wrap: wrap; }
+        .emp-dist-leg-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+        .emp-dist-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+        /* ── Theme Heat Analysis ── */
+        .heat-card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 18px;
+            padding: 22px 26px 18px;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            margin-bottom: 24px;
+        }
+        .heat-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+        .heat-title-wrap { display: flex; align-items: center; gap: 10px; }
+        .heat-num {
+            width: 26px; height: 26px; border-radius: 50%;
+            border: 1.5px solid var(--glass-border);
+            font-size: 0.72rem; font-weight: 600; color: var(--text-muted);
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+        .heat-title-wrap h3 { font-size: 0.95rem; font-weight: 600; }
+        .heat-col-label { font-size: 0.78rem; color: var(--text-muted); padding-right: 2px; }
+        .heat-rows { display: flex; flex-direction: column; gap: 4px; }
+        .heat-row {
+            display: grid;
+            grid-template-columns: 18px minmax(160px, 1.2fr) 3fr 32px 80px;
+            align-items: center;
+            gap: 14px;
+            padding: 6px 0;
+            border-bottom: 1px solid rgba(0,0,0,0.04);
+        }
+        .heat-rows .heat-row:last-child { border-bottom: none; }
+        .heat-row-icon { display: flex; align-items: center; color: var(--text-muted); }
+        .heat-row-label { font-size: 0.85rem; font-weight: 500; color: var(--text-main); }
+        .heat-row-track { height: 10px; border-radius: 99px; background: rgba(0,0,0,0.07); overflow: hidden; }
+        .heat-row-fill { height: 100%; border-radius: 99px; transition: width 0.7s ease; }
+        .heat-row-score { font-size: 0.78rem; font-weight: 600; color: var(--text-muted); text-align: center; font-variant-numeric: tabular-nums; }
+        .heat-row-signal { font-size: 0.83rem; font-weight: 600; text-align: right; white-space: nowrap; }
+
+        /* ── Combined Trend Chart ── */
+        .combo-chart-card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 18px;
+            padding: 22px 26px 18px;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            margin-bottom: 24px;
+        }
+        .combo-chart-header { display: flex; align-items: center; margin-bottom: 14px; }
+        .combo-chart-body { margin-bottom: 14px; position: relative; }
+        .combo-tooltip {
+            display: none;
+            position: absolute;
+            background: #fff;
+            border: 1px solid rgba(0,0,0,0.08);
+            border-radius: 10px;
+            padding: 10px 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+            pointer-events: none;
+            min-width: 190px;
+            z-index: 10;
+            font-family: inherit;
+        }
+        .combo-tooltip-date { font-size: 0.72rem; font-weight: 600; color: var(--text-muted); margin-bottom: 7px; }
+        .combo-tooltip-row { display: flex; align-items: center; gap: 6px; font-size: 0.75rem; padding: 1px 0; }
+        .combo-tooltip-swatch { width: 10px; height: 3px; border-radius: 99px; flex-shrink: 0; }
+        .combo-tooltip-label { color: #374151; flex: 1; }
+        .combo-tooltip-val { font-weight: 600; color: var(--text-main); font-variant-numeric: tabular-nums; }
+        .combo-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 18px;
+            border-top: 1px solid rgba(0,0,0,0.06);
+            padding-top: 12px;
+        }
+        .combo-legend-item { display: flex; align-items: center; gap: 7px; font-size: 0.78rem; cursor: pointer; }
+        .combo-legend-line { width: 16px; height: 3px; border-radius: 99px; flex-shrink: 0; }
+        .combo-legend-name { color: var(--text-main); }
+        .combo-legend-score { font-weight: 600; font-variant-numeric: tabular-nums; }
     </style>
 </head>
 <body>
 
 <header class="app-header">
     <div style="display:flex; align-items:center; gap:14px;">
-        <img src="/static/we-ace-logo.png" alt="We-Ace" style="height:20px; width:auto;">
+        <a href="/"><img src="/static/we-ace-logo.png" alt="We-Ace" style="height:20px; width:auto;"></a>
         <div class="header-brand">
             <h1>Nexa</h1>
             <span class="subtitle">AI Coach</span>
@@ -359,9 +507,19 @@
 </header>
 
 <div class="page">
-    <div class="page-title">
-        <h2>Organisation Dashboard</h2>
-        <span class="org-badge" id="org-badge">{{ org_name or 'Loading…' }}</span>
+    <div class="page-title" style="display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+        <div>
+            <h2>Nexa Insights Dashboard</h2>
+            <span class="org-badge" id="org-badge">{{ org_name or 'Loading…' }}</span>
+        </div>
+        <div class="table-controls" style="padding-top:4px;">
+            <select class="table-filter" id="filter-country">
+                <option value="">All Countries</option>
+            </select>
+            <select class="table-filter" id="filter-cohort">
+                <option value="">All Cohorts</option>
+            </select>
+        </div>
     </div>
 
     <div class="stats-grid">
@@ -377,10 +535,6 @@
             <div class="stat-label">Total Messages</div>
             <div class="stat-value loading" id="stat-messages">—</div>
         </div>
-        <div class="stat-card">
-            <div class="stat-label">Active This Week</div>
-            <div class="stat-value loading" id="stat-active">—</div>
-        </div>
     </div>
 
     <!-- ── Sentiment Intelligence ── -->
@@ -394,6 +548,8 @@
             <button class="refresh-btn" id="sentiment-refresh-btn">Recalculate</button>
         </div>
     </div>
+    <div id="heat-wrap"></div>
+    <div id="trends-wrap"></div>
     <div class="sentiment-grid" id="sentiment-grid">
         <!-- populated by JS -->
         <div class="sentiment-no-data"><div class="skeleton" style="width:200px; margin:0 auto;"></div></div>
@@ -409,6 +565,8 @@
                 <tr>
                     <th>Name</th>
                     <th>Email</th>
+                    <th>Country</th>
+                    <th>Cohort</th>
                     <th>Sessions</th>
                     <th>Messages Sent</th>
                     <th>Last Active</th>
@@ -416,7 +574,7 @@
                 </tr>
             </thead>
             <tbody id="user-table-body">
-                <tr><td colspan="6"><div class="skeleton" style="width:60%; margin: 0 auto;"></div></td></tr>
+                <tr><td colspan="8"><div class="skeleton" style="width:60%; margin: 0 auto;"></div></td></tr>
             </tbody>
         </table>
     </div>
@@ -434,6 +592,8 @@
         </div>
         <div class="trend-chart-wrap" id="trend-modal-chart"></div>
         <div class="trend-modal-divider"></div>
+        <div id="trend-modal-bands"></div>
+        <div class="trend-modal-divider" id="trend-modal-insight-divider"></div>
         <div class="trend-modal-insight" id="trend-modal-insight"></div>
     </div>
 </div>
@@ -456,7 +616,7 @@
     function renderTable(users) {
         const tbody = document.getElementById('user-table-body');
         if (!users.length) {
-            tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No users found.</td></tr>';
+            tbody.innerHTML = '<tr class="empty-row"><td colspan="8">No users found.</td></tr>';
             return;
         }
         tbody.innerHTML = users.map(u => {
@@ -464,12 +624,40 @@
             return `<tr>
                 <td class="user-name-cell">${escHtml(u.user_name || '—')}</td>
                 <td class="email-cell">${escHtml(u.email || '—')}</td>
+                <td>${escHtml(u.country || '—')}</td>
+                <td>${escHtml(u.cohort_name || '—')}</td>
                 <td>${u.session_count}</td>
                 <td>${u.message_count}</td>
                 <td>${formatDate(u.last_active)}</td>
                 <td><span class="badge ${active ? 'badge-active' : 'badge-inactive'}">${active ? 'Active' : 'Inactive'}</span></td>
             </tr>`;
         }).join('');
+    }
+
+    function populateFilters(users) {
+        const countries = [...new Set(users.map(u => u.country).filter(Boolean))].sort();
+        const cohorts   = [...new Set(users.map(u => u.cohort_name).filter(Boolean))].sort();
+        const countryEl = document.getElementById('filter-country');
+        const cohortEl  = document.getElementById('filter-cohort');
+        countries.forEach(c => {
+            const o = document.createElement('option'); o.value = c; o.textContent = c; countryEl.appendChild(o);
+        });
+        cohorts.forEach(c => {
+            const o = document.createElement('option'); o.value = c; o.textContent = c; cohortEl.appendChild(o);
+        });
+    }
+
+    function applyFilters() {
+        const q       = document.getElementById('search-input').value.toLowerCase();
+        const country = document.getElementById('filter-country').value;
+        const cohort  = document.getElementById('filter-cohort').value;
+        const filtered = allUsers.filter(u => {
+            const matchSearch  = !q       || (u.user_name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q);
+            const matchCountry = !country || u.country === country;
+            const matchCohort  = !cohort  || u.cohort_name === cohort;
+            return matchSearch && matchCountry && matchCohort;
+        });
+        renderTable(filtered);
     }
 
     function escHtml(str) {
@@ -486,12 +674,12 @@
             document.getElementById('stat-users').textContent = data.total_users;
             document.getElementById('stat-sessions').textContent = data.total_sessions;
             document.getElementById('stat-messages').textContent = data.total_messages;
-            document.getElementById('stat-active').textContent = data.active_week;
-            document.querySelectorAll('.stat-value').forEach(el => el.classList.remove('loading'));
+document.querySelectorAll('.stat-value').forEach(el => el.classList.remove('loading'));
 
             if (data.org_name) document.getElementById('org-badge').textContent = data.org_name;
 
             allUsers = data.users || [];
+            populateFilters(allUsers);
             renderTable(allUsers);
         } catch (err) {
             document.getElementById('user-table-body').innerHTML =
@@ -499,14 +687,9 @@
         }
     }
 
-    document.getElementById('search-input').addEventListener('input', (e) => {
-        const q = e.target.value.toLowerCase();
-        const filtered = allUsers.filter(u =>
-            (u.user_name || '').toLowerCase().includes(q) ||
-            (u.email || '').toLowerCase().includes(q)
-        );
-        renderTable(filtered);
-    });
+    document.getElementById('search-input').addEventListener('input', applyFilters);
+    document.getElementById('filter-country').addEventListener('change', applyFilters);
+    document.getElementById('filter-cohort').addEventListener('change', applyFilters);
 
     document.getElementById('logout-button').addEventListener('click', async () => {
         await fetch('/logout', { method: 'POST' });
@@ -518,14 +701,29 @@
     // ── Sentiment Intelligence ────────────────────────────────────────────────
 
     const SENTIMENT_DIMS = [
-        { key: 'emotional_tone',            label: 'Emotional Tone',         desc: 'Language analysis across sessions',       inverse: false, type: 'positive' },
-        { key: 'self_compassion',           label: 'Self-Compassion Index',  desc: 'How leaders describe themselves',         inverse: false, type: 'positive' },
-        { key: 'confidence_language',       label: 'Confidence Language',    desc: 'Assertive vs hedging phrases',            inverse: false, type: 'positive' },
-        { key: 'empathy_expression',        label: 'Empathy Expression',     desc: 'References to others\' feelings',         inverse: false, type: 'positive' },
-        { key: 'growth_mindset',            label: 'Growth Mindset',         desc: 'Effort, learning, challenge framing',     inverse: false, type: 'positive' },
-        { key: 'psychological_safety',      label: 'Psychological Safety',   desc: 'Willingness to share failures & fears',   inverse: false, type: 'positive' },
-        { key: 'stress_anxiety',            label: 'Stress & Anxiety',       desc: 'Urgency, overwhelm, pressure signals',    inverse: true,  type: 'negative' },
-        { key: 'frustration_disengagement', label: 'Frustration',            desc: 'Cynical or dismissive patterns',          inverse: true,  type: 'negative' },
+        { key: 'growth_mindset', label: 'Growth Mindset', desc: 'Learning-oriented framing of effort and setbacks', inverse: false, theme: 'growth',
+          interp: { high: 'Challenges framed as opportunities; strong focus on learning and continuous improvement.', mid: 'Some growth framing present, alongside occasional fixed-mindset language.', low: 'Predominantly fixed-mindset framing; setbacks treated as limitations rather than lessons.' } },
+        { key: 'job_satisfaction', label: 'Job Satisfaction', desc: 'Sense of meaning and engagement at work', inverse: false, theme: 'growth',
+          interp: { high: 'Strong signals of purpose, motivation, and fulfilment in their role.', mid: 'Mixed signals — some engagement alongside moments of questioning or doubt.', low: 'Low engagement, repeated questioning of role fit, or signs of disillusionment.' } },
+        { key: 'self_confidence', label: 'Self-Confidence', desc: 'Belief in own ability to handle challenges', inverse: false, theme: 'interpersonal',
+          interp: { high: 'Assertive, decisive language — leaders trust their own judgement and capabilities.', mid: 'Occasional self-doubt or hedging, but generally stable self-perception.', low: 'Frequent self-doubt, hedging language, or avoidance of ownership.' } },
+        { key: 'work_life_balance', label: 'Work-Life Balance', desc: 'Separating work time from personal life', inverse: false, theme: 'wellbeing',
+          interp: { high: 'Leaders express clear boundaries and healthy separation between work and personal time.', mid: 'Some boundary language present, but patterns suggest occasional difficulty switching off.', low: 'Language reflects consistent overextension or difficulty separating work from personal life.' } },
+        { key: 'stress_anxiety', label: 'Stress & Anxiety', desc: 'Perceived pressure, urgency, and overwhelm', inverse: true, theme: 'wellbeing',
+          interp: { high: 'Language is calm and composed; minimal urgency or pressure signals detected.', mid: 'Moderate stress indicators — some urgency or pressure language present across sessions.', low: 'High stress signals — language reflects significant pressure, overwhelm, or urgency.' } },
+        { key: 'frustration_disengagement', label: 'Frustration', desc: 'Cynicism, dismissiveness, or detachment', inverse: true, theme: 'wellbeing',
+          interp: { high: 'Engaged and positive language; minimal cynicism or dismissiveness detected.', mid: 'Some frustration signals; occasional cynicism or disconnection in language.', low: 'Marked frustration or disengagement — language shows significant cynicism or withdrawal.' } },
+        { key: 'psychological_safety', label: 'Psychological Safety', desc: 'Openness about vulnerabilities and mistakes', inverse: false, theme: 'trust',
+          interp: { high: 'High openness — leaders share failures, fears, and uncertainties freely.', mid: 'Selective openness; some vulnerability expressed but language remains partially guarded.', low: 'Limited self-disclosure; language stays guarded around failures and doubts.' } },
+        { key: 'empathy', label: 'Empathy', desc: 'Understanding and sharing others\' emotions', inverse: false, theme: 'interpersonal',
+          interp: { high: 'Frequent perspective-taking and explicit acknowledgement of others\' experiences.', mid: 'Some awareness of others\' emotions, with room to deepen relational understanding.', low: 'Limited references to others\' feelings; conversations focus primarily on self or tasks.' } },
+    ];
+
+    const SENTIMENT_THEMES = [
+        { key: 'growth',       label: 'Growth & Development' },
+        { key: 'wellbeing',    label: 'Emotional Wellbeing' },
+        { key: 'trust',        label: 'Openness & Trust' },
+        { key: 'interpersonal',label: 'Interpersonal Awareness' },
     ];
 
     function sparkline(points, color) {
@@ -627,6 +825,20 @@
         }
         document.getElementById('trend-modal-meta').textContent = metaParts.join('  ·  ');
         document.getElementById('trend-modal-chart').innerHTML  = renderTrendChart(trend, color);
+
+        const bands = entry.bands || null;
+        const bandsEl = document.getElementById('trend-modal-bands');
+        const insightDivider = document.getElementById('trend-modal-insight-divider');
+        if (bands) {
+            bandsEl.innerHTML = buildEmpDist(bands);
+            bandsEl.style.display = '';
+            insightDivider.style.display = '';
+        } else {
+            bandsEl.innerHTML = '';
+            bandsEl.style.display = 'none';
+            insightDivider.style.display = 'none';
+        }
+
         document.getElementById('trend-modal-insight').textContent = entry.insight || '';
 
         document.getElementById('trend-modal').classList.add('open');
@@ -642,11 +854,252 @@
     });
     document.addEventListener('keydown', e => { if (e.key === 'Escape') closeTrendModal(); });
 
+    function buildEmpDist(bands) {
+        if (!bands) return '';
+        const high = bands.very_high || 0;
+        const mod  = bands.moderate  || 0;
+        const low  = (bands.low || 0) + (bands.negligible || 0);
+        if (high + mod + low === 0) return '';
+        return `<div class="emp-dist">
+            <div class="emp-dist-header">
+                <svg class="emp-dist-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+                <div>
+                    <div class="emp-dist-title">EMPLOYEE DISTRIBUTION</div>
+                    <div class="emp-dist-sub">% of employees · not an individual score</div>
+                </div>
+            </div>
+            <div class="emp-dist-bar">
+                ${high > 0 ? `<div class="emp-dist-seg emp-dist-high" style="width:${high}%"></div>` : ''}
+                ${mod  > 0 ? `<div class="emp-dist-seg emp-dist-mod"  style="width:${mod}%"></div>`  : ''}
+                ${low  > 0 ? `<div class="emp-dist-seg emp-dist-low"  style="width:${low}%"></div>`  : ''}
+            </div>
+            <div class="emp-dist-legend">
+                <span class="emp-dist-leg-item"><span class="emp-dist-dot emp-dist-high"></span>High signal&nbsp;${high}%</span>
+                <span class="emp-dist-leg-item"><span class="emp-dist-dot emp-dist-mod"></span>Moderate&nbsp;${mod}%</span>
+                <span class="emp-dist-leg-item"><span class="emp-dist-dot emp-dist-low"></span>Low signal&nbsp;${low}%</span>
+            </div>
+        </div>`;
+    }
+
     function scoreClasses(score, inverse) {
         const effective = inverse ? (100 - score) : score;
-        if (effective >= 70) return { num: 'score-green', fill: 'fill-green', card: 'card-green' };
-        if (effective >= 40) return { num: 'score-amber', fill: 'fill-amber', card: 'card-amber' };
+        if (effective >= 65) return { num: 'score-green', fill: 'fill-green', card: 'card-green' };
+        if (effective >= 35) return { num: 'score-amber', fill: 'fill-amber', card: 'card-amber' };
         return { num: 'score-red', fill: 'fill-red', card: 'card-red' };
+    }
+
+    const HEAT_META = {
+        growth_mindset:            { signal: { high: 'Strong',   mid: 'Developing', low: 'Limited'  }, icon: '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>' },
+        job_satisfaction:          { signal: { high: 'Strong',   mid: 'Moderate',   low: 'Low'      }, icon: '<rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>' },
+        self_confidence:           { signal: { high: 'Strong',   mid: 'Moderate',   low: 'Low'      }, icon: '<circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/>' },
+        work_life_balance:         { signal: { high: 'Healthy',  mid: 'Moderate',   low: 'Strained' }, icon: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>' },
+        stress_anxiety:            { signal: { high: 'Low',      mid: 'Moderate',   low: 'High'     }, icon: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>' },
+        frustration_disengagement: { signal: { high: 'Low',      mid: 'Moderate',   low: 'Elevated' }, icon: '<circle cx="12" cy="12" r="10"/><path d="M16 16s-1.5-2-4-2-4 2-4 2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/>' },
+        psychological_safety:      { signal: { high: 'Strong',   mid: 'Moderate',   low: 'Low'      }, icon: '<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>' },
+        empathy:                   { signal: { high: 'Strong',   mid: 'Moderate',   low: 'Low'      }, icon: '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>' },
+    };
+
+    const DIM_COLORS = {
+        growth_mindset:            '#6366f1',
+        job_satisfaction:          '#10b981',
+        self_confidence:           '#f59e0b',
+        work_life_balance:         '#3b82f6',
+        stress_anxiety:            '#ef4444',
+        frustration_disengagement: '#f97316',
+        psychological_safety:      '#8b5cf6',
+        empathy:                   '#ec4899',
+    };
+
+    let _comboMeta = null;
+
+    function renderTrendsSection(data) {
+        const wrap = document.getElementById('trends-wrap');
+        if (!wrap) return;
+
+        const dateSet = new Set();
+        SENTIMENT_DIMS.forEach(dim => {
+            const entry = data[dim.key];
+            if (entry && entry.trend) entry.trend.forEach(t => dateSet.add(t.date));
+        });
+        const sortedDates = [...dateSet].sort();
+        if (sortedDates.length < 2) { wrap.innerHTML = ''; return; }
+
+        const n = sortedDates.length;
+        const dateIdx = new Map(sortedDates.map((d, i) => [d, i]));
+
+        const W = 660, H = 260, padL = 36, padR = 12, padT = 16, padB = 32;
+        const iW = W - padL - padR, iH = H - padT - padB;
+        const toX = i => padL + (i / (n - 1)) * iW;
+        const toY = v => padT + iH - (Math.max(0, Math.min(100, v)) / 100) * iH;
+
+        const gridLines = [0, 25, 50, 75, 100].map(v => {
+            const y = toY(v).toFixed(1);
+            return `<line x1="${padL}" y1="${y}" x2="${padL + iW}" y2="${y}" stroke="rgba(0,0,0,0.06)" stroke-width="1"/>
+                    <text x="${padL - 6}" y="${y}" text-anchor="end" dominant-baseline="middle" font-size="10" fill="#94a3b8">${v}</text>`;
+        }).join('');
+
+        const step = Math.max(1, Math.ceil(n / 6));
+        const xLabels = sortedDates.map((d, i) => {
+            if (i % step !== 0 && i !== n - 1) return '';
+            const lbl = new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+            return `<text x="${toX(i).toFixed(1)}" y="${H - 8}" text-anchor="middle" font-size="10" fill="#94a3b8">${lbl}</text>`;
+        }).join('');
+
+        const lines = SENTIMENT_DIMS.map(dim => {
+            const entry = data[dim.key];
+            if (!entry || !entry.trend || entry.trend.length < 2) return '';
+            const color = DIM_COLORS[dim.key] || '#94a3b8';
+            const pts = entry.trend
+                .map(t => { const xi = dateIdx.get(t.date); return xi !== undefined ? `${toX(xi).toFixed(1)},${toY(t.score).toFixed(1)}` : null; })
+                .filter(Boolean).join(' ');
+            if (!pts) return '';
+            const last = entry.trend[entry.trend.length - 1];
+            const lxi  = dateIdx.get(last.date);
+            const dot  = lxi !== undefined ? `<circle cx="${toX(lxi).toFixed(1)}" cy="${toY(last.score).toFixed(1)}" r="4" fill="${color}"/>` : '';
+            return `<polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" opacity="0.85"/>${dot}`;
+        }).join('');
+
+        const svg = `<svg id="combo-svg" viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;cursor:crosshair;">
+            ${gridLines}${lines}${xLabels}
+            <g id="combo-hover-g" style="pointer-events:none;"></g>
+            <rect id="combo-hit" x="${padL}" y="${padT}" width="${iW}" height="${iH}" fill="transparent"/>
+        </svg>`;
+
+        const legendItems = SENTIMENT_DIMS.map(dim => {
+            const entry = data[dim.key];
+            if (!entry) return '';
+            const color = DIM_COLORS[dim.key] || '#94a3b8';
+            const score = Math.max(0, Math.min(100, entry.score || 0));
+            const cls = scoreClasses(score, dim.inverse);
+            return `<div class="combo-legend-item" data-dim-key="${dim.key}">
+                <span class="combo-legend-line" style="background:${color}"></span>
+                <span class="combo-legend-name">${dim.label}</span>
+                <span class="combo-legend-score ${cls.num}">${score}</span>
+            </div>`;
+        }).join('');
+
+        wrap.innerHTML = `<div class="combo-chart-card">
+            <div class="combo-chart-header">
+                <div class="heat-title-wrap">
+                    <span class="heat-num"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
+                    <h3>Trend Over Time</h3>
+                </div>
+            </div>
+            <div class="combo-chart-body">
+                ${svg}
+                <div class="combo-tooltip" id="combo-tooltip"></div>
+            </div>
+            <div class="combo-legend">${legendItems}</div>
+        </div>`;
+
+        // Store metadata for hover handler
+        _comboMeta = {
+            dates: sortedDates, dateIdx, n,
+            W, H, padL, padR, padT, padB, iW, iH,
+            dims: SENTIMENT_DIMS.map(dim => {
+                const entry = data[dim.key];
+                if (!entry || !entry.trend) return null;
+                return { key: dim.key, label: dim.label, color: DIM_COLORS[dim.key] || '#94a3b8',
+                         scoreMap: new Map(entry.trend.map(t => [t.date, t.score])) };
+            }).filter(Boolean),
+        };
+
+        // Wire hover
+        const hitRect = document.getElementById('combo-hit');
+        const svgEl   = document.getElementById('combo-svg');
+        const hoverG  = document.getElementById('combo-hover-g');
+        const tooltip = document.getElementById('combo-tooltip');
+        const body    = svgEl.closest('.combo-chart-body');
+
+        hitRect.addEventListener('mousemove', e => {
+            const m = _comboMeta;
+            const svgRect = svgEl.getBoundingClientRect();
+            const svgX = (e.clientX - svgRect.left) * (m.W / svgRect.width);
+            const xi = Math.round(Math.max(0, Math.min(m.n - 1, (svgX - m.padL) / m.iW * (m.n - 1))));
+            const date = m.dates[xi];
+            const cx = (m.padL + (xi / (m.n - 1)) * m.iW).toFixed(1);
+            const toY = v => m.padT + m.iH - (Math.max(0, Math.min(100, v)) / 100) * m.iH;
+
+            const dots = m.dims.map(d => {
+                const s = d.scoreMap.get(date);
+                if (s === undefined) return '';
+                return `<circle cx="${cx}" cy="${toY(s).toFixed(1)}" r="5" fill="${d.color}" stroke="white" stroke-width="2"/>`;
+            }).join('');
+
+            hoverG.innerHTML = `<line x1="${cx}" y1="${m.padT}" x2="${cx}" y2="${m.padT + m.iH}"
+                stroke="rgba(0,0,0,0.18)" stroke-width="1" stroke-dasharray="4,3"/>${dots}`;
+
+            const dateLabel = new Date(date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+            const rows = m.dims.map(d => {
+                const s = d.scoreMap.get(date);
+                if (s === undefined) return '';
+                return `<div class="combo-tooltip-row">
+                    <span class="combo-tooltip-swatch" style="background:${d.color}"></span>
+                    <span class="combo-tooltip-label">${d.label}</span>
+                    <span class="combo-tooltip-val">${s}</span>
+                </div>`;
+            }).filter(Boolean).join('');
+
+            tooltip.innerHTML = `<div class="combo-tooltip-date">${dateLabel}</div>${rows}`;
+
+            // Position relative to chart body
+            const bodyRect = body.getBoundingClientRect();
+            let tx = e.clientX - bodyRect.left + 14;
+            let ty = e.clientY - bodyRect.top  - 10;
+            if (tx + 210 > bodyRect.width) tx = e.clientX - bodyRect.left - 210;
+            tooltip.style.left = tx + 'px';
+            tooltip.style.top  = ty + 'px';
+            tooltip.style.display = 'block';
+        });
+
+        hitRect.addEventListener('mouseleave', () => {
+            hoverG.innerHTML = '';
+            tooltip.style.display = 'none';
+        });
+
+        wrap.querySelectorAll('.combo-legend-item[data-dim-key]').forEach(item => {
+            item.addEventListener('click', () => openTrendModal(item.dataset.dimKey));
+        });
+    }
+
+    function renderHeatAnalysis(data) {
+        const wrap = document.getElementById('heat-wrap');
+        if (!wrap || !data) return;
+
+        const rows = SENTIMENT_DIMS.map(dim => {
+            const entry = data[dim.key];
+            if (!entry) return '';
+            const score = Math.max(0, Math.min(100, entry.score || 0));
+            const cls = scoreClasses(score, dim.inverse);
+            const effective = dim.inverse ? (100 - score) : score;
+            const tier = effective >= 65 ? 'high' : effective >= 35 ? 'mid' : 'low';
+            const meta = HEAT_META[dim.key] || {};
+            const signalLabel = (meta.signal || {})[tier] || tier;
+            const svg = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${meta.icon || ''}</svg>`;
+            return `<div class="heat-row">
+                <div class="heat-row-icon">${svg}</div>
+                <div class="heat-row-label">${dim.label}</div>
+                <div class="heat-row-track"><div class="heat-row-fill ${cls.fill}" style="width:${score}%"></div></div>
+                <div class="heat-row-score">${score}</div>
+                <div class="heat-row-signal ${cls.num}">${signalLabel}</div>
+            </div>`;
+        }).join('');
+
+        wrap.innerHTML = `<div class="heat-card">
+            <div class="heat-card-header">
+                <div class="heat-title-wrap">
+                    <span class="heat-num"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="18" y="3" width="4" height="18"/><rect x="10" y="8" width="4" height="13"/><rect x="2" y="13" width="4" height="8"/></svg></span>
+                    <h3>Theme Heat Analysis</h3>
+                </div>
+                <span class="heat-col-label">Signal</span>
+            </div>
+            <div class="heat-rows">${rows}</div>
+        </div>`;
     }
 
     function renderSentiment(data) {
@@ -654,6 +1107,8 @@
         const grid = document.getElementById('sentiment-grid');
         if (!data || Object.keys(data).length === 0) {
             grid.innerHTML = '<div class="sentiment-no-data">No sentiment data yet — click Recalculate to generate the first report.</div>';
+            document.getElementById('heat-wrap').innerHTML = '';
+            document.getElementById('trends-wrap').innerHTML = '';
             return;
         }
 
@@ -668,37 +1123,15 @@
             updatedEl.textContent = meta;
         }
 
+        renderHeatAnalysis(data);
+        renderTrendsSection(data);
+
         function buildCard(dim, entry) {
             const score = Math.max(0, Math.min(100, entry.score || 0));
             const cls = scoreClasses(score, dim.inverse);
-            const trendPoints = (entry.trend || []).map(t => t.score);
-            const trendColor = BAND_COLORS[cls.num] || '#6366f1';
-            const trendDates = (entry.trend || []).map(t => t.date);
-            const trendHtml = trendPoints.length >= 2
-                ? `<div class="sentiment-trend">
-                       <div class="sentiment-trend-label">Score trend · ${trendDates[0]} → ${trendDates[trendDates.length - 1]}</div>
-                       ${sparkline(trendPoints, trendColor)}
-                   </div>`
-                : '';
-            const bands = entry.bands || null;
-            const bandsHtml = bands
-                ? `<div class="sentiment-bands">
-                    ${[
-                        ['Very High',  'band-very-high',  bands.very_high],
-                        ['Moderate',   'band-moderate',   bands.moderate],
-                        ['Low',        'band-low',        bands.low],
-                        ['Negligible', 'band-negligible', bands.negligible],
-                    ].map(([lbl, bc, pct]) =>
-                        `<div class="sentiment-band-row">
-                            <span class="sentiment-band-label">${lbl}</span>
-                            <div class="sentiment-band-track">
-                                <div class="sentiment-band-fill ${bc}" style="width:${pct}%"></div>
-                            </div>
-                            <span class="sentiment-band-pct">${pct}%</span>
-                        </div>`
-                    ).join('')}
-                   </div>`
-                : '';
+            const effective = dim.inverse ? (100 - score) : score;
+            const tier = effective >= 70 ? 'high' : effective >= 40 ? 'mid' : 'low';
+            const interp = dim.interp ? dim.interp[tier] : '';
             return `<div class="sentiment-card ${cls.card}" data-dim-key="${dim.key}">
                 <div class="sentiment-card-header">
                     <div>
@@ -710,19 +1143,14 @@
                         <div class="sentiment-score-label">overall score</div>
                     </div>
                 </div>
-                ${bandsHtml ? `<div class="sentiment-divider"></div>${bandsHtml}<div class="sentiment-divider"></div>` : ''}
                 <div class="sentiment-insight">${escHtml(entry.insight || '')}</div>
-                ${trendHtml}
+                ${interp ? `<div class="sentiment-score-meaning">${escHtml(interp)}</div>` : ''}
             </div>`;
         }
 
-        const positives = SENTIMENT_DIMS.filter(d => d.type === 'positive');
-        const negatives = SENTIMENT_DIMS.filter(d => d.type === 'negative');
-
-        const groupHeader = (label, cls) =>
-            `<div class="sentiment-group-label ${cls}">
-                <span style="width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0;display:inline-block;"></span>
-                ${label}
+        const groupHeader = label =>
+            `<div class="sentiment-group-label">
+                <span>${label}</span>
                 <span class="group-line"></span>
             </div>`;
 
@@ -732,11 +1160,11 @@
                 return entry ? buildCard(dim, entry) : '';
             }).join('');
 
-        grid.innerHTML =
-            groupHeader('Positive Signals', 'positive-group-label') +
-            renderGroup(positives) +
-            groupHeader('Watch Signals', 'negative-group-label') +
-            renderGroup(negatives);
+        grid.innerHTML = SENTIMENT_THEMES.map(theme => {
+            const dims = SENTIMENT_DIMS.filter(d => d.theme === theme.key);
+            const cards = renderGroup(dims);
+            return cards ? groupHeader(theme.label) + cards : '';
+        }).join('');
 
         grid.onclick = e => {
             const card = e.target.closest('.sentiment-card[data-dim-key]');
