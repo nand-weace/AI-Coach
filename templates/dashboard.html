@@ -636,15 +636,25 @@
 
     function populateFilters(users) {
         const countries = [...new Set(users.map(u => u.country).filter(Boolean))].sort();
-        const cohorts   = [...new Set(users.map(u => u.cohort_name).filter(Boolean))].sort();
         const countryEl = document.getElementById('filter-country');
-        const cohortEl  = document.getElementById('filter-cohort');
         countries.forEach(c => {
             const o = document.createElement('option'); o.value = c; o.textContent = c; countryEl.appendChild(o);
         });
-        cohorts.forEach(c => {
-            const o = document.createElement('option'); o.value = c; o.textContent = c; cohortEl.appendChild(o);
-        });
+    }
+
+    async function loadCohorts() {
+        try {
+            const res = await fetch('/api/cohorts');
+            if (!res.ok) return;
+            const data = await res.json();
+            const cohortEl = document.getElementById('filter-cohort');
+            (data.cohorts || []).forEach(c => {
+                const o = document.createElement('option');
+                o.value = c.name;
+                o.textContent = c.name;
+                cohortEl.appendChild(o);
+            });
+        } catch (_) {}
     }
 
     function applyFilters() {
@@ -697,6 +707,7 @@ document.querySelectorAll('.stat-value').forEach(el => el.classList.remove('load
     });
 
     loadAnalytics();
+    loadCohorts();
 
     // ── Sentiment Intelligence ────────────────────────────────────────────────
 

@@ -443,6 +443,32 @@ def dashboard():
     )
 
 
+@app.route('/api/cohorts')
+def cohorts():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not logged in'}), 401
+    if session.get('role') != 'corporate_super_admin':
+        return jsonify({'error': 'Forbidden'}), 403
+    org_slug = session.get('org_slug', '')
+    access_token = session.get('access_token', '')
+    if not org_slug:
+        return jsonify({'error': 'No organisation associated with this account'}), 400
+    try:
+        resp = http_requests.get(
+            'https://api.we-ace.com/api/v1/coaching/cohort',
+            params={'organizationId': org_slug},
+            headers={'Authorization': f'Bearer {access_token}'},
+            timeout=10,
+        )
+        if not resp.ok:
+            return jsonify({'error': 'Failed to fetch cohorts', 'status': resp.status_code}), resp.status_code
+        payload = resp.json()
+        cohorts_list = payload.get('data')
+        return jsonify({'cohorts': cohorts_list})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/analytics')
 def analytics():
     if 'user_id' not in session:
