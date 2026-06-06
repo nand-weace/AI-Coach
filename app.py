@@ -36,7 +36,7 @@ app = Flask(__name__)
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'dev-secret-change-in-prod')
 
 AI_PROVIDER = os.environ.get("AI_PROVIDER", "openai").lower()
-DEFAULT_MODELS = {"openai": "gpt-4o", "claude": "claude-sonnet-4-5"}
+DEFAULT_MODELS = {"openai": "gpt-4o", "claude": "claude-sonnet-4-6"}
 AI_MODEL = os.environ.get("AI_MODEL", DEFAULT_MODELS.get(AI_PROVIDER, "gpt-4o"))
 
 api_key = os.environ.get("CLAUDE_API_KEY" if AI_PROVIDER == "claude" else "OPENAI_API_KEY")

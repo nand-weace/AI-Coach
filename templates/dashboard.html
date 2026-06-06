@@ -254,9 +254,7 @@
         .sentiment-card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
         .sentiment-label { font-size: 0.95rem; font-weight: 600; color: var(--text-main); line-height: 1.3; }
         .sentiment-desc { font-size: 0.80rem; color: var(--text-muted); margin-top: 4px; }
-        .sentiment-score-block { text-align: right; flex-shrink: 0; }
-        .sentiment-score-num { font-size: 1.9rem; font-weight: 700; letter-spacing: -0.04em; line-height: 1; }
-        .sentiment-score-label { font-size: 0.70rem; color: var(--text-muted); margin-top: 3px; }
+        .sentiment-score-block { flex-shrink: 0; }
         .sentiment-divider { height: 1px; background: rgba(0,0,0,0.07); margin: 0 -2px; }
         .sentiment-bands { display: flex; flex-direction: column; gap: 8px; }
         .sentiment-band-row { display: flex; align-items: center; gap: 10px; }
@@ -1105,7 +1103,7 @@ document.querySelectorAll('.stat-value').forEach(el => el.classList.remove('load
             <div class="heat-card-header">
                 <div class="heat-title-wrap">
                     <span class="heat-num"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="18" y="3" width="4" height="18"/><rect x="10" y="8" width="4" height="13"/><rect x="2" y="13" width="4" height="8"/></svg></span>
-                    <h3>Theme Heat Analysis</h3>
+                    <h3>Sentiment Heat Analysis</h3>
                 </div>
                 <span class="heat-col-label">Signal</span>
             </div>
@@ -1137,22 +1135,130 @@ document.querySelectorAll('.stat-value').forEach(el => el.classList.remove('load
         renderHeatAnalysis(data);
         renderTrendsSection(data);
 
+        const GAUGE_COLORS = { 'score-green': '#10b981', 'score-amber': '#f59e0b', 'score-red': '#ef4444' };
+
+        function buildGauge(score, gc) {
+            const cx = 60, cy = 56, r = 46;
+            // sweep=1 (clockwise in SVG y-down) goes left→top→right = upper arch ∩
+            // Two quarter arcs avoids the degenerate diameter ambiguity
+            const arc = `M ${cx-r} ${cy} A ${r} ${r} 0 0 1 ${cx} ${cy-r} A ${r} ${r} 0 0 1 ${cx+r} ${cy}`;
+            const arcLen = Math.PI * r;
+            const rL   = (0.35 * arcLen).toFixed(2);
+            const aL   = (0.30 * arcLen).toFixed(2);
+            const gL   = (0.35 * arcLen).toFixed(2);
+            const aOff = (-0.35 * arcLen).toFixed(2);
+            const gOff = (-0.65 * arcLen).toFixed(2);
+            // Clockwise sweep: 0° = left (score 0), +90° = top (score 5), +180° = right (score 10)
+            const na   = (score / 100) * 180;
+            // Spring: overshoot → undershoot → overshoot → settle
+            const anV  = `0 ${cx} ${cy};${(na*1.13).toFixed(2)} ${cx} ${cy};${(na*0.92).toFixed(2)} ${cx} ${cy};${(na*1.04).toFixed(2)} ${cx} ${cy};${na.toFixed(2)} ${cx} ${cy}`;
+            const displayScore = (score / 10).toFixed(1);
+            const nLen = r - 10;
+            const uid  = Math.random().toString(36).slice(2, 7);
+
+            // Tick marks (11 stops, major at 0/5/10)
+            let ticks = '';
+            for (let i = 0; i <= 10; i++) {
+                const θ   = Math.PI * (1 - i / 10);
+                const cos = Math.cos(θ), sin = Math.sin(θ);
+                const major = i % 5 === 0;
+                const r1 = r + 7, r2 = major ? r - 9 : r - 3;
+                ticks += `<line x1="${(cx+r1*cos).toFixed(1)}" y1="${(cy-r1*sin).toFixed(1)}" x2="${(cx+r2*cos).toFixed(1)}" y2="${(cy-r2*sin).toFixed(1)}" stroke="rgba(255,255,255,${major ? 0.92 : 0.5})" stroke-width="${major ? 2.4 : 1}" stroke-linecap="round"/>`;
+            }
+
+            // Tapered needle: wide at pivot, sharp at tip, small tail
+            const ndl  = `M ${cx} ${cy-2.5} L ${(cx-nLen).toFixed(1)} ${cy} L ${cx} ${cy+2.5} L ${cx+5} ${cy+1.5} L ${cx+5} ${cy-1.5} Z`;
+            const anim = `<animateTransform attributeName="transform" type="rotate"
+                values="${anV}" keyTimes="0;0.55;0.73;0.88;1" calcMode="spline"
+                keySplines="0.25 0.1 0.25 1;0.4 0 0.6 1;0.4 0 0.6 1;0.4 0 0.6 1"
+                dur="1.9s" fill="freeze"/>`;
+
+            return `<svg viewBox="0 0 120 86" width="114" height="82" style="display:block;margin-left:auto;overflow:visible;">
+              <defs>
+                <!-- Drop shadow for needle -->
+                <filter id="ns${uid}" x="-200%" y="-200%" width="500%" height="500%">
+                  <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="rgba(0,0,0,0.45)"/>
+                </filter>
+                <!-- Neon glow for zone arcs -->
+                <filter id="gz${uid}" x="-25%" y="-25%" width="150%" height="150%">
+                  <feGaussianBlur stdDeviation="3" result="b"/>
+                  <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+                </filter>
+                <!-- Needle gradient: dark base fading to silver tip -->
+                <linearGradient id="ndg${uid}" x1="1" y1="0" x2="0" y2="0">
+                  <stop offset="0%"   stop-color="#64748b"/>
+                  <stop offset="55%"  stop-color="#1e293b"/>
+                  <stop offset="100%" stop-color="#cbd5e1"/>
+                </linearGradient>
+                <!-- Cap metallic gradient -->
+                <radialGradient id="cap${uid}" cx="38%" cy="32%" r="60%">
+                  <stop offset="0%"   stop-color="#475569"/>
+                  <stop offset="100%" stop-color="#0f172a"/>
+                </radialGradient>
+              </defs>
+
+              <!-- Outer ambient shadow ring -->
+              <path d="${arc}" fill="none" stroke="rgba(0,0,0,0.07)" stroke-width="22" stroke-linecap="round"/>
+              <!-- Dark recessed background track -->
+              <path d="${arc}" fill="none" stroke="rgba(10,18,35,0.22)" stroke-width="14" stroke-linecap="round"/>
+
+              <!-- Zone arcs (solid base) -->
+              <path d="${arc}" fill="none" stroke="#ef4444" stroke-width="12" stroke-linecap="butt" stroke-dasharray="${rL} 1000" stroke-dashoffset="0"/>
+              <path d="${arc}" fill="none" stroke="#f59e0b" stroke-width="12" stroke-linecap="butt" stroke-dasharray="${aL} 1000" stroke-dashoffset="${aOff}"/>
+              <path d="${arc}" fill="none" stroke="#10b981" stroke-width="12" stroke-linecap="butt" stroke-dasharray="${gL} 1000" stroke-dashoffset="${gOff}"/>
+
+              <!-- Neon glow overlay on zones -->
+              <path d="${arc}" fill="none" stroke="#ff6b6b" stroke-width="7" stroke-linecap="butt" stroke-dasharray="${rL} 1000" stroke-dashoffset="0"    opacity="0.45" filter="url(#gz${uid})"/>
+              <path d="${arc}" fill="none" stroke="#fbbf24" stroke-width="7" stroke-linecap="butt" stroke-dasharray="${aL} 1000" stroke-dashoffset="${aOff}" opacity="0.45" filter="url(#gz${uid})"/>
+              <path d="${arc}" fill="none" stroke="#34d399" stroke-width="7" stroke-linecap="butt" stroke-dasharray="${gL} 1000" stroke-dashoffset="${gOff}" opacity="0.45" filter="url(#gz${uid})"/>
+
+              <!-- Glass sheen highlight -->
+              <path d="${arc}" fill="none" stroke="rgba(255,255,255,0.11)" stroke-width="5" stroke-linecap="round"/>
+
+              <!-- Tick marks -->
+              ${ticks}
+
+              <!-- Scale labels -->
+              <text x="${cx-r-10}" y="${cy+5}" text-anchor="middle" font-size="8.5" font-weight="600" fill="rgba(0,0,0,0.4)" font-family="system-ui,sans-serif">0</text>
+              <text x="${cx+r+10}" y="${cy+5}" text-anchor="middle" font-size="8.5" font-weight="600" fill="rgba(0,0,0,0.4)" font-family="system-ui,sans-serif">10</text>
+
+              <!-- Needle drop-shadow -->
+              <path d="${ndl}" fill="rgba(0,0,0,0.3)" filter="url(#ns${uid})">${anim}</path>
+              <!-- Needle (gradient-filled tapered shape) -->
+              <path d="${ndl}" fill="url(#ndg${uid})">${anim}</path>
+
+              <!-- Center cap: layered metallic rings -->
+              <circle cx="${cx}" cy="${cy}" r="10"  fill="url(#cap${uid})"/>
+              <circle cx="${cx}" cy="${cy}" r="7.5" fill="#1e293b"/>
+              <circle cx="${cx}" cy="${cy}" r="5.5" fill="#334155"/>
+              <circle cx="${cx}" cy="${cy}" r="3"   fill="#475569"/>
+              <!-- Cap highlight glint -->
+              <circle cx="${cx-2}" cy="${cy-2.5}" r="1.8" fill="rgba(255,255,255,0.5)"/>
+
+              <!-- Score (fades in as needle settles) -->
+              <text x="${cx}" y="${cy+22}" text-anchor="middle" font-size="15" font-weight="800"
+                    letter-spacing="-0.5" fill="${gc}" font-family="system-ui,sans-serif" opacity="0">
+                ${displayScore}
+                <animate attributeName="opacity" from="0" to="1" begin="1.3s" dur="0.55s" fill="freeze"/>
+              </text>
+              
+            </svg>`;
+        }
+
         function buildCard(dim, entry) {
             const score = Math.max(0, Math.min(100, entry.score || 0));
             const cls = scoreClasses(score, dim.inverse);
             const effective = dim.inverse ? (100 - score) : score;
             const tier = effective >= 70 ? 'high' : effective >= 40 ? 'mid' : 'low';
             const interp = dim.interp ? dim.interp[tier] : '';
+            const gaugeColor = GAUGE_COLORS[cls.num];
             return `<div class="sentiment-card ${cls.card}" data-dim-key="${dim.key}">
                 <div class="sentiment-card-header">
                     <div>
                         <div class="sentiment-label">${dim.label}</div>
                         <div class="sentiment-desc">${dim.desc}</div>
                     </div>
-                    <div class="sentiment-score-block">
-                        <div class="sentiment-score-num ${cls.num}">${score}<span style="font-size:0.45em;font-weight:400;opacity:0.55">/100</span></div>
-                        <div class="sentiment-score-label">overall score</div>
-                    </div>
+                    <div class="sentiment-score-block">${buildGauge(score, gaugeColor)}</div>
                 </div>
                 <div class="sentiment-insight">${escHtml(entry.insight || '')}</div>
                 ${interp ? `<div class="sentiment-score-meaning">${escHtml(interp)}</div>` : ''}

@@ -33,11 +33,11 @@ def main():
         "--model",
         type=str,
         default=None,
-        help="Model name to use (defaults: gpt-4o for OpenAI, claude-sonnet-4-5 for Claude)",
+        help="Model name to use (defaults: gpt-4o for OpenAI, claude-sonnet-4-6 for Claude)",
     )
     args = parser.parse_args()
 
-    DEFAULT_MODELS = {"openai": "gpt-4o", "claude": "claude-sonnet-4-5"}
+    DEFAULT_MODELS = {"openai": "gpt-4o", "claude": "claude-sonnet-4-6"}
     model = args.model or os.environ.get("AI_MODEL") or DEFAULT_MODELS[args.provider]
 
     if args.provider == "claude":
