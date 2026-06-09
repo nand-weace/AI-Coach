@@ -1,9 +1,21 @@
 import json
+import logging
 import os
 import uuid
 from datetime import datetime
 import pymysql
 import pymysql.cursors
+
+logger = logging.getLogger(__name__)
+
+
+def _execute(cur, sql, params=None):
+    """Execute a query and log it at DEBUG level."""
+    if params is not None:
+        logger.info("SQL: %s | params: %s", sql.strip(), params)
+    else:
+        logger.info("SQL: %s", sql.strip())
+    return cur.execute(sql, params)
 
 _SENTIMENT_DIMS = [
     'work_life_balance', 'job_satisfaction', 'stress_anxiety', 'self_confidence',
@@ -38,7 +50,7 @@ def init_db():
     conn = get_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute("""
+            _execute(cur,"""
                 CREATE TABLE IF NOT EXISTS ai_coach_sessions (
                     id INT AUTO_INCREMENT PRIMARY KEY,
                     session_id VARCHAR(36) UNIQUE NOT NULL,
@@ -61,14 +73,14 @@ def init_db():
                 ('org_slug', 'VARCHAR(255) DEFAULT NULL'),
                 ('cohort_id', 'VARCHAR(36) DEFAULT NULL'),
             ]:
-                cur.execute(
+                _execute(cur,
                     "SELECT COUNT(*) AS cnt FROM information_schema.COLUMNS "
                     "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ai_coach_sessions' AND COLUMN_NAME = %s",
                     (col,),
                 )
                 if cur.fetchone()['cnt'] == 0:
-                    cur.execute(f"ALTER TABLE ai_coach_sessions ADD COLUMN {col} {definition}")
-            cur.execute("""
+                    _execute(cur,f"ALTER TABLE ai_coach_sessions ADD COLUMN {col} {definition}")
+            _execute(cur,"""
                 CREATE TABLE IF NOT EXISTS ai_coach_messages (
                     id INT AUTO_INCREMENT PRIMARY KEY,
                     session_id VARCHAR(36) NOT NULL,
@@ -80,7 +92,7 @@ def init_db():
                     INDEX idx_session_id (session_id)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """)
-            cur.execute("""
+            _execute(cur,"""
                 CREATE TABLE IF NOT EXISTS org_sentiment (
                     id INT AUTO_INCREMENT PRIMARY KEY,
                     org_slug VARCHAR(255) NOT NULL UNIQUE,
@@ -89,7 +101,7 @@ def init_db():
                     INDEX idx_org_slug (org_slug)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """)
-            cur.execute("""
+            _execute(cur,"""
                 CREATE TABLE IF NOT EXISTS org_sentiment_history (
                     id INT AUTO_INCREMENT PRIMARY KEY,
                     org_slug VARCHAR(255) NOT NULL,
@@ -98,7 +110,7 @@ def init_db():
                     INDEX idx_org_slug_date (org_slug, calculated_at)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """)
-            cur.execute("""
+            _execute(cur,"""
                 CREATE TABLE IF NOT EXISTS sentiment (
                     id INT AUTO_INCREMENT PRIMARY KEY,
                     name VARCHAR(100) NOT NULL UNIQUE,
@@ -107,7 +119,7 @@ def init_db():
                     INDEX idx_name (name)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """)
-            cur.execute("""
+            _execute(cur,"""
                 CREATE TABLE IF NOT EXISTS sentiment_score (
                     id INT AUTO_INCREMENT PRIMARY KEY,
                     sentiment_id INT NOT NULL,
@@ -119,7 +131,7 @@ def init_db():
                     INDEX idx_sentiment_user (sentiment_id, user_id)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """)
-            cur.execute("""
+            _execute(cur,"""
                 CREATE TABLE IF NOT EXISTS sentiment_analysis_cursor (
                     org_slug VARCHAR(255) PRIMARY KEY,
                     last_message_id INT NOT NULL DEFAULT 0,
@@ -127,11 +139,11 @@ def init_db():
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """)
             for name, description, stype in _SENTIMENT_SEEDS:
-                cur.execute(
+                _execute(cur,
                     "INSERT IGNORE INTO sentiment (name, description, type) VALUES (%s, %s, %s)",
                     (name, description, stype),
                 )
-            cur.execute("""
+            _execute(cur,"""
                 CREATE TABLE IF NOT EXISTS user_settings (
                     user_id VARCHAR(36) PRIMARY KEY,
                     nexa_access TINYINT(1) DEFAULT 0,
@@ -159,15 +171,15 @@ def init_db():
                 ('cohort_name',   'VARCHAR(255) DEFAULT NULL AFTER cohort_id'),
                 ('country',       'VARCHAR(100) DEFAULT NULL AFTER cohort_name'),
             ]:
-                cur.execute(
+                _execute(cur,
                     "SELECT COUNT(*) AS cnt FROM information_schema.COLUMNS "
                     "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'user_settings' AND COLUMN_NAME = %s",
                     (col,),
                 )
                 if cur.fetchone()['cnt'] == 0:
-                    cur.execute(f"ALTER TABLE user_settings ADD COLUMN {col} {definition}")
+                    _execute(cur,f"ALTER TABLE user_settings ADD COLUMN {col} {definition}")
             # Backfill access_last_date for existing rows that predate this column
-            cur.execute(
+            _execute(cur,
                 "UPDATE user_settings SET access_last_date = DATE_ADD(first_login, INTERVAL 7 DAY) "
                 "WHERE access_last_date IS NULL"
             )
@@ -181,7 +193,7 @@ def create_chat_session(session_id: str, user_id: str, user_name: str = None, em
     conn = get_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute(
+            _execute(cur,
                 "INSERT INTO ai_coach_sessions (session_id, user_id, user_name, email, org_name, org_slug, cohort_id) "
                 "VALUES (%s, %s, %s, %s, %s, %s, %s)",
                 (session_id, user_id, user_name, email, org_name, org_slug, cohort_id),
@@ -195,7 +207,7 @@ def save_message(session_id: str, user_id: str, role: str, content: str):
     conn = get_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute(
+            _execute(cur,
                 "INSERT INTO ai_coach_messages (session_id, user_id, role, content) VALUES (%s, %s, %s, %s)",
                 (session_id, user_id, role, content),
             )
@@ -208,7 +220,7 @@ def get_user_history(user_id: str, limit: int = 20) -> list:
     conn = get_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute(
+            _execute(cur,
                 """
                 SELECT role, content, created_at
                 FROM ai_coach_messages
@@ -228,7 +240,7 @@ def has_previous_sessions(user_id: str) -> bool:
     conn = get_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute(
+            _execute(cur,
                 "SELECT COUNT(*) AS cnt FROM ai_coach_messages WHERE user_id = %s", (user_id,)
             )
             row = cur.fetchone()
@@ -246,7 +258,7 @@ def get_session_highlights(user_id: str, max_sessions: int = 5) -> list:
     conn = get_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute(
+            _execute(cur,
                 """
                 SELECT session_id, DATE(MIN(created_at)) AS session_date
                 FROM ai_coach_messages
@@ -264,7 +276,7 @@ def get_session_highlights(user_id: str, max_sessions: int = 5) -> list:
                 sid = s['session_id']
                 date = str(s['session_date'])
 
-                cur.execute(
+                _execute(cur,
                     """
                     SELECT content FROM ai_coach_messages
                     WHERE session_id = %s AND role = 'user'
@@ -276,7 +288,7 @@ def get_session_highlights(user_id: str, max_sessions: int = 5) -> list:
                 if not first_user:
                     continue
 
-                cur.execute(
+                _execute(cur,
                     """
                     SELECT content FROM ai_coach_messages
                     WHERE session_id = %s AND role = 'assistant'
@@ -297,12 +309,21 @@ def get_session_highlights(user_id: str, max_sessions: int = 5) -> list:
         conn.close()
 
 
-def get_org_analytics(org_slug: str) -> dict:
+def get_org_analytics(org_slug: str, date_from=None, date_to=None) -> dict:
     """Returns overview stats and per-user activity for the given organisation."""
     conn = get_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute("""
+            params = [org_slug]
+            date_clause = ""
+            if date_from:
+                date_clause += " AND DATE(s.started_at) >= %s"
+                params.append(date_from)
+            if date_to:
+                date_clause += " AND DATE(s.started_at) <= %s"
+                params.append(date_to)
+
+            query = f"""
                 SELECT
                     s.user_id,
                     MAX(s.user_name)    AS user_name,
@@ -310,25 +331,35 @@ def get_org_analytics(org_slug: str) -> dict:
                     COUNT(DISTINCT s.session_id) AS session_count,
                     SUM(CASE WHEN m.role = 'user' THEN 1 ELSE 0 END) AS message_count,
                     MAX(m.created_at)   AS last_active,
+                    MIN(s.started_at)   AS first_session_at,
                     MAX(us.country)     AS country,
                     MAX(us.cohort_name) AS cohort_name
                 FROM ai_coach_sessions s
                 LEFT JOIN ai_coach_messages m ON s.session_id = m.session_id
                 LEFT JOIN user_settings us ON s.user_id = us.user_id
-                WHERE s.org_slug = %s
+                WHERE s.org_slug = %s{date_clause}
                 GROUP BY s.user_id
                 ORDER BY last_active DESC
-            """, (org_slug,))
+            """
+            
+            _execute(cur,query, params)
             users = cur.fetchall()
+            first_session_date = None
             for u in users:
                 if u['last_active']:
                     u['last_active'] = str(u['last_active'])
+                if u.get('first_session_at'):
+                    d = str(u['first_session_at'])[:10]
+                    if first_session_date is None or d < first_session_date:
+                        first_session_date = d
+                    del u['first_session_at']
                 u['message_count'] = int(u['message_count'] or 0)
 
             return {
                 'total_users': len(users),
                 'total_sessions': sum(u['session_count'] for u in users),
                 'total_messages': sum(u['message_count'] for u in users),
+                'first_session_date': first_session_date,
                 'users': users,
             }
     finally:
@@ -341,7 +372,7 @@ def get_org_messages_by_user(org_slug: str, limit_per_user: int = 200) -> dict:
     conn = get_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute(
+            _execute(cur,
                 """
                 SELECT s.user_id, m.content
                 FROM ai_coach_messages m
@@ -371,7 +402,7 @@ def get_all_org_slugs() -> list:
     conn = get_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute(
+            _execute(cur,
                 "SELECT DISTINCT org_slug FROM ai_coach_sessions "
                 "WHERE org_slug IS NOT NULL AND org_slug != ''"
             )
@@ -384,7 +415,7 @@ def get_org_user_messages(org_slug: str, limit: int = 1000) -> list:
     conn = get_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute(
+            _execute(cur,
                 """
                 SELECT m.content
                 FROM ai_coach_messages m
@@ -404,7 +435,7 @@ def get_org_sentiment(org_slug: str) -> dict | None:
     conn = get_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute(
+            _execute(cur,
                 "SELECT sentiment_data, calculated_at FROM org_sentiment WHERE org_slug = %s",
                 (org_slug,),
             )
@@ -424,7 +455,7 @@ def upsert_org_sentiment(org_slug: str, sentiment_data: dict):
     conn = get_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute(
+            _execute(cur,
                 """
                 INSERT INTO org_sentiment (org_slug, sentiment_data, calculated_at)
                 VALUES (%s, %s, NOW())
@@ -452,7 +483,7 @@ def insert_org_sentiment_history(org_slug: str, sentiment_data: dict):
     conn = get_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute(
+            _execute(cur,
                 "INSERT INTO org_sentiment_history (org_slug, scores, calculated_at) VALUES (%s, %s, NOW())",
                 (org_slug, json.dumps(scores)),
             )
@@ -466,7 +497,7 @@ def get_org_sentiment_history(org_slug: str, limit: int = 12) -> list:
     conn = get_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute(
+            _execute(cur,
                 "SELECT scores, calculated_at FROM org_sentiment_history "
                 "WHERE org_slug = %s ORDER BY calculated_at DESC LIMIT %s",
                 (org_slug, limit),
@@ -498,7 +529,7 @@ def upsert_user_login(user_id: str, first_name: str = None, last_name: str = Non
             _ci = cohort_id  or None
             _cn = cohort_name or None
             _co = country    or None
-            cur.execute(
+            _execute(cur,
                 """
                 INSERT INTO user_settings
                     (user_id, nexa_access, first_name, last_name, email,
@@ -520,7 +551,7 @@ def upsert_user_login(user_id: str, first_name: str = None, last_name: str = Non
                  _fn, _ln, _em, _oi, _ci, _cn, _co),
             )
             conn.commit()
-            cur.execute(
+            _execute(cur,
                 "SELECT nexa_access, access_last_date FROM user_settings WHERE user_id = %s", (user_id,)
             )
             row = cur.fetchone()
@@ -537,7 +568,7 @@ def get_user_access_settings(user_id: str) -> dict:
     conn = get_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute(
+            _execute(cur,
                 "SELECT nexa_access, access_last_date FROM user_settings WHERE user_id = %s", (user_id,)
             )
             row = cur.fetchone()
@@ -553,7 +584,7 @@ def get_user_nexa_access(user_id: str) -> bool:
     conn = get_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT nexa_access FROM user_settings WHERE user_id = %s", (user_id,))
+            _execute(cur,"SELECT nexa_access FROM user_settings WHERE user_id = %s", (user_id,))
             row = cur.fetchone()
             return bool(row['nexa_access']) if row else False
     finally:
@@ -564,7 +595,7 @@ def set_user_nexa_access(user_id: str, value: bool):
     conn = get_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute(
+            _execute(cur,
                 """
                 INSERT INTO user_settings (user_id, nexa_access)
                 VALUES (%s, %s)
@@ -582,7 +613,7 @@ def set_user_access_till(user_id: str, access_till: str):
     conn = get_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute(
+            _execute(cur,
                 """
                 INSERT INTO user_settings (user_id, access_last_date)
                 VALUES (%s, %s)
@@ -600,7 +631,7 @@ def disable_inactive_users(days: int = 30) -> int:
     conn = get_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute(
+            _execute(cur,
                 """
                 UPDATE user_settings
                 SET nexa_access = 0
@@ -621,7 +652,7 @@ def get_sentiment_cursor(org_slug: str) -> int:
     conn = get_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute(
+            _execute(cur,
                 "SELECT last_message_id FROM sentiment_analysis_cursor WHERE org_slug = %s",
                 (org_slug,),
             )
@@ -635,7 +666,7 @@ def update_sentiment_cursor(org_slug: str, last_message_id: int):
     conn = get_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute(
+            _execute(cur,
                 """
                 INSERT INTO sentiment_analysis_cursor (org_slug, last_message_id)
                 VALUES (%s, %s)
@@ -652,7 +683,7 @@ def get_org_max_message_id(org_slug: str) -> int:
     conn = get_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute(
+            _execute(cur,
                 """
                 SELECT MAX(m.id) AS max_id
                 FROM ai_coach_messages m
@@ -672,7 +703,7 @@ def get_org_users_with_new_messages(org_slug: str, after_message_id: int) -> lis
     conn = get_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute(
+            _execute(cur,
                 """
                 SELECT DISTINCT s.user_id
                 FROM ai_coach_messages m
@@ -691,7 +722,7 @@ def get_org_user_messages_after(org_slug: str, after_message_id: int, limit: int
     conn = get_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute(
+            _execute(cur,
                 """
                 SELECT m.content
                 FROM ai_coach_messages m
@@ -712,13 +743,13 @@ def insert_user_sentiment_scores(user_id: str, scores: dict, run_ts: str):
     conn = get_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT id, name FROM sentiment")
+            _execute(cur,"SELECT id, name FROM sentiment")
             dim_ids = {row['name']: row['id'] for row in cur.fetchall()}
             for dim, score in scores.items():
                 dim_id = dim_ids.get(dim)
                 if not dim_id:
                     continue
-                cur.execute(
+                _execute(cur,
                     "INSERT INTO sentiment_score (sentiment_id, score, calculated_at, user_id) VALUES (%s, %s, %s, %s)",
                     (dim_id, max(0, min(100, int(score))), run_ts, user_id),
                 )
@@ -727,7 +758,7 @@ def insert_user_sentiment_scores(user_id: str, scores: dict, run_ts: str):
         conn.close()
 
 
-def get_org_sentiment_data(org_slug: str, trend_limit: int = 12) -> dict | None:
+def get_org_sentiment_data(org_slug: str, trend_limit: int = 12, date_from=None, date_to=None) -> dict | None:
     """
     Returns aggregated sentiment data for the org keyed by dimension name.
     Scores and bands are derived from latest per-user sentiment_score rows.
@@ -737,9 +768,19 @@ def get_org_sentiment_data(org_slug: str, trend_limit: int = 12) -> dict | None:
     conn = get_connection()
     try:
         with conn.cursor() as cur:
-            # Latest score per (user, dimension) for all org users
-            cur.execute(
-                """
+            # Build optional date filter for sentiment_score.calculated_at
+            score_date_clause = ""
+            score_date_params_extra: list = []
+            if date_from:
+                score_date_clause += " AND DATE(calculated_at) >= %s"
+                score_date_params_extra.append(date_from)
+            if date_to:
+                score_date_clause += " AND DATE(calculated_at) <= %s"
+                score_date_params_extra.append(date_to)
+
+            # Latest score per (user, dimension) within date range
+            _execute(cur,
+                f"""
                 SELECT ss.user_id, s.name AS dim_name, ss.score
                 FROM sentiment_score ss
                 JOIN sentiment s ON ss.sentiment_id = s.id
@@ -748,22 +789,31 @@ def get_org_sentiment_data(org_slug: str, trend_limit: int = 12) -> dict | None:
                     FROM sentiment_score
                     WHERE user_id IN (
                         SELECT DISTINCT user_id FROM ai_coach_sessions WHERE org_slug = %s
-                    )
+                    ){score_date_clause}
                     GROUP BY user_id, sentiment_id
                 ) latest ON ss.user_id = latest.user_id
                          AND ss.sentiment_id = latest.sentiment_id
                          AND ss.calculated_at = latest.latest_at
                 """,
-                (org_slug,),
+                [org_slug] + score_date_params_extra,
             )
             latest_rows = cur.fetchall()
 
             if not latest_rows:
                 return None
 
-            # All-time trend grouped by date per dimension
-            cur.execute(
-                """
+            # Trend grouped by date per dimension (filtered by date range)
+            trend_date_clause = ""
+            trend_params = [org_slug]
+            if date_from:
+                trend_date_clause += " AND DATE(ss.calculated_at) >= %s"
+                trend_params.append(date_from)
+            if date_to:
+                trend_date_clause += " AND DATE(ss.calculated_at) <= %s"
+                trend_params.append(date_to)
+
+            _execute(cur,
+                f"""
                 SELECT DATE(ss.calculated_at) AS run_date,
                        s.name AS dim_name,
                        ROUND(AVG(ss.score)) AS avg_score
@@ -771,11 +821,11 @@ def get_org_sentiment_data(org_slug: str, trend_limit: int = 12) -> dict | None:
                 JOIN sentiment s ON ss.sentiment_id = s.id
                 WHERE ss.user_id IN (
                     SELECT DISTINCT user_id FROM ai_coach_sessions WHERE org_slug = %s
-                )
+                ){trend_date_clause}
                 GROUP BY DATE(ss.calculated_at), s.name
                 ORDER BY run_date ASC
                 """,
-                (org_slug,),
+                trend_params,
             )
             trend_rows = cur.fetchall()
 
@@ -832,7 +882,7 @@ def get_all_users_admin() -> list:
     conn = get_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute("""
+            _execute(cur,"""
                 SELECT
                     s.user_id,
                     MAX(s.user_name)  AS user_name,

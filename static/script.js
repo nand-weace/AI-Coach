@@ -61,7 +61,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const _sd = await buildSession(_newAccess, _newRefresh);
                     if (_sd) {
                         showApp(_sd.user_name, _sd.initials, _sd.profile_image, _sd.returning,
-                                _sd.role, _sd.nexa_access, _sd.access_last_date);
+                                _sd.role, _sd.nexa_access, _sd.access_last_date, _sd.recent_messages || []);
                         _authed = true;
                     }
                 }
@@ -83,7 +83,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (_sd) {
                 storeTokens(_extToken, _extRefresh);
                 showApp(_sd.user_name, _sd.initials, _sd.profile_image, _sd.returning,
-                        _sd.role, _sd.nexa_access, _sd.access_last_date);
+                        _sd.role, _sd.nexa_access, _sd.access_last_date, _sd.recent_messages || []);
                 _authed = true;
             }
         } catch (_) {}
@@ -108,7 +108,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         if (sd) {
                             storeTokens(newAccess, newRefresh);
                             showApp(sd.user_name, sd.initials, sd.profile_image, sd.returning,
-                                    sd.role, sd.nexa_access, sd.access_last_date);
+                                    sd.role, sd.nexa_access, sd.access_last_date, sd.recent_messages || []);
                             _authed = true;
                         }
                     }
@@ -135,7 +135,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const sd = await buildSession(storedAccess, storedRefresh || '');
                 if (sd) {
                     showApp(sd.user_name, sd.initials, sd.profile_image, sd.returning,
-                            sd.role, sd.nexa_access, sd.access_last_date);
+                            sd.role, sd.nexa_access, sd.access_last_date, sd.recent_messages || []);
                     _authed = true;
                 }
             } catch (_) {}
@@ -210,11 +210,38 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
             storeTokens(authData.accessToken, authData.refreshToken);
             showApp(data.user_name, data.initials, data.profile_image, data.returning,
-                    data.role, data.nexa_access, data.access_last_date);
+                    data.role, data.nexa_access, data.access_last_date, data.recent_messages || []);
         } catch (err) {
             errorEl.textContent = 'Connection error. Please try again.';
             resetBtn();
         }
+    });
+
+    // User-chip dropdown toggle
+    const chipWrap = document.getElementById('user-chip-wrap');
+    const chipTrigger = document.getElementById('user-chip');
+    if (chipWrap && chipTrigger) {
+        chipTrigger.addEventListener('click', e => {
+            e.stopPropagation();
+            chipWrap.classList.toggle('open');
+        });
+        document.addEventListener('click', e => {
+            if (!chipWrap.contains(e.target)) chipWrap.classList.remove('open');
+        });
+    }
+
+    // Weace Coaching
+    document.getElementById('btn-weace-coaching').addEventListener('click', () => {
+        const rt = localStorage.getItem('we_ace_refresh_token') || '';
+        window.open('https://we-ace.com/app/?refresh_token=' + encodeURIComponent(rt), '_blank');
+        if (chipWrap) chipWrap.classList.remove('open');
+    });
+
+    // Edit Profile
+    document.getElementById('btn-edit-profile').addEventListener('click', () => {
+        const rt = localStorage.getItem('we_ace_refresh_token') || '';
+        window.open('https://we-ace.com/app/employee/edit/profile?refresh_token=' + encodeURIComponent(rt), '_blank');
+        if (chipWrap) chipWrap.classList.remove('open');
     });
 
     // Logout
@@ -257,7 +284,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    function showApp(userName, initials, profileImage, returning, role, nexaAccess, accessLastDate) {
+    function showApp(userName, initials, profileImage, returning, role, nexaAccess, accessLastDate, recentMessages) {
         document.getElementById('login-overlay').style.display = 'none';
         document.getElementById('app-container').style.display = 'flex';
         document.getElementById('user-display').textContent = userName;
@@ -279,12 +306,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const dashboardLink = document.getElementById('dashboard-link');
         if (dashboardLink) {
-            dashboardLink.style.display = role === 'corporate_super_admin' ? 'inline-block' : 'none';
+            dashboardLink.style.display = role === 'corporate_super_admin' ? 'flex' : 'none';
         }
 
         const adminLink = document.getElementById('admin-link');
         if (adminLink) {
-            adminLink.style.display = role === 'weace_super_admin' ? 'inline-block' : 'none';
+            adminLink.style.display = role === 'weace_super_admin' ? 'flex' : 'none';
+        }
+
+        const navDivider = document.getElementById('chip-nav-divider');
+        if (navDivider) {
+            const hasNavItem = role === 'corporate_super_admin' || role === 'weace_super_admin';
+            navDivider.style.display = hasNavItem ? 'block' : 'none';
         }
 
         const welcomeEl = document.getElementById('welcome-text');
@@ -292,6 +325,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             welcomeEl.textContent = `Welcome back, ${userName}. Ready to continue your leadership journey? What's on your mind today?`;
         } else {
             welcomeEl.textContent = `Welcome to your Executive Leadership Coaching Session, ${userName}. I'm Nexa, here to help you navigate complex professional challenges, enhance your leadership skills, and drive strategic impact. What would you like to focus on today?`;
+        }
+
+        if (recentMessages && recentMessages.length > 0) {
+            const divider = document.createElement('div');
+            divider.className = 'history-divider';
+            divider.innerHTML = '<span>Previous conversation</span>';
+            chatContainer.appendChild(divider);
+            recentMessages.forEach(msg => addMessage(msg.content, msg.role));
         }
 
         if (!nexaAccess) {

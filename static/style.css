@@ -498,6 +498,10 @@ body {
 }
 
 /* Header user chip */
+.user-chip-wrap {
+    position: relative;
+}
+
 .user-chip {
     display: flex;
     align-items: center;
@@ -506,6 +510,84 @@ body {
     border: 1px solid var(--glass-border);
     border-radius: 999px;
     padding: 4px 12px 4px 4px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.chip-caret {
+    width: 14px;
+    height: 14px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+    transition: transform 0.2s;
+}
+
+.user-chip-wrap.open .chip-caret {
+    transform: rotate(180deg);
+}
+
+.chip-dropdown {
+    display: none;
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    min-width: 190px;
+    background: #fff;
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.12);
+    overflow: hidden;
+    z-index: 50;
+    animation: chipDropIn 0.14s ease;
+}
+
+@keyframes chipDropIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.user-chip-wrap.open .chip-dropdown {
+    display: block;
+}
+
+.chip-dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 10px 14px;
+    font-size: 0.85rem;
+    color: var(--text-main);
+    background: none;
+    border: none;
+    width: 100%;
+    font-family: inherit;
+    cursor: pointer;
+    text-align: left;
+    text-decoration: none;
+    transition: background 0.15s;
+}
+
+.chip-dropdown-item:hover {
+    background: rgba(59, 130, 246, 0.06);
+}
+
+.chip-dropdown-item svg {
+    flex-shrink: 0;
+    color: var(--text-muted);
+}
+
+.chip-dropdown-divider {
+    height: 1px;
+    background: var(--glass-border);
+    margin: 2px 0;
+}
+
+.chip-dropdown-item.danger {
+    color: #dc2626;
+}
+
+.chip-dropdown-item.danger svg {
+    color: #dc2626;
 }
 
 .user-chip-avatar {
@@ -649,6 +731,25 @@ body {
     height: 100%;
     object-fit: cover;
     border-radius: 50%;
+}
+
+/* Previous conversation divider */
+.history-divider {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 16px 0 8px;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+.history-divider::before,
+.history-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--glass-border);
 }
 
 

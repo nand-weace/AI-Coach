@@ -78,12 +78,46 @@
         }
         .user-chip-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
         .user-display { font-size: 0.85rem; font-weight: 500; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .logout-btn {
-            background: none; border: none; padding: 0;
-            font-family: inherit; font-size: 0.8rem; color: var(--text-muted);
-            cursor: pointer; transition: color 0.2s; white-space: nowrap;
+        /* ── User-chip dropdown ── */
+        .user-chip-wrap { position: relative; }
+        .user-chip { cursor: pointer; user-select: none; }
+        .chip-caret {
+            width: 14px; height: 14px; color: var(--text-muted);
+            flex-shrink: 0; transition: transform 0.2s;
         }
-        .logout-btn:hover { color: var(--primary-color); }
+        .user-chip-wrap.open .chip-caret { transform: rotate(180deg); }
+        .chip-dropdown {
+            display: none;
+            position: absolute;
+            top: calc(100% + 8px);
+            right: 0;
+            min-width: 190px;
+            background: #fff;
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            box-shadow: 0 8px 28px rgba(0,0,0,0.12);
+            overflow: hidden;
+            z-index: 50;
+            animation: dropIn 0.14s ease;
+        }
+        @keyframes dropIn {
+            from { opacity: 0; transform: translateY(-6px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .user-chip-wrap.open .chip-dropdown { display: block; }
+        .chip-dropdown-item {
+            display: flex; align-items: center; gap: 9px;
+            padding: 10px 14px;
+            font-size: 0.85rem; color: var(--text-main);
+            background: none; border: none; width: 100%;
+            font-family: inherit; cursor: pointer; text-align: left;
+            transition: background 0.15s;
+        }
+        .chip-dropdown-item:hover { background: rgba(59,130,246,0.06); }
+        .chip-dropdown-item svg { flex-shrink: 0; color: var(--text-muted); }
+        .chip-dropdown-divider { height: 1px; background: var(--glass-border); margin: 2px 0; }
+        .chip-dropdown-item.danger { color: #dc2626; }
+        .chip-dropdown-item.danger svg { color: #dc2626; }
 
         /* ── Page body ── */
         .page { max-width: 1100px; margin: 0 auto; padding: 32px 24px 64px; }
@@ -172,6 +206,37 @@
         }
         .table-filter:focus { border-color: rgba(59, 130, 246, 0.4); box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15); }
         .table-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .date-range-wrap {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .date-range-sep {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+        }
+        .date-input {
+            padding: 6px 10px;
+            border: 1px solid var(--glass-border);
+            border-radius: 999px;
+            background: rgba(248, 250, 252, 0.9);
+            font-family: inherit;
+            font-size: 0.82rem;
+            color: var(--text-main);
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+        }
+        .date-input:focus { border-color: rgba(59, 130, 246, 0.4); box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15); }
+        .date-input::-webkit-calendar-picker-indicator { opacity: 0.5; cursor: pointer; }
+        .clear-dates-btn {
+            background: none; border: 1px solid var(--glass-border);
+            border-radius: 999px; padding: 5px 12px;
+            font-family: inherit; font-size: 0.78rem; color: var(--text-muted);
+            cursor: pointer; transition: all 0.2s; display: none;
+        }
+        .clear-dates-btn.visible { display: inline-block; }
+        .clear-dates-btn:hover { color: var(--primary-color); border-color: rgba(59, 130, 246, 0.3); }
         table { width: 100%; border-collapse: collapse; }
         thead tr { background: rgba(248, 250, 252, 0.6); }
         th {
@@ -490,16 +555,39 @@
     </div>
     <div class="header-right">
         <a href="/" class="nav-link">Open Chat</a>
-        <div class="user-chip">
-            <div class="user-chip-avatar" id="header-avatar">
-                {% if profile_image %}
-                    <img src="{{ profile_image }}" alt="{{ user_name }}" onerror="this.parentElement.textContent='{{ initials }}'">
-                {% else %}
-                    {{ initials }}
-                {% endif %}
+        <div class="user-chip-wrap" id="user-chip-wrap">
+            <div class="user-chip" id="user-chip-trigger">
+                <div class="user-chip-avatar" id="header-avatar">
+                    {% if profile_image %}
+                        <img src="{{ profile_image }}" alt="{{ user_name }}" onerror="this.parentElement.textContent='{{ initials }}'">
+                    {% else %}
+                        {{ initials }}
+                    {% endif %}
+                </div>
+                <span class="user-display">{{ user_name }}</span>
+                <svg class="chip-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"/>
+                </svg>
             </div>
-            <span class="user-display">{{ user_name }}</span>
-            <button class="logout-btn" id="logout-button">Logout</button>
+            <div class="chip-dropdown" id="chip-dropdown" data-refresh-token="{{ refresh_token | e }}">
+                <button class="chip-dropdown-item" id="btn-weace-coaching">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                        <polyline points="15 3 21 3 21 9"/>
+                        <line x1="10" y1="14" x2="21" y2="3"/>
+                    </svg>
+                    Weace Coaching
+                </button>
+                <div class="chip-dropdown-divider"></div>
+                <button class="chip-dropdown-item danger" id="logout-button">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                        <polyline points="16 17 21 12 16 7"/>
+                        <line x1="21" y1="12" x2="9" y2="12"/>
+                    </svg>
+                    Logout
+                </button>
+            </div>
         </div>
     </div>
 </header>
@@ -511,9 +599,12 @@
             <span class="org-badge" id="org-badge">{{ org_name or 'Loading…' }}</span>
         </div>
         <div class="table-controls" style="padding-top:4px;">
-            <select class="table-filter" id="filter-country">
-                <option value="">All Countries</option>
-            </select>
+            <div class="date-range-wrap">
+                <input type="date" class="date-input" id="filter-date-from" title="From date">
+                <span class="date-range-sep">–</span>
+                <input type="date" class="date-input" id="filter-date-to" title="To date">
+                <button class="clear-dates-btn" id="clear-dates-btn">Clear</button>
+            </div>
             <select class="table-filter" id="filter-cohort">
                 <option value="">All Cohorts</option>
             </select>
@@ -563,7 +654,6 @@
                 <tr>
                     <th>Name</th>
                     <th>Email</th>
-                    <th>Country</th>
                     <th>Cohort</th>
                     <th>Sessions</th>
                     <th>Messages Sent</th>
@@ -572,7 +662,7 @@
                 </tr>
             </thead>
             <tbody id="user-table-body">
-                <tr><td colspan="8"><div class="skeleton" style="width:60%; margin: 0 auto;"></div></td></tr>
+                <tr><td colspan="7"><div class="skeleton" style="width:60%; margin: 0 auto;"></div></td></tr>
             </tbody>
         </table>
     </div>
@@ -598,6 +688,7 @@
 
 <script>
     let allUsers = [];
+    let defaultsApplied = false;
     const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
     function isActiveThisWeek(lastActive) {
@@ -614,7 +705,7 @@
     function renderTable(users) {
         const tbody = document.getElementById('user-table-body');
         if (!users.length) {
-            tbody.innerHTML = '<tr class="empty-row"><td colspan="8">No users found.</td></tr>';
+            tbody.innerHTML = '<tr class="empty-row"><td colspan="7">No users found.</td></tr>';
             return;
         }
         tbody.innerHTML = users.map(u => {
@@ -622,7 +713,6 @@
             return `<tr>
                 <td class="user-name-cell">${escHtml(u.user_name || '—')}</td>
                 <td class="email-cell">${escHtml(u.email || '—')}</td>
-                <td>${escHtml(u.country || '—')}</td>
                 <td>${escHtml(u.cohort_name || '—')}</td>
                 <td>${u.session_count}</td>
                 <td>${u.message_count}</td>
@@ -630,14 +720,6 @@
                 <td><span class="badge ${active ? 'badge-active' : 'badge-inactive'}">${active ? 'Active' : 'Inactive'}</span></td>
             </tr>`;
         }).join('');
-    }
-
-    function populateFilters(users) {
-        const countries = [...new Set(users.map(u => u.country).filter(Boolean))].sort();
-        const countryEl = document.getElementById('filter-country');
-        countries.forEach(c => {
-            const o = document.createElement('option'); o.value = c; o.textContent = c; countryEl.appendChild(o);
-        });
     }
 
     async function loadCohorts() {
@@ -656,14 +738,12 @@
     }
 
     function applyFilters() {
-        const q       = document.getElementById('search-input').value.toLowerCase();
-        const country = document.getElementById('filter-country').value;
-        const cohort  = document.getElementById('filter-cohort').value;
+        const q      = document.getElementById('search-input').value.toLowerCase();
+        const cohort = document.getElementById('filter-cohort').value;
         const filtered = allUsers.filter(u => {
-            const matchSearch  = !q       || (u.user_name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q);
-            const matchCountry = !country || u.country === country;
-            const matchCohort  = !cohort  || u.cohort_name === cohort;
-            return matchSearch && matchCountry && matchCohort;
+            const matchSearch = !q      || (u.user_name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q);
+            const matchCohort = !cohort || u.cohort_name === cohort;
+            return matchSearch && matchCohort;
         });
         renderTable(filtered);
     }
@@ -672,9 +752,26 @@
         return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
+    function getDateParams() {
+        const from = document.getElementById('filter-date-from').value;
+        const to   = document.getElementById('filter-date-to').value;
+        const params = new URLSearchParams();
+        if (from) params.set('date_from', from);
+        if (to)   params.set('date_to', to);
+        return params;
+    }
+
+    function updateClearBtn() {
+        const from = document.getElementById('filter-date-from').value;
+        const to   = document.getElementById('filter-date-to').value;
+        document.getElementById('clear-dates-btn').classList.toggle('visible', !!(from || to));
+    }
+
     async function loadAnalytics() {
+        const params = getDateParams();
+        const qs = params.toString() ? '?' + params.toString() : '';
         try {
-            const res = await fetch('/api/analytics');
+            const res = await fetch('/api/analytics' + qs);
             if (res.status === 401) { window.location.href = '/'; return; }
             if (res.status === 403) { window.location.href = '/'; return; }
             const data = await res.json();
@@ -682,13 +779,21 @@
             document.getElementById('stat-users').textContent = data.total_users;
             document.getElementById('stat-sessions').textContent = data.total_sessions;
             document.getElementById('stat-messages').textContent = data.total_messages;
-document.querySelectorAll('.stat-value').forEach(el => el.classList.remove('loading'));
+            document.querySelectorAll('.stat-value').forEach(el => el.classList.remove('loading'));
 
             if (data.org_name) document.getElementById('org-badge').textContent = data.org_name;
 
+            // Set default date range on first load: first session → today
+            if (!defaultsApplied && data.first_session_date) {
+                defaultsApplied = true;
+                const today = new Date().toISOString().slice(0, 10);
+                document.getElementById('filter-date-from').value = data.first_session_date;
+                document.getElementById('filter-date-to').value   = today;
+                updateClearBtn();
+            }
+
             allUsers = data.users || [];
-            populateFilters(allUsers);
-            renderTable(allUsers);
+            applyFilters();
         } catch (err) {
             document.getElementById('user-table-body').innerHTML =
                 '<tr class="empty-row"><td colspan="6">Failed to load data. Please refresh.</td></tr>';
@@ -696,8 +801,26 @@ document.querySelectorAll('.stat-value').forEach(el => el.classList.remove('load
     }
 
     document.getElementById('search-input').addEventListener('input', applyFilters);
-    document.getElementById('filter-country').addEventListener('change', applyFilters);
     document.getElementById('filter-cohort').addEventListener('change', applyFilters);
+
+    // ── User-chip dropdown ────────────────────────────────────────────────────
+    const chipWrap    = document.getElementById('user-chip-wrap');
+    const chipTrigger = document.getElementById('user-chip-trigger');
+
+    chipTrigger.addEventListener('click', e => {
+        e.stopPropagation();
+        chipWrap.classList.toggle('open');
+    });
+
+    document.addEventListener('click', e => {
+        if (!chipWrap.contains(e.target)) chipWrap.classList.remove('open');
+    });
+
+    document.getElementById('btn-weace-coaching').addEventListener('click', () => {
+        const rt = document.getElementById('chip-dropdown').dataset.refreshToken || '';
+        window.open('https://we-ace.com/app/?refresh_token=' + encodeURIComponent(rt), '_blank');
+        chipWrap.classList.remove('open');
+    });
 
     document.getElementById('logout-button').addEventListener('click', async () => {
         await fetch('/logout', { method: 'POST' });
@@ -1137,7 +1260,7 @@ document.querySelectorAll('.stat-value').forEach(el => el.classList.remove('load
 
         const GAUGE_COLORS = { 'score-green': '#10b981', 'score-amber': '#f59e0b', 'score-red': '#ef4444' };
 
-        function buildGauge(score, gc) {
+        function buildGauge(score, gc, inverse) {
             const cx = 60, cy = 56, r = 46;
             // sweep=1 (clockwise in SVG y-down) goes left→top→right = upper arch ∩
             // Two quarter arcs avoids the degenerate diameter ambiguity
@@ -1203,14 +1326,14 @@ document.querySelectorAll('.stat-value').forEach(el => el.classList.remove('load
               <path d="${arc}" fill="none" stroke="rgba(10,18,35,0.22)" stroke-width="14" stroke-linecap="round"/>
 
               <!-- Zone arcs (solid base) -->
-              <path d="${arc}" fill="none" stroke="#ef4444" stroke-width="12" stroke-linecap="butt" stroke-dasharray="${rL} 1000" stroke-dashoffset="0"/>
+              <path d="${arc}" fill="none" stroke="${inverse ? '#10b981' : '#ef4444'}" stroke-width="12" stroke-linecap="butt" stroke-dasharray="${rL} 1000" stroke-dashoffset="0"/>
               <path d="${arc}" fill="none" stroke="#f59e0b" stroke-width="12" stroke-linecap="butt" stroke-dasharray="${aL} 1000" stroke-dashoffset="${aOff}"/>
-              <path d="${arc}" fill="none" stroke="#10b981" stroke-width="12" stroke-linecap="butt" stroke-dasharray="${gL} 1000" stroke-dashoffset="${gOff}"/>
+              <path d="${arc}" fill="none" stroke="${inverse ? '#ef4444' : '#10b981'}" stroke-width="12" stroke-linecap="butt" stroke-dasharray="${gL} 1000" stroke-dashoffset="${gOff}"/>
 
               <!-- Neon glow overlay on zones -->
-              <path d="${arc}" fill="none" stroke="#ff6b6b" stroke-width="7" stroke-linecap="butt" stroke-dasharray="${rL} 1000" stroke-dashoffset="0"    opacity="0.45" filter="url(#gz${uid})"/>
+              <path d="${arc}" fill="none" stroke="${inverse ? '#34d399' : '#ff6b6b'}" stroke-width="7" stroke-linecap="butt" stroke-dasharray="${rL} 1000" stroke-dashoffset="0"    opacity="0.45" filter="url(#gz${uid})"/>
               <path d="${arc}" fill="none" stroke="#fbbf24" stroke-width="7" stroke-linecap="butt" stroke-dasharray="${aL} 1000" stroke-dashoffset="${aOff}" opacity="0.45" filter="url(#gz${uid})"/>
-              <path d="${arc}" fill="none" stroke="#34d399" stroke-width="7" stroke-linecap="butt" stroke-dasharray="${gL} 1000" stroke-dashoffset="${gOff}" opacity="0.45" filter="url(#gz${uid})"/>
+              <path d="${arc}" fill="none" stroke="${inverse ? '#ff6b6b' : '#34d399'}" stroke-width="7" stroke-linecap="butt" stroke-dasharray="${gL} 1000" stroke-dashoffset="${gOff}" opacity="0.45" filter="url(#gz${uid})"/>
 
               <!-- Glass sheen highlight -->
               <path d="${arc}" fill="none" stroke="rgba(255,255,255,0.11)" stroke-width="5" stroke-linecap="round"/>
@@ -1258,7 +1381,7 @@ document.querySelectorAll('.stat-value').forEach(el => el.classList.remove('load
                         <div class="sentiment-label">${dim.label}</div>
                         <div class="sentiment-desc">${dim.desc}</div>
                     </div>
-                    <div class="sentiment-score-block">${buildGauge(score, gaugeColor)}</div>
+                    <div class="sentiment-score-block">${buildGauge(score, gaugeColor, dim.inverse)}</div>
                 </div>
                 <div class="sentiment-insight">${escHtml(entry.insight || '')}</div>
                 ${interp ? `<div class="sentiment-score-meaning">${escHtml(interp)}</div>` : ''}
@@ -1290,13 +1413,36 @@ document.querySelectorAll('.stat-value').forEach(el => el.classList.remove('load
     }
 
     async function loadSentiment() {
+        const params = getDateParams();
+        const qs = params.toString() ? '?' + params.toString() : '';
         try {
-            const res = await fetch('/api/sentiment');
+            const res = await fetch('/api/sentiment' + qs);
             if (!res.ok) return;
             const data = await res.json();
             renderSentiment(data);
         } catch (_) {}
     }
+
+    function reloadAll() {
+        document.querySelectorAll('.stat-value').forEach(el => el.classList.add('loading'));
+        document.getElementById('user-table-body').innerHTML =
+            '<tr><td colspan="7"><div class="skeleton" style="width:60%; margin: 0 auto;"></div></td></tr>';
+        document.getElementById('sentiment-grid').innerHTML =
+            '<div class="sentiment-no-data"><div class="skeleton" style="width:200px; margin:0 auto;"></div></div>';
+        document.getElementById('heat-wrap').innerHTML = '';
+        document.getElementById('trends-wrap').innerHTML = '';
+        loadAnalytics();
+        loadSentiment();
+    }
+
+    document.getElementById('filter-date-from').addEventListener('change', () => { updateClearBtn(); reloadAll(); });
+    document.getElementById('filter-date-to').addEventListener('change',   () => { updateClearBtn(); reloadAll(); });
+    document.getElementById('clear-dates-btn').addEventListener('click', () => {
+        document.getElementById('filter-date-from').value = '';
+        document.getElementById('filter-date-to').value = '';
+        updateClearBtn();
+        reloadAll();
+    });
 
     document.getElementById('sentiment-refresh-btn').addEventListener('click', async () => {
         const btn = document.getElementById('sentiment-refresh-btn');

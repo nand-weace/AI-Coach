@@ -11,6 +11,7 @@ from database import (
     save_message,
     has_previous_sessions,
     get_session_highlights,
+    get_user_history,
     get_org_analytics,
     upsert_org_sentiment,
     get_org_sentiment_data,
@@ -194,7 +195,7 @@ def create_session():
     else:
         role = 'user'
 
-    user_id = (profile.get('userId') or profile.get('_id') or '').strip()
+    user_id = profile.get('_id').strip()
     first = (profile.get('firstName') or '').strip()
     last = (profile.get('lastName') or '').strip()
     email = (profile.get('email') or '').strip()
@@ -203,6 +204,8 @@ def create_session():
     org_name = (profile.get('companyName') or '').strip()
     org_slug = (profile.get('parentId') or '').strip()
     cohort_id = (profile.get('cohortId') or '').strip() or None
+    cohort_name = (profile.get('cohortName') or '').strip() or None
+    country = (profile.get('country') or '').strip() or None
 
     logger.info("[create_session] parsed profile: user_id=%s email=%s role=%s org_slug=%s",
                 user_id or 'MISSING', email or 'MISSING', role, org_slug or 'none')
@@ -243,12 +246,14 @@ def create_session():
                 user_id,
                 first_name=first, last_name=last, email=email,
                 org_id=org_slug, cohort_id=cohort_id,
+                cohort_name=cohort_name, country=country,
             )
         else:
             settings = upsert_user_login(
                 user_id,
                 first_name=first, last_name=last, email=email,
                 org_id=org_slug, cohort_id=cohort_id,
+                cohort_name=cohort_name, country=country,
             )
             nexa_access = settings['nexa_access']
             access_last_date = settings['access_last_date']
@@ -259,6 +264,10 @@ def create_session():
                     user_id, user_name, nexa_access)
 
         initials = ''.join(w[0].upper() for w in user_name.split()[:2])
+        recent_messages = [
+            {'role': r['role'], 'content': r['content']}
+            for r in get_user_history(user_id, 15)
+        ]
         return jsonify({
             'user_name': user_name,
             'returning': returning,
@@ -267,6 +276,7 @@ def create_session():
             'role': role,
             'nexa_access': nexa_access,
             'access_last_date': access_last_date,
+            'recent_messages': recent_messages,
         })
     except Exception as e:
         logger.exception("[create_session] unexpected error for user_id=%s: %s", user_id, e)
@@ -316,6 +326,10 @@ def new_session():
         session['access_last_date'] = access_last_date
 
         initials = ''.join(w[0].upper() for w in user_name.split()[:2])
+        recent_messages = [
+            {'role': r['role'], 'content': r['content']}
+            for r in get_user_history(user_id, 10)
+        ]
         return jsonify({
             'user_name': user_name,
             'returning': returning,
@@ -324,6 +338,7 @@ def new_session():
             'role': role,
             'nexa_access': nexa_access,
             'access_last_date': access_last_date,
+            'recent_messages': recent_messages,
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -440,6 +455,7 @@ def dashboard():
         profile_image=session.get('profile_image', ''),
         org_name=session.get('org_name', 'Organisation'),
         org_slug=session.get('org_slug', ''),
+        refresh_token=session.get('refresh_token', ''),
     )
 
 
@@ -478,8 +494,10 @@ def analytics():
     org_slug = session.get('org_slug', '')
     if not org_slug:
         return jsonify({'error': 'No organisation associated with this account'}), 400
+    date_from = request.args.get('date_from', '').strip() or None
+    date_to = request.args.get('date_to', '').strip() or None
     try:
-        data = get_org_analytics(org_slug)
+        data = get_org_analytics(org_slug, date_from=date_from, date_to=date_to)
         data['org_name'] = session.get('org_name', '')
         return jsonify(data)
     except Exception as e:
@@ -495,8 +513,10 @@ def sentiment():
     org_slug = session.get('org_slug', '')
     if not org_slug:
         return jsonify({'error': 'No organisation associated with this account'}), 400
+    date_from = request.args.get('date_from', '').strip() or None
+    date_to = request.args.get('date_to', '').strip() or None
     try:
-        data = get_org_sentiment_data(org_slug)
+        data = get_org_sentiment_data(org_slug, date_from=date_from, date_to=date_to)
         return jsonify(data or {})
     except Exception as e:
         return jsonify({'error': str(e)}), 500

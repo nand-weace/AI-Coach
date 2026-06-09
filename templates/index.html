@@ -48,12 +48,53 @@
                 <span class="subtitle-foot-inline">AI Coach, 100% Privacy</span>
             </div>
             <div class="header-right" style="flex: 1; display: flex; justify-content: flex-end; align-items: center; gap: 10px;">
-                <a id="dashboard-link" href="/dashboard" class="logout-btn" style="display:none; text-decoration:none;">Dashboard</a>
-                <a id="admin-link" href="/admin" class="logout-btn" style="display:none; text-decoration:none;">Admin</a>
-                <div class="user-chip" id="user-chip">
-                    <div class="user-chip-avatar" id="header-avatar"></div>
-                    <span id="user-display" class="user-display"></span>
-                    <button id="logout-button" class="logout-btn">Logout</button>
+                <div class="user-chip-wrap" id="user-chip-wrap">
+                    <div class="user-chip" id="user-chip">
+                        <div class="user-chip-avatar" id="header-avatar"></div>
+                        <span id="user-display" class="user-display"></span>
+                        <svg class="chip-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="6 9 12 15 18 9"/>
+                        </svg>
+                    </div>
+                    <div class="chip-dropdown" id="chip-dropdown">
+                        <a id="dashboard-link" href="/dashboard" class="chip-dropdown-item" style="display:none;">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+                                <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+                            </svg>
+                            Sentiment Analysis
+                        </a>
+                        <a id="admin-link" href="/admin" class="chip-dropdown-item" style="display:none;">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/>
+                            </svg>
+                            Admin
+                        </a>
+                        <button class="chip-dropdown-item" id="btn-weace-coaching">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                                <polyline points="15 3 21 3 21 9"/>
+                                <line x1="10" y1="14" x2="21" y2="3"/>
+                            </svg>
+                            Weace Coaching
+                        </button>
+                        <div class="chip-dropdown-divider" id="chip-nav-divider" style="display:none;"></div>
+                        <button class="chip-dropdown-item" id="btn-edit-profile">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                                <circle cx="12" cy="7" r="4"/>
+                            </svg>
+                            Edit Profile
+                        </button>
+                        <button class="chip-dropdown-item danger" id="logout-button">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                                <polyline points="16 17 21 12 16 7"/>
+                                <line x1="21" y1="12" x2="9" y2="12"/>
+                            </svg>
+                            Logout
+                        </button>
+                    </div>
                 </div>
                 <span class="dot pulse"></span>
             </div>
