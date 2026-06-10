@@ -151,9 +151,14 @@ def init_db():
                     last_name VARCHAR(255) DEFAULT NULL,
                     email VARCHAR(255) DEFAULT NULL,
                     org_id VARCHAR(255) DEFAULT NULL,
+                    org_name VARCHAR(255) DEFAULT NULL,
                     cohort_id VARCHAR(255) DEFAULT NULL,
                     cohort_name VARCHAR(255) DEFAULT NULL,
                     country VARCHAR(100) DEFAULT NULL,
+                    level_name VARCHAR(255) DEFAULT NULL,
+                    gender VARCHAR(50) DEFAULT NULL,
+                    functional_areas TEXT DEFAULT NULL,
+                    industry_types TEXT DEFAULT NULL,
                     first_login DATETIME DEFAULT CURRENT_TIMESTAMP,
                     last_login DATETIME DEFAULT CURRENT_TIMESTAMP,
                     access_last_date DATETIME DEFAULT NULL,
@@ -161,15 +166,20 @@ def init_db():
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """)
             for col, definition in [
-                ('first_login',   'DATETIME DEFAULT CURRENT_TIMESTAMP AFTER nexa_access'),
+                ('first_login',      'DATETIME DEFAULT CURRENT_TIMESTAMP AFTER nexa_access'),
                 ('access_last_date', 'DATETIME DEFAULT NULL AFTER last_login'),
-                ('first_name',    'VARCHAR(255) DEFAULT NULL AFTER nexa_access'),
-                ('last_name',     'VARCHAR(255) DEFAULT NULL AFTER first_name'),
-                ('email',         'VARCHAR(255) DEFAULT NULL AFTER last_name'),
-                ('org_id',        'VARCHAR(255) DEFAULT NULL AFTER email'),
-                ('cohort_id',     'VARCHAR(255) DEFAULT NULL AFTER org_id'),
-                ('cohort_name',   'VARCHAR(255) DEFAULT NULL AFTER cohort_id'),
-                ('country',       'VARCHAR(100) DEFAULT NULL AFTER cohort_name'),
+                ('first_name',       'VARCHAR(255) DEFAULT NULL AFTER nexa_access'),
+                ('last_name',        'VARCHAR(255) DEFAULT NULL AFTER first_name'),
+                ('email',            'VARCHAR(255) DEFAULT NULL AFTER last_name'),
+                ('org_id',           'VARCHAR(255) DEFAULT NULL AFTER email'),
+                ('org_name',         'VARCHAR(255) DEFAULT NULL AFTER org_id'),
+                ('cohort_id',        'VARCHAR(255) DEFAULT NULL AFTER org_name'),
+                ('cohort_name',      'VARCHAR(255) DEFAULT NULL AFTER cohort_id'),
+                ('country',          'VARCHAR(100) DEFAULT NULL AFTER cohort_name'),
+                ('level_name',        'VARCHAR(255) DEFAULT NULL AFTER country'),
+                ('gender',            'VARCHAR(50) DEFAULT NULL AFTER level_name'),
+                ('functional_areas',  'TEXT DEFAULT NULL AFTER gender'),
+                ('industry_types',    'TEXT DEFAULT NULL AFTER functional_areas'),
             ]:
                 _execute(cur,
                     "SELECT COUNT(*) AS cnt FROM information_schema.COLUMNS "
@@ -309,7 +319,7 @@ def get_session_highlights(user_id: str, max_sessions: int = 5) -> list:
         conn.close()
 
 
-def get_org_analytics(org_slug: str, date_from=None, date_to=None) -> dict:
+def get_org_analytics(org_slug: str, date_from=None, date_to=None, gender=None, level_name=None, cohort_name=None) -> dict:
     """Returns overview stats and per-user activity for the given organisation."""
     conn = get_connection()
     try:
@@ -322,6 +332,16 @@ def get_org_analytics(org_slug: str, date_from=None, date_to=None) -> dict:
             if date_to:
                 date_clause += " AND DATE(s.started_at) <= %s"
                 params.append(date_to)
+            attr_clause = ""
+            if gender:
+                attr_clause += " AND us.gender = %s"
+                params.append(gender)
+            if level_name:
+                attr_clause += " AND us.level_name = %s"
+                params.append(level_name)
+            if cohort_name:
+                attr_clause += " AND us.cohort_name = %s"
+                params.append(cohort_name)
 
             query = f"""
                 SELECT
@@ -337,7 +357,7 @@ def get_org_analytics(org_slug: str, date_from=None, date_to=None) -> dict:
                 FROM ai_coach_sessions s
                 LEFT JOIN ai_coach_messages m ON s.session_id = m.session_id
                 LEFT JOIN user_settings us ON s.user_id = us.user_id
-                WHERE s.org_slug = %s{date_clause}
+                WHERE s.org_slug = %s{date_clause}{attr_clause}
                 GROUP BY s.user_id
                 ORDER BY last_active DESC
             """
@@ -516,39 +536,52 @@ def get_org_sentiment_history(org_slug: str, limit: int = 12) -> list:
 
 
 def upsert_user_login(user_id: str, first_name: str = None, last_name: str = None,
-                      email: str = None, org_id: str = None, cohort_id: str = None,
-                      cohort_name: str = None, country: str = None) -> dict:
+                      email: str = None, org_id: str = None, org_name: str = None,
+                      cohort_id: str = None, cohort_name: str = None, country: str = None,
+                      level_name: str = None, gender: str = None,
+                      functional_areas: list = None, industry_types: list = None) -> dict:
     """Create or refresh a user_settings row; enables nexa_access. Returns nexa_access and access_last_date."""
     conn = get_connection()
     try:
         with conn.cursor() as cur:
-            _fn = first_name or None
-            _ln = last_name  or None
-            _em = email      or None
-            _oi = org_id     or None
-            _ci = cohort_id  or None
+            _fn = first_name  or None
+            _ln = last_name   or None
+            _em = email       or None
+            _oi = org_id      or None
+            _on = org_name    or None
+            _ci = cohort_id   or None
             _cn = cohort_name or None
-            _co = country    or None
+            _co = country     or None
+            _lv = level_name  or None
+            _gd = gender      or None
+            _fa = json.dumps(functional_areas) if functional_areas else None
+            _it = json.dumps(industry_types)   if industry_types   else None
             _execute(cur,
                 """
                 INSERT INTO user_settings
                     (user_id, nexa_access, first_name, last_name, email,
-                     org_id, cohort_id, cohort_name, country,
+                     org_id, org_name, cohort_id, cohort_name, country, level_name, gender,
+                     functional_areas, industry_types,
                      first_login, last_login, access_last_date)
-                VALUES (%s, 1, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW(), DATE_ADD(NOW(), INTERVAL 7 DAY))
+                VALUES (%s, 1, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW(), DATE_ADD(NOW(), INTERVAL 7 DAY))
                 ON DUPLICATE KEY UPDATE
-                    last_login  = NOW(),
-                    nexa_access = 1,
-                    first_name  = COALESCE(%s, first_name),
-                    last_name   = COALESCE(%s, last_name),
-                    email       = COALESCE(%s, email),
-                    org_id      = COALESCE(%s, org_id),
-                    cohort_id   = COALESCE(%s, cohort_id),
-                    cohort_name = COALESCE(%s, cohort_name),
-                    country     = COALESCE(%s, country)
+                    last_login        = NOW(),
+                    nexa_access       = 1,
+                    first_name        = COALESCE(%s, first_name),
+                    last_name         = COALESCE(%s, last_name),
+                    email             = COALESCE(%s, email),
+                    org_id            = COALESCE(%s, org_id),
+                    org_name          = COALESCE(%s, org_name),
+                    cohort_id         = COALESCE(%s, cohort_id),
+                    cohort_name       = COALESCE(%s, cohort_name),
+                    country           = COALESCE(%s, country),
+                    level_name        = COALESCE(%s, level_name),
+                    gender            = COALESCE(%s, gender),
+                    functional_areas  = COALESCE(%s, functional_areas),
+                    industry_types    = COALESCE(%s, industry_types)
                 """,
-                (user_id, _fn, _ln, _em, _oi, _ci, _cn, _co,
-                 _fn, _ln, _em, _oi, _ci, _cn, _co),
+                (user_id, _fn, _ln, _em, _oi, _on, _ci, _cn, _co, _lv, _gd, _fa, _it,
+                 _fn, _ln, _em, _oi, _on, _ci, _cn, _co, _lv, _gd, _fa, _it),
             )
             conn.commit()
             _execute(cur,
@@ -559,6 +592,34 @@ def upsert_user_login(user_id: str, first_name: str = None, last_name: str = Non
             'nexa_access': bool(row['nexa_access']) if row else True,
             'access_last_date': str(row['access_last_date']) if row and row['access_last_date'] else None,
         }
+    finally:
+        conn.close()
+
+
+def get_user_profile_context(user_id: str) -> dict:
+    """Returns stored profile context fields used to personalise AI prompts."""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur,
+                "SELECT level_name, gender, country, cohort_name, functional_areas, industry_types "
+                "FROM user_settings WHERE user_id = %s",
+                (user_id,),
+            )
+            row = cur.fetchone()
+        if not row:
+            return {}
+        result = dict(row)
+        for key in ('functional_areas', 'industry_types'):
+            val = result.get(key)
+            if isinstance(val, str):
+                try:
+                    result[key] = json.loads(val)
+                except (json.JSONDecodeError, ValueError):
+                    result[key] = []
+            elif not val:
+                result[key] = []
+        return result
     finally:
         conn.close()
 
@@ -758,7 +819,42 @@ def insert_user_sentiment_scores(user_id: str, scores: dict, run_ts: str):
         conn.close()
 
 
-def get_org_sentiment_data(org_slug: str, trend_limit: int = 12, date_from=None, date_to=None) -> dict | None:
+def get_org_filter_options(org_slug: str) -> dict:
+    """Returns distinct gender and level_name values for users in the org."""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur,
+                """
+                SELECT DISTINCT us.gender
+                FROM user_settings us
+                JOIN ai_coach_sessions s ON us.user_id = s.user_id
+                WHERE s.org_slug = %s AND us.gender IS NOT NULL AND us.gender != ''
+                ORDER BY us.gender
+                """,
+                (org_slug,),
+            )
+            genders = [row['gender'] for row in cur.fetchall()]
+
+            _execute(cur,
+                """
+                SELECT DISTINCT us.level_name
+                FROM user_settings us
+                JOIN ai_coach_sessions s ON us.user_id = s.user_id
+                WHERE s.org_slug = %s AND us.level_name IS NOT NULL AND us.level_name != ''
+                ORDER BY us.level_name
+                """,
+                (org_slug,),
+            )
+            level_names = [row['level_name'] for row in cur.fetchall()]
+
+        return {'genders': genders, 'level_names': level_names}
+    finally:
+        conn.close()
+
+
+def get_org_sentiment_data(org_slug: str, trend_limit: int = 12, date_from=None, date_to=None,
+                           gender=None, level_name=None, cohort_name=None) -> dict | None:
     """
     Returns aggregated sentiment data for the org keyed by dimension name.
     Scores and bands are derived from latest per-user sentiment_score rows.
@@ -768,15 +864,34 @@ def get_org_sentiment_data(org_slug: str, trend_limit: int = 12, date_from=None,
     conn = get_connection()
     try:
         with conn.cursor() as cur:
+            # Build user filter subquery (with optional gender/level_name/cohort_name)
+            if gender or level_name or cohort_name:
+                user_subquery = ("SELECT DISTINCT s.user_id FROM ai_coach_sessions s "
+                                 "JOIN user_settings us ON s.user_id = us.user_id "
+                                 "WHERE s.org_slug = %s")
+                user_subquery_params: list = [org_slug]
+                if gender:
+                    user_subquery += " AND us.gender = %s"
+                    user_subquery_params.append(gender)
+                if level_name:
+                    user_subquery += " AND us.level_name = %s"
+                    user_subquery_params.append(level_name)
+                if cohort_name:
+                    user_subquery += " AND us.cohort_name = %s"
+                    user_subquery_params.append(cohort_name)
+            else:
+                user_subquery = "SELECT DISTINCT user_id FROM ai_coach_sessions WHERE org_slug = %s"
+                user_subquery_params = [org_slug]
+
             # Build optional date filter for sentiment_score.calculated_at
             score_date_clause = ""
-            score_date_params_extra: list = []
+            score_date_params: list = []
             if date_from:
                 score_date_clause += " AND DATE(calculated_at) >= %s"
-                score_date_params_extra.append(date_from)
+                score_date_params.append(date_from)
             if date_to:
                 score_date_clause += " AND DATE(calculated_at) <= %s"
-                score_date_params_extra.append(date_to)
+                score_date_params.append(date_to)
 
             # Latest score per (user, dimension) within date range
             _execute(cur,
@@ -788,14 +903,14 @@ def get_org_sentiment_data(org_slug: str, trend_limit: int = 12, date_from=None,
                     SELECT user_id, sentiment_id, MAX(calculated_at) AS latest_at
                     FROM sentiment_score
                     WHERE user_id IN (
-                        SELECT DISTINCT user_id FROM ai_coach_sessions WHERE org_slug = %s
+                        {user_subquery}
                     ){score_date_clause}
                     GROUP BY user_id, sentiment_id
                 ) latest ON ss.user_id = latest.user_id
                          AND ss.sentiment_id = latest.sentiment_id
                          AND ss.calculated_at = latest.latest_at
                 """,
-                [org_slug] + score_date_params_extra,
+                user_subquery_params + score_date_params,
             )
             latest_rows = cur.fetchall()
 
@@ -804,13 +919,13 @@ def get_org_sentiment_data(org_slug: str, trend_limit: int = 12, date_from=None,
 
             # Trend grouped by date per dimension (filtered by date range)
             trend_date_clause = ""
-            trend_params = [org_slug]
+            trend_date_params: list = []
             if date_from:
                 trend_date_clause += " AND DATE(ss.calculated_at) >= %s"
-                trend_params.append(date_from)
+                trend_date_params.append(date_from)
             if date_to:
                 trend_date_clause += " AND DATE(ss.calculated_at) <= %s"
-                trend_params.append(date_to)
+                trend_date_params.append(date_to)
 
             _execute(cur,
                 f"""
@@ -820,12 +935,12 @@ def get_org_sentiment_data(org_slug: str, trend_limit: int = 12, date_from=None,
                 FROM sentiment_score ss
                 JOIN sentiment s ON ss.sentiment_id = s.id
                 WHERE ss.user_id IN (
-                    SELECT DISTINCT user_id FROM ai_coach_sessions WHERE org_slug = %s
+                    {user_subquery}
                 ){trend_date_clause}
                 GROUP BY DATE(ss.calculated_at), s.name
                 ORDER BY run_date ASC
                 """,
-                trend_params,
+                user_subquery_params + trend_date_params,
             )
             trend_rows = cur.fetchall()
 

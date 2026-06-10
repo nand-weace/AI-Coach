@@ -15,17 +15,32 @@ document.addEventListener('DOMContentLoaded', async () => {
     function clearTokens() {
         localStorage.removeItem('we_ace_access_token');
         localStorage.removeItem('we_ace_refresh_token');
+        localStorage.removeItem('we_ace_user_id');
+    }
+    function extractAndStoreUserId(apiData) {
+        const uid = apiData?.profileDetails?._id;
+        if (uid) localStorage.setItem('we_ace_user_id', uid);
     }
 
     // ── Build Flask session — server verifies tokens and fetches profile ────
-    async function buildSession(accessToken, refreshToken) {
+    async function buildSession(accessToken, refreshToken, profileRoles) {
+        const userId = localStorage.getItem('we_ace_user_id') || '';
+        const payload = { accessToken, refreshToken };
+        if (userId) payload.userId = userId;
+        if (profileRoles && Array.isArray(profileRoles) && profileRoles.length > 0) {
+            payload.roles = profileRoles;
+        }
+        console.log('Building session with payload:', payload);
+        console.log('userId from localStorage:', userId);
         const res = await fetch('/session', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ accessToken, refreshToken }),
+            body: JSON.stringify(payload),
         });
         if (!res.ok) return null;
-        return await res.json();
+        const data = await res.json();
+        if (data.user_id) localStorage.setItem('we_ace_user_id', data.user_id);
+        return data;
     }
 
     // ── Auth Step 1a: ?refresh_token= in URL — exchange → store → profile → session
@@ -37,28 +52,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (_urlRefreshToken && !_extToken) {
         history.replaceState({}, '', '/'); // strip token from URL immediately
         try {
-            const _rrRes = await fetch('https://api.we-ace.com/api/v1/auth/refresh', {
+            const _rrRes = await fetch(`${window.WEACE_API_URL}/api/v1/auth/refresh`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ refreshToken: _urlRefreshToken }),
             });
             if (_rrRes.ok) {
                 const _rrData = await _rrRes.json();
-                const _newAccess = (
-                    _rrData.accessToken || _rrData.access_token ||
-                    _rrData.AccessToken ||
-                    (_rrData.data && (_rrData.data.accessToken || _rrData.data.access_token)) ||
-                    ''
-                ).trim();
-                const _newRefresh = (
-                    _rrData.refreshToken || _rrData.refresh_token ||
-                    _rrData.RefreshToken ||
-                    (_rrData.data && (_rrData.data.refreshToken || _rrData.data.refresh_token)) ||
-                    ''
-                ).trim();
+                const _newAccess = (_rrData.accessToken || _rrData.access_token || '').trim();
+                const _newRefresh = (_rrData.refreshToken || _rrData.refresh_token || _urlRefreshToken).trim();
                 if (_newAccess) {
+                    extractAndStoreUserId(_rrData);
                     storeTokens(_newAccess, _newRefresh);
-                    const _sd = await buildSession(_newAccess, _newRefresh);
+                    const _sd = await buildSession(_newAccess, _newRefresh, _rrData.profileDetails?.roles);
                     if (_sd) {
                         showApp(_sd.user_name, _sd.initials, _sd.profile_image, _sd.returning,
                                 _sd.role, _sd.nexa_access, _sd.access_last_date, _sd.recent_messages || []);
@@ -94,17 +100,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         const storedRefresh = localStorage.getItem('we_ace_refresh_token');
         if (storedRefresh) {
             try {
-                const refreshRes = await fetch('https://api.we-ace.com/api/v1/auth/refresh', {
+                const refreshRes = await fetch(`${window.WEACE_API_URL}/api/v1/auth/refresh`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ refreshToken: storedRefresh }),
                 });
                 if (refreshRes.ok) {
                     const refreshData = await refreshRes.json();
+                    extractAndStoreUserId(refreshData);
                     const newAccess = (refreshData.accessToken || refreshData.access_token || '').trim();
                     const newRefresh = (refreshData.refreshToken || refreshData.refresh_token || storedRefresh).trim();
                     if (newAccess) {
-                        const sd = await buildSession(newAccess, newRefresh);
+                        const sd = await buildSession(newAccess, newRefresh, refreshData.profileDetails?.roles);
                         if (sd) {
                             storeTokens(newAccess, newRefresh);
                             showApp(sd.user_name, sd.initials, sd.profile_image, sd.returning,
@@ -177,9 +184,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Step 1: authenticate directly against the we-ace auth API
         const AUTH_URL_MAP = {
-            'admin@wit.com': 'https://api.we-ace.com/api/v1/admin-auth/login',
+            'admin@wit.com': `${window.WEACE_API_URL}/api/v1/admin-auth/login`,
         };
-        const authUrl = AUTH_URL_MAP[email] || 'https://api.we-ace.com/api/v1/auth/login';
+        const authUrl = AUTH_URL_MAP[email] || `${window.WEACE_API_URL}/api/v1/auth/login`;
 
         let authData;
         try {
@@ -200,15 +207,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
+        // Store tokens and user ID from login response immediately
+        storeTokens(authData.accessToken, authData.refreshToken);
+        extractAndStoreUserId(authData);
+
         // Step 2: establish our backend session — server fetches and verifies the profile
         try {
-            const data = await buildSession(authData.accessToken, authData.refreshToken);
+            const data = await buildSession(authData.accessToken, authData.refreshToken, authData.profileDetails?.roles);
             if (!data) {
                 errorEl.textContent = 'Session error. Please try again.';
                 resetBtn();
                 return;
             }
-            storeTokens(authData.accessToken, authData.refreshToken);
             showApp(data.user_name, data.initials, data.profile_image, data.returning,
                     data.role, data.nexa_access, data.access_last_date, data.recent_messages || []);
         } catch (err) {

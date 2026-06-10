@@ -603,11 +603,17 @@
                 <input type="date" class="date-input" id="filter-date-from" title="From date">
                 <span class="date-range-sep">–</span>
                 <input type="date" class="date-input" id="filter-date-to" title="To date">
-                <button class="clear-dates-btn" id="clear-dates-btn">Clear</button>
             </div>
             <select class="table-filter" id="filter-cohort">
                 <option value="">All Cohorts</option>
             </select>
+            <select class="table-filter" id="filter-gender">
+                <option value="">All Genders</option>
+            </select>
+            <select class="table-filter" id="filter-level-name">
+                <option value="">All Levels</option>
+            </select>
+            <button class="clear-dates-btn" id="clear-dates-btn">Clear</button>
         </div>
     </div>
 
@@ -737,14 +743,33 @@
         } catch (_) {}
     }
 
+    async function loadFilters() {
+        try {
+            const res = await fetch('/api/filters');
+            if (!res.ok) return;
+            const data = await res.json();
+            const genderEl = document.getElementById('filter-gender');
+            (data.genders || []).forEach(g => {
+                const o = document.createElement('option');
+                o.value = g;
+                o.textContent = g;
+                genderEl.appendChild(o);
+            });
+            const levelEl = document.getElementById('filter-level-name');
+            (data.level_names || []).forEach(l => {
+                const o = document.createElement('option');
+                o.value = l;
+                o.textContent = l;
+                levelEl.appendChild(o);
+            });
+        } catch (_) {}
+    }
+
     function applyFilters() {
-        const q      = document.getElementById('search-input').value.toLowerCase();
-        const cohort = document.getElementById('filter-cohort').value;
-        const filtered = allUsers.filter(u => {
-            const matchSearch = !q      || (u.user_name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q);
-            const matchCohort = !cohort || u.cohort_name === cohort;
-            return matchSearch && matchCohort;
-        });
+        const q = document.getElementById('search-input').value.toLowerCase();
+        const filtered = allUsers.filter(u =>
+            !q || (u.user_name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q)
+        );
         renderTable(filtered);
     }
 
@@ -752,23 +777,33 @@
         return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
-    function getDateParams() {
-        const from = document.getElementById('filter-date-from').value;
-        const to   = document.getElementById('filter-date-to').value;
+    function getFilterParams() {
+        const from       = document.getElementById('filter-date-from').value;
+        const to         = document.getElementById('filter-date-to').value;
+        const gender     = document.getElementById('filter-gender').value;
+        const levelName  = document.getElementById('filter-level-name').value;
+        const cohortName = document.getElementById('filter-cohort').value;
         const params = new URLSearchParams();
-        if (from) params.set('date_from', from);
-        if (to)   params.set('date_to', to);
+        if (from)       params.set('date_from',    from);
+        if (to)         params.set('date_to',       to);
+        if (gender)     params.set('gender',        gender);
+        if (levelName)  params.set('level_name',    levelName);
+        if (cohortName) params.set('cohort_name',   cohortName);
         return params;
     }
 
     function updateClearBtn() {
-        const from = document.getElementById('filter-date-from').value;
-        const to   = document.getElementById('filter-date-to').value;
-        document.getElementById('clear-dates-btn').classList.toggle('visible', !!(from || to));
+        const from   = document.getElementById('filter-date-from').value;
+        const to     = document.getElementById('filter-date-to').value;
+        const cohort = document.getElementById('filter-cohort').value;
+        const gender = document.getElementById('filter-gender').value;
+        const level  = document.getElementById('filter-level-name').value;
+        const search = document.getElementById('search-input').value;
+        document.getElementById('clear-dates-btn').classList.toggle('visible', !!(from || to || cohort || gender || level || search));
     }
 
     async function loadAnalytics() {
-        const params = getDateParams();
+        const params = getFilterParams();
         const qs = params.toString() ? '?' + params.toString() : '';
         try {
             const res = await fetch('/api/analytics' + qs);
@@ -800,8 +835,10 @@
         }
     }
 
-    document.getElementById('search-input').addEventListener('input', applyFilters);
-    document.getElementById('filter-cohort').addEventListener('change', applyFilters);
+    document.getElementById('search-input').addEventListener('input', () => { updateClearBtn(); applyFilters(); });
+    document.getElementById('filter-cohort').addEventListener('change', () => { updateClearBtn(); reloadAll(); });
+    document.getElementById('filter-gender').addEventListener('change', () => { updateClearBtn(); reloadAll(); });
+    document.getElementById('filter-level-name').addEventListener('change', () => { updateClearBtn(); reloadAll(); });
 
     // ── User-chip dropdown ────────────────────────────────────────────────────
     const chipWrap    = document.getElementById('user-chip-wrap');
@@ -829,6 +866,7 @@
 
     loadAnalytics();
     loadCohorts();
+    loadFilters();
 
     // ── Sentiment Intelligence ────────────────────────────────────────────────
 
@@ -1413,7 +1451,7 @@
     }
 
     async function loadSentiment() {
-        const params = getDateParams();
+        const params = getFilterParams();
         const qs = params.toString() ? '?' + params.toString() : '';
         try {
             const res = await fetch('/api/sentiment' + qs);
@@ -1440,6 +1478,10 @@
     document.getElementById('clear-dates-btn').addEventListener('click', () => {
         document.getElementById('filter-date-from').value = '';
         document.getElementById('filter-date-to').value = '';
+        document.getElementById('filter-cohort').value = '';
+        document.getElementById('filter-gender').value = '';
+        document.getElementById('filter-level-name').value = '';
+        document.getElementById('search-input').value = '';
         updateClearBtn();
         reloadAll();
     });
