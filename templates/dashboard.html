@@ -541,6 +541,77 @@
         .combo-legend-line { width: 16px; height: 3px; border-radius: 99px; flex-shrink: 0; }
         .combo-legend-name { color: var(--text-main); }
         .combo-legend-score { font-weight: 600; font-variant-numeric: tabular-nums; }
+
+        /* ── Page transitions ── */
+        body { animation: pageIn 0.22s ease both; }
+        @keyframes pageIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* ── Not-enough-data screen ── */
+        #no-data-screen {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 80px 24px;
+            min-height: 60vh;
+        }
+        .no-data-icon {
+            width: 120px;
+            height: 120px;
+            margin: 0 auto 28px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, rgba(37,99,235,0.08), rgba(139,92,246,0.08));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px dashed rgba(100,116,139,0.2);
+        }
+        .no-data-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            color: var(--text-main);
+            margin-bottom: 12px;
+        }
+        .no-data-sub {
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            max-width: 420px;
+            line-height: 1.65;
+            margin-bottom: 32px;
+        }
+        .no-data-progress-wrap {
+            background: rgba(0,0,0,0.06);
+            border-radius: 999px;
+            height: 8px;
+            width: 260px;
+            overflow: hidden;
+            margin: 0 auto 10px;
+        }
+        .no-data-progress-fill {
+            height: 100%;
+            border-radius: 999px;
+            background: var(--accent-gradient);
+            transition: width 0.7s ease;
+        }
+        .no-data-progress-label {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            margin-bottom: 32px;
+        }
+        .no-data-tip {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(37,99,235,0.07);
+            border: 1px solid rgba(37,99,235,0.15);
+            border-radius: 12px;
+            padding: 12px 20px;
+            font-size: 0.85rem;
+            color: var(--primary-color);
+            font-weight: 500;
+        }
     </style>
 </head>
 <body>
@@ -617,6 +688,36 @@
         </div>
     </div>
 
+    <!-- Not-enough-data state -->
+    <div id="no-data-screen">
+        <div class="no-data-icon">
+            <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 21l-4.35-4.35"/>
+                <circle cx="11" cy="11" r="8"/>
+                <path d="M8.5 11h5M11 8.5v5" stroke-width="1.8" stroke="#c4b5fd"/>
+            </svg>
+        </div>
+        <div class="no-data-title">Not enough data… yet!</div>
+        <div class="no-data-sub">
+            Your Nexa insights dashboard is hungry. It needs at least
+            <strong>10 sessions</strong> and <strong>30 messages</strong> before it can serve up
+            anything meaningful — not just noise dressed up as data.
+            <br><br>
+            The more your team chats with Nexa, the sharper the insights.
+        </div>
+        <div class="no-data-progress-wrap">
+            <div class="no-data-progress-fill" id="no-data-progress-fill" style="width:0%"></div>
+        </div>
+        <div class="no-data-progress-label" id="no-data-progress-label">Gathering data…</div>
+        <div class="no-data-tip">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+            Encourage your team to engage with Nexa regularly for useful, actionable insights
+        </div>
+    </div>
+
+    <div id="main-dashboard-content">
     <div class="stats-grid">
         <div class="stat-card">
             <div class="stat-label">Total Users</div>
@@ -672,6 +773,7 @@
             </tbody>
         </table>
     </div>
+    </div><!-- /#main-dashboard-content -->
 </div>
 
 <!-- Sentiment trend modal -->
@@ -693,6 +795,9 @@
 </div>
 
 <script>
+    const MIN_SESSIONS  = 10;
+    const MIN_MESSAGES  = 30;
+
     let allUsers = [];
     let defaultsApplied = false;
     const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -816,6 +921,26 @@
             document.getElementById('stat-messages').textContent = data.total_messages;
             document.querySelectorAll('.stat-value').forEach(el => el.classList.remove('loading'));
 
+            const sessions = data.total_sessions || 0;
+            const messages = data.total_messages || 0;
+            const hasEnoughData = sessions >= MIN_SESSIONS && messages >= MIN_MESSAGES;
+            const noDataScreen = document.getElementById('no-data-screen');
+            const mainContent  = document.getElementById('main-dashboard-content');
+            if (hasEnoughData) {
+                noDataScreen.style.display = 'none';
+                mainContent.style.display  = 'block';
+            } else {
+                noDataScreen.style.display = 'flex';
+                mainContent.style.display  = 'none';
+                // Update progress bar to whichever threshold is further away
+                const sessionPct = Math.min(100, Math.round((sessions / MIN_SESSIONS) * 100));
+                const messagePct = Math.min(100, Math.round((messages / MIN_MESSAGES) * 100));
+                const pct = Math.min(sessionPct, messagePct);
+                document.getElementById('no-data-progress-fill').style.width = pct + '%';
+                document.getElementById('no-data-progress-label').textContent =
+                    `${sessions} session${sessions !== 1 ? 's' : ''} · ${messages} message${messages !== 1 ? 's' : ''} so far — need ${MIN_SESSIONS} sessions & ${MIN_MESSAGES} messages`;
+            }
+
             if (data.org_name) document.getElementById('org-badge').textContent = data.org_name;
 
             // Set default date range on first load: first session → today
@@ -862,6 +987,16 @@
     document.getElementById('logout-button').addEventListener('click', async () => {
         await fetch('/logout', { method: 'POST' });
         window.location.href = '/';
+    });
+
+    // Smooth exit navigation — fade out then follow the link
+    function smoothNavTo(url) {
+        document.body.style.transition = 'opacity 0.18s ease';
+        document.body.style.opacity = '0';
+        setTimeout(() => { window.location.href = url; }, 190);
+    }
+    document.querySelectorAll('a[href="/"]').forEach(link => {
+        link.addEventListener('click', e => { e.preventDefault(); smoothNavTo('/'); });
     });
 
     loadAnalytics();

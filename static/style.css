@@ -226,9 +226,10 @@ body {
 #chat-form {
     display: flex;
     gap: 12px;
+    align-items: flex-end;
     background: rgba(248, 250, 252, 0.9);
     border: 1px solid var(--glass-border);
-    border-radius: 999px;
+    border-radius: 24px;
     padding: 8px 8px 8px 24px;
     transition: border-color 0.3s, box-shadow 0.3s;
 }
@@ -245,8 +246,14 @@ body {
     color: var(--text-main);
     font-family: inherit;
     font-size: 1rem;
+    line-height: 1.5;
     outline: none;
-    background: transparent;
+    resize: none;
+    overflow-y: hidden;
+    min-height: 24px;
+    max-height: 160px;
+    padding: 8px 0;
+    display: block;
 }
 
 #user-input::placeholder {

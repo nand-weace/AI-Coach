@@ -16,6 +16,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         localStorage.removeItem('we_ace_access_token');
         localStorage.removeItem('we_ace_refresh_token');
         localStorage.removeItem('we_ace_user_id');
+        localStorage.removeItem('we_ace_profile_roles');
+    }
+    function storeProfileRoles(roles) {
+        if (roles && Array.isArray(roles) && roles.length > 0)
+            localStorage.setItem('we_ace_profile_roles', JSON.stringify(roles));
+    }
+    function getStoredRoles() {
+        try { return JSON.parse(localStorage.getItem('we_ace_profile_roles') || 'null'); } catch { return null; }
     }
     function extractAndStoreUserId(apiData) {
         const uid = apiData?.profileDetails?._id;
@@ -64,7 +72,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (_newAccess) {
                     extractAndStoreUserId(_rrData);
                     storeTokens(_newAccess, _newRefresh);
-                    const _sd = await buildSession(_newAccess, _newRefresh, _rrData.profileDetails?.roles);
+                    const _roles = _rrData.profileDetails?.roles || getStoredRoles();
+                    const _sd = await buildSession(_newAccess, _newRefresh, _roles);
                     if (_sd) {
                         showApp(_sd.user_name, _sd.initials, _sd.profile_image, _sd.returning,
                                 _sd.role, _sd.nexa_access, _sd.access_last_date, _sd.recent_messages || []);
@@ -85,7 +94,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         history.replaceState({}, '', '/'); // strip tokens from URL immediately
         const _extRefresh = _qp.get('refresh_token') || '';
         try {
-            const _sd = await buildSession(_extToken, _extRefresh);
+            const _sd = await buildSession(_extToken, _extRefresh, getStoredRoles());
             if (_sd) {
                 storeTokens(_extToken, _extRefresh);
                 showApp(_sd.user_name, _sd.initials, _sd.profile_image, _sd.returning,
@@ -111,7 +120,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const newAccess = (refreshData.accessToken || refreshData.access_token || '').trim();
                     const newRefresh = (refreshData.refreshToken || refreshData.refresh_token || storedRefresh).trim();
                     if (newAccess) {
-                        const sd = await buildSession(newAccess, newRefresh, refreshData.profileDetails?.roles);
+                        const roles = refreshData.profileDetails?.roles || getStoredRoles();
+                        const sd = await buildSession(newAccess, newRefresh, roles);
                         if (sd) {
                             storeTokens(newAccess, newRefresh);
                             showApp(sd.user_name, sd.initials, sd.profile_image, sd.returning,
@@ -139,7 +149,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const storedRefresh = localStorage.getItem('we_ace_refresh_token');
         if (storedAccess) {
             try {
-                const sd = await buildSession(storedAccess, storedRefresh || '');
+                const sd = await buildSession(storedAccess, storedRefresh || '', getStoredRoles());
                 if (sd) {
                     showApp(sd.user_name, sd.initials, sd.profile_image, sd.returning,
                             sd.role, sd.nexa_access, sd.access_last_date, sd.recent_messages || []);
@@ -210,6 +220,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Store tokens and user ID from login response immediately
         storeTokens(authData.accessToken, authData.refreshToken);
         extractAndStoreUserId(authData);
+        storeProfileRoles(authData.profileDetails?.roles);
 
         // Step 2: establish our backend session — server fetches and verifies the profile
         try {
@@ -261,6 +272,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         location.reload();
     });
 
+    // Auto-resize textarea
+    userInput.addEventListener('input', () => {
+        userInput.style.height = 'auto';
+        userInput.style.height = userInput.scrollHeight + 'px';
+        userInput.style.overflowY = userInput.scrollHeight > 160 ? 'auto' : 'hidden';
+    });
+
+    // Enter submits; Shift+Enter inserts newline
+    userInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            chatForm.dispatchEvent(new Event('submit', { cancelable: true }));
+        }
+    });
+
     // Chat
     chatForm.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -269,6 +295,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         addMessage(message, 'user');
         userInput.value = '';
+        userInput.style.height = 'auto';
+        userInput.style.overflowY = 'hidden';
 
         const typingId = showTypingIndicator();
 
@@ -296,7 +324,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function showApp(userName, initials, profileImage, returning, role, nexaAccess, accessLastDate, recentMessages) {
         document.getElementById('login-overlay').style.display = 'none';
-        document.getElementById('app-container').style.display = 'flex';
+        const appEl = document.getElementById('app-container');
+        appEl.style.opacity = '0';
+        appEl.style.display = 'flex';
+        appEl.offsetHeight; // force reflow
+        appEl.style.transition = 'opacity 0.22s ease';
+        appEl.style.opacity = '1';
         document.getElementById('user-display').textContent = userName;
         window._userInitials = initials;
         window._profileImage = profileImage || '';
