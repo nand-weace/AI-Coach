@@ -7,6 +7,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         marked.setOptions({ breaks: true, gfm: true });
     }
 
+    // role can be an array of role objects [{slug: '...'}] or a legacy string
+    function hasRole(roleVal, ...slugs) {
+        if (Array.isArray(roleVal))
+            return roleVal.some(r => r && typeof r === 'object' && slugs.includes(r.slug));
+        return slugs.includes(roleVal);
+    }
+
     // ── Token persistence helpers ────────────────────────────────────────────
     function storeTokens(accessToken, refreshToken) {
         if (accessToken) localStorage.setItem('we_ace_access_token', accessToken);
@@ -17,8 +24,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         localStorage.removeItem('we_ace_refresh_token');
         localStorage.removeItem('we_ace_user_id');
         localStorage.removeItem('we_ace_user_name');
+        localStorage.removeItem('we_ace_session_uuid');
+        localStorage.removeItem('we_ace_profile_context');
         localStorage.removeItem('we_ace_profile_roles');
         localStorage.removeItem('we_ace_session_token');
+        localStorage.removeItem('we_ace_org_id');
+        localStorage.removeItem('we_ace_org_name');
+        localStorage.removeItem('we_ace_cohort_id');
     }
     function storeProfileRoles(roles) {
         if (roles && Array.isArray(roles) && roles.length > 0)
@@ -47,11 +59,17 @@ document.addEventListener('DOMContentLoaded', async () => {
                 'Authorization': `Bearer ${accessToken}`,
             },
             body: JSON.stringify(payload),
+            credentials: 'omit',
         });
         if (!res.ok) return null;
         const data = await res.json();
         if (data.user_id) localStorage.setItem('we_ace_user_id', data.user_id);
         if (data.user_name) localStorage.setItem('we_ace_user_name', data.user_name);
+        if (data.session_uuid) localStorage.setItem('we_ace_session_uuid', data.session_uuid);
+        if (data.profile_context) localStorage.setItem('we_ace_profile_context', JSON.stringify(data.profile_context));
+        if (data.org_id) localStorage.setItem('we_ace_org_id', data.org_id);
+        if (data.org_name) localStorage.setItem('we_ace_org_name', data.org_name);
+        if (data.cohort_id) localStorage.setItem('we_ace_cohort_id', data.cohort_id);
         return data;
     }
 
@@ -312,6 +330,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const accessToken = localStorage.getItem('we_ace_access_token') || '';
             const res = await fetch('/chat', {
                 method: 'POST',
+                credentials: 'omit',
                 headers: {
                     'Content-Type': 'application/json',
                     ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
@@ -320,6 +339,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                     message,
                     user_id: localStorage.getItem('we_ace_user_id') || '',
                     user_name: localStorage.getItem('we_ace_user_name') || '',
+                    session_uuid: localStorage.getItem('we_ace_session_uuid') || '',
+                    profile_context: JSON.parse(localStorage.getItem('we_ace_profile_context') || 'null'),
                 }),
             });
             const data = await res.json();
@@ -365,17 +386,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const dashboardLink = document.getElementById('dashboard-link');
         if (dashboardLink) {
-            dashboardLink.style.display = role === 'corporate_super_admin' ? 'flex' : 'none';
+            dashboardLink.style.display = hasRole(role, 'corporate_super_admin') ? 'flex' : 'none';
         }
 
         const adminLink = document.getElementById('admin-link');
         if (adminLink) {
-            adminLink.style.display = role === 'weace_super_admin' ? 'flex' : 'none';
+            adminLink.style.display = hasRole(role, 'weace_super_admin') ? 'flex' : 'none';
         }
 
         const navDivider = document.getElementById('chip-nav-divider');
         if (navDivider) {
-            const hasNavItem = role === 'corporate_super_admin' || role === 'weace_super_admin';
+            const hasNavItem = hasRole(role, 'corporate_super_admin', 'weace_super_admin');
             navDivider.style.display = hasNavItem ? 'block' : 'none';
         }
 

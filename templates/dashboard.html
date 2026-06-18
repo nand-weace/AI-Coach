@@ -840,7 +840,7 @@
 
     async function loadCohorts() {
         try {
-            const res = await fetch('/api/cohorts', { headers: getAuthHeaders() });
+            const res = await fetch('/api/cohorts', { headers: getAuthHeaders(), credentials: 'omit' });
             if (!res.ok) return;
             const data = await res.json();
             const cohortEl = document.getElementById('filter-cohort');
@@ -855,7 +855,7 @@
 
     async function loadFilters() {
         try {
-            const res = await fetch('/api/filters', { headers: getAuthHeaders() });
+            const res = await fetch('/api/filters', { headers: getAuthHeaders(), credentials: 'omit' });
             if (!res.ok) return;
             const data = await res.json();
             const genderEl = document.getElementById('filter-gender');
@@ -893,6 +893,7 @@
         const gender     = document.getElementById('filter-gender').value;
         const levelName  = document.getElementById('filter-level-name').value;
         const cohortName = document.getElementById('filter-cohort').value;
+        const orgId      = localStorage.getItem('we_ace_org_id') || '';
         const params = new URLSearchParams();
         if (from)       params.set('date_from',    from);
         if (to)         params.set('date_to',       to);
@@ -916,7 +917,7 @@
         const params = getFilterParams();
         const qs = params.toString() ? '?' + params.toString() : '';
         try {
-            const res = await fetch('/api/analytics' + qs, { headers: getAuthHeaders() });
+            const res = await fetch('/api/analytics' + qs, { headers: getAuthHeaders(), credentials: 'omit' });
             if (res.status === 401) { window.location.href = '/'; return; }
             if (res.status === 403) { window.location.href = '/'; return; }
             const data = await res.json();
@@ -1594,7 +1595,7 @@
         const params = getFilterParams();
         const qs = params.toString() ? '?' + params.toString() : '';
         try {
-            const res = await fetch('/api/sentiment' + qs, { headers: getAuthHeaders() });
+            const res = await fetch('/api/sentiment' + qs, { headers: getAuthHeaders(), credentials: 'omit' });
             if (!res.ok) return;
             const data = await res.json();
             renderSentiment(data);
@@ -1633,7 +1634,7 @@
         document.getElementById('sentiment-grid').innerHTML =
             '<div class="sentiment-no-data"><div class="skeleton" style="width:220px; margin:0 auto;"></div></div>';
         try {
-            const res = await fetch('/api/sentiment/refresh', { method: 'POST', headers: getAuthHeaders() });
+            const res = await fetch('/api/sentiment/refresh', { method: 'POST', headers: getAuthHeaders(), credentials: 'omit' });
             const payload = await res.json();
             if (payload.ok && payload.data) {
                 renderSentiment(payload.data);

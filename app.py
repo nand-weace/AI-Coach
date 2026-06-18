@@ -76,6 +76,13 @@ def _get_bearer_token() -> str | None:
     return None
 
 
+def _has_role(role_val, *slugs) -> bool:
+    """Check whether role_val (array of role objects or legacy string) contains any of the given slugs."""
+    if isinstance(role_val, list):
+        return any(r.get('slug', '') in slugs for r in role_val if isinstance(r, dict))
+    return role_val in slugs
+
+
 def require_weace_token(f):
     """
     Decorator that reads the Bearer token from the Authorization header,
@@ -92,7 +99,7 @@ def require_weace_token(f):
             return jsonify({'error': 'Authorization: Bearer token required'}), 401
         try:
             resp = http_requests.get(
-                f'{WEACE_API_URL}/api/v1/auth/verify-token',
+                f'{WEACE_API_URL}/api/v1/users/profile',
                 headers={'accept': '*/*', 'Authorization': f'Bearer {token}'},
                 timeout=10,
             )
@@ -107,7 +114,18 @@ def require_weace_token(f):
             g.token_data = resp.json()
         except Exception:
             g.token_data = {}
-        g.user = auth_tokens.get(token)
+        user_data = g.token_data.get('data') or {}
+        raw_roles = user_data.get('roles') or []
+        roles_arr = raw_roles if isinstance(raw_roles, list) else [raw_roles]
+        g.user = {
+            'user_id': user_data.get('_id'),
+            'user_name': user_data.get('username'),
+            'email': user_data.get('email'),
+            'role': roles_arr,
+            'first_name': user_data.get('firstName'),
+            'last_name': user_data.get('lastName'),
+            'org_id': user_data.get('parentId'),
+        }
         return f(*args, **kwargs)
     return decorated
 
@@ -243,7 +261,7 @@ def create_session():
     data = request.json or {}
     access_token = g.access_token          # set by @require_weace_token
     refresh_token = (data.get('refreshToken') or '').strip()
-    client_user_id = (data.get('userId') or '').strip()
+    client_user_id = g.user.get('user_id')
 
     logger.info("[create_session] request from ip=%s has_refresh_token=%s client_user_id=%s",
                 ip, bool(refresh_token), client_user_id or 'none')
@@ -286,20 +304,14 @@ def create_session():
 
     raw_roles = profile.get('roles') or []
     roles_arr = raw_roles if isinstance(raw_roles, list) else [raw_roles]
-    role_slugs = [r.get('slug', '') for r in roles_arr if isinstance(r, dict)]
 
     # Fallback: use roles forwarded from the frontend auth response
-    if not role_slugs:
+    if not roles_arr:
         client_roles = data.get('roles') or []
         if isinstance(client_roles, list):
-            role_slugs = [r.get('slug', '') for r in client_roles if isinstance(r, dict)]
+            roles_arr = [r for r in client_roles if isinstance(r, dict)]
 
-    if 'weace_super_admin' in role_slugs:
-        role = 'weace_super_admin'
-    elif 'corporate_super_admin' in role_slugs:
-        role = 'corporate_super_admin'
-    else:
-        role = 'user'
+    role = roles_arr
 
     user_id = client_user_id
     first = (profile.get('firstName') or '').strip()
@@ -370,7 +382,7 @@ def create_session():
         session['profile_context'] = profile_context
 
         # Super admins always have Nexa access; regular users are controlled by the flag
-        if role in ('weace_super_admin', 'corporate_super_admin'):
+        if _has_role(role, 'weace_super_admin', 'corporate_super_admin'):
             nexa_access = True
             access_last_date = None
             upsert_user_login(
@@ -405,7 +417,7 @@ def create_session():
             'session_uuid': session_uuid,
             'role': role,
             'org_name': org_name,
-            'org_slug': org_slug,
+            'org_id': org_slug,
             'cohort_id': cohort_id,
             'profile_context': profile_context,
             'nexa_access': nexa_access,
@@ -423,6 +435,7 @@ def create_session():
         return jsonify({
             'user_id': user_id,
             'user_name': user_name,
+            'session_uuid': session_uuid,
             'returning': returning,
             'initials': initials,
             'profile_image': profile_image,
@@ -430,6 +443,10 @@ def create_session():
             'nexa_access': nexa_access,
             'access_last_date': access_last_date,
             'recent_messages': recent_messages,
+            'profile_context': profile_context,
+            'org_name': org_name,
+            'org_id': org_slug,
+            'cohort_id': cohort_id,
         })
     except Exception as e:
         logger.exception("[create_session] unexpected error for user_id=%s: %s", user_id, e)
@@ -466,8 +483,8 @@ def new_session():
         prompt = _build_personalized_prompt(user_name, highlights, profile_context)
         sessions_cache[session_uuid] = [{"role": "system", "content": prompt}]
 
-        role = g.user.get('role', 'user')
-        if role in ('weace_super_admin', 'corporate_super_admin'):
+        role = g.user.get('role', [])
+        if _has_role(role, 'weace_super_admin', 'corporate_super_admin'):
             nexa_access = True
             access_last_date = None
         else:
@@ -548,10 +565,6 @@ def logout():
 def chat():
     if not g.user:
         return jsonify({'error': 'Session not initialised — call /session first'}), 401
-    if not g.user.get('nexa_access', False):
-        return jsonify({'error': 'nexa_access_denied'}), 403
-    if not client:
-        return jsonify({'error': 'AI Coach is not initialised. Check your API key.'}), 500
 
     data = request.json or {}
     user_message = (data.get('message') or '').strip()
@@ -560,10 +573,11 @@ def chat():
 
     user_id = g.user['user_id']
     user_name = g.user['user_name']
-    session_uuid = g.user['session_uuid']
-
+    session_uuid = data.get('session_uuid')
+    profile_context = data.get('profile_context')
+    
     conversation_history = _get_or_rebuild_history(
-        session_uuid, user_id, user_name, g.user.get('profile_context')
+        session_uuid, user_id, user_name, profile_context
     )
 
     try:
@@ -605,7 +619,7 @@ def chat():
 def dashboard():
     if 'user_id' not in session:
         return redirect('/')
-    if session.get('role') != 'corporate_super_admin':
+    if not _has_role(session.get('role'), 'corporate_super_admin'):
         return redirect('/')
     name = session['user_name']
     initials = ''.join(w[0].upper() for w in name.split()[:2])
@@ -624,9 +638,7 @@ def dashboard():
 def cohorts():
     if not g.user:
         return jsonify({'error': 'Session not initialised — call /session first'}), 401
-    if g.user.get('role') != 'corporate_super_admin':
-        return jsonify({'error': 'Forbidden'}), 403
-    org_slug = g.user.get('org_slug', '')
+    org_slug = g.user.get('org_id', '').strip() or None
     if not org_slug:
         return jsonify({'error': 'No organisation associated with this account'}), 400
     try:
@@ -650,9 +662,9 @@ def cohorts():
 def analytics():
     if not g.user:
         return jsonify({'error': 'Session not initialised — call /session first'}), 401
-    if g.user.get('role') != 'corporate_super_admin':
+    if not _has_role(g.user.get('role'), 'corporate_super_admin', 'weace_super_admin'):
         return jsonify({'error': 'Forbidden'}), 403
-    org_slug = g.user.get('org_slug', '')
+    org_slug = g.user.get('org_id', '').strip() or None
     if not org_slug:
         return jsonify({'error': 'No organisation associated with this account'}), 400
     date_from   = request.args.get('date_from',    '').strip() or None
@@ -660,10 +672,13 @@ def analytics():
     gender      = request.args.get('gender',       '').strip() or None
     level_name  = request.args.get('level_name',   '').strip() or None
     cohort_name = request.args.get('cohort_name',  '').strip() or None
+    req_org_id   = org_slug
+    req_org_name = request.args.get('org_name',    '').strip() or None
     try:
         data = get_org_analytics(org_slug, date_from=date_from, date_to=date_to,
                                  gender=gender, level_name=level_name, cohort_name=cohort_name)
-        data['org_name'] = g.user.get('org_name', '')
+        data['org_name'] = req_org_name or g.user.get('org_name', '')
+        data['org_id']   = req_org_id   or org_slug
         return jsonify(data)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -674,9 +689,7 @@ def analytics():
 def dashboard_filters():
     if not g.user:
         return jsonify({'error': 'Session not initialised — call /session first'}), 401
-    if g.user.get('role') != 'corporate_super_admin':
-        return jsonify({'error': 'Forbidden'}), 403
-    org_slug = g.user.get('org_slug', '')
+    org_slug = g.user.get('org_id', '').strip() or None
     if not org_slug:
         return jsonify({'error': 'No organisation associated with this account'}), 400
     try:
@@ -691,9 +704,9 @@ def dashboard_filters():
 def sentiment():
     if not g.user:
         return jsonify({'error': 'Session not initialised — call /session first'}), 401
-    if g.user.get('role') != 'corporate_super_admin':
+    if not _has_role(g.user.get('role'), 'corporate_super_admin', 'weace_super_admin'):
         return jsonify({'error': 'Forbidden'}), 403
-    org_slug = g.user.get('org_slug', '')
+    org_slug = g.user.get('org_id', '').strip() or None
     if not org_slug:
         return jsonify({'error': 'No organisation associated with this account'}), 400
     date_from   = request.args.get('date_from',    '').strip() or None
@@ -714,9 +727,9 @@ def sentiment():
 def sentiment_refresh():
     if not g.user:
         return jsonify({'error': 'Session not initialised — call /session first'}), 401
-    if g.user.get('role') != 'corporate_super_admin':
+    if not _has_role(g.user.get('role'), 'corporate_super_admin', 'weace_super_admin'):
         return jsonify({'error': 'Forbidden'}), 403
-    org_slug = g.user.get('org_slug', '')
+    org_slug = g.user.get('org_id', '')
     if not org_slug:
         return jsonify({'error': 'No organisation associated with this account'}), 400
     try:
@@ -735,7 +748,7 @@ def sentiment_refresh():
 def admin():
     if 'user_id' not in session:
         return redirect('/')
-    if session.get('role') != 'weace_super_admin':
+    if not _has_role(session.get('role'), 'weace_super_admin'):
         return redirect('/')
     name = session['user_name']
     initials = ''.join(w[0].upper() for w in name.split()[:2])
@@ -751,7 +764,7 @@ def admin():
 def admin_users():
     if not g.user:
         return jsonify({'error': 'Session not initialised — call /session first'}), 401
-    if g.user.get('role') != 'weace_super_admin':
+    if not _has_role(g.user.get('role'), 'corporate_super_admin', 'weace_super_admin'):
         return jsonify({'error': 'Forbidden'}), 403
     try:
         users = get_all_users_admin()
@@ -765,7 +778,7 @@ def admin_users():
 def admin_set_access_till(user_id):
     if not g.user:
         return jsonify({'error': 'Session not initialised — call /session first'}), 401
-    if g.user.get('role') != 'weace_super_admin':
+    if not _has_role(g.user.get('role'), 'corporate_super_admin', 'weace_super_admin'):
         return jsonify({'error': 'Forbidden'}), 403
     data = request.json or {}
     access_till = (data.get('access_till') or '').strip()
@@ -783,7 +796,7 @@ def admin_set_access_till(user_id):
 def admin_set_nexa_access(user_id):
     if not g.user:
         return jsonify({'error': 'Session not initialised — call /session first'}), 401
-    if g.user.get('role') != 'weace_super_admin':
+    if not _has_role(g.user.get('role'), 'corporate_super_admin', 'weace_super_admin'):
         return jsonify({'error': 'Forbidden'}), 403
     data = request.json or {}
     value = bool(data.get('nexa_access', False))

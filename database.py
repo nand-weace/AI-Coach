@@ -319,12 +319,12 @@ def get_session_highlights(user_id: str, max_sessions: int = 5) -> list:
         conn.close()
 
 
-def get_org_analytics(org_slug: str, date_from=None, date_to=None, gender=None, level_name=None, cohort_name=None) -> dict:
+def get_org_analytics(org_id: str, date_from=None, date_to=None, gender=None, level_name=None, cohort_name=None) -> dict:
     """Returns overview stats and per-user activity for the given organisation."""
     conn = get_connection()
     try:
         with conn.cursor() as cur:
-            params = [org_slug]
+            params = [org_id]
             date_clause = ""
             if date_from:
                 date_clause += " AND DATE(s.started_at) >= %s"
@@ -357,7 +357,7 @@ def get_org_analytics(org_slug: str, date_from=None, date_to=None, gender=None, 
                 FROM ai_coach_sessions s
                 LEFT JOIN ai_coach_messages m ON s.session_id = m.session_id
                 LEFT JOIN user_settings us ON s.user_id = us.user_id
-                WHERE s.org_slug = %s{date_clause}{attr_clause}
+                WHERE us.org_id = %s{date_clause}{attr_clause}
                 GROUP BY s.user_id
                 ORDER BY last_active DESC
             """
