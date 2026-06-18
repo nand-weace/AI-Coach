@@ -2,7 +2,8 @@ import os
 import uuid
 import logging
 import requests as http_requests
-from flask import Flask, request, jsonify, render_template, session, redirect
+from functools import wraps
+from flask import Flask, request, jsonify, render_template, session, redirect, g
 from dotenv import load_dotenv
 from ai_coach import SYSTEM_INSTRUCTION
 from database import (
@@ -63,6 +64,53 @@ else:
 
 # In-memory conversation history keyed by session_uuid
 sessions_cache: dict[str, list] = {}
+
+# In-memory user state keyed by weace access_token
+auth_tokens: dict[str, dict] = {}
+
+
+def _get_bearer_token() -> str | None:
+    auth = request.headers.get('Authorization', '')
+    if auth.startswith('Bearer '):
+        return auth[7:].strip() or None
+    return None
+
+
+def require_weace_token(f):
+    """
+    Decorator that reads the Bearer token from the Authorization header,
+    verifies it against the we-ace verify-token API, then sets:
+      g.access_token — the verified token
+      g.token_data   — parsed JSON from the verify-token response
+      g.user         — cached user data from auth_tokens (None until /session is called)
+    Returns 401 if the token is missing or invalid, 502 if unreachable.
+    """
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = _get_bearer_token()
+        if not token:
+            return jsonify({'error': 'Authorization: Bearer token required'}), 401
+        try:
+            resp = http_requests.get(
+                f'{WEACE_API_URL}/api/v1/auth/verify-token',
+                headers={'accept': '*/*', 'Authorization': f'Bearer {token}'},
+                timeout=10,
+            )
+            if not resp.ok:
+                logger.warning("[auth] token rejected by verify-token API: status=%s", resp.status_code)
+                return jsonify({'error': 'Invalid or expired token'}), 401
+        except Exception as e:
+            logger.error("[auth] verify-token API unreachable: %s", e)
+            return jsonify({'error': 'Token verification service unavailable'}), 502
+        g.access_token = token
+        try:
+            g.token_data = resp.json()
+        except Exception:
+            g.token_data = {}
+        g.user = auth_tokens.get(token)
+        return f(*args, **kwargs)
+    return decorated
+
 
 try:
     init_db()
@@ -165,44 +213,58 @@ def index():
 
 
 @app.route('/me')
+@require_weace_token
 def me():
-    if 'user_id' not in session:
-        return jsonify({'logged_in': False})
-    name = session['user_name']
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    name = g.user['user_name']
     initials = ''.join(w[0].upper() for w in name.split()[:2])
     return jsonify({
         'logged_in': True,
         'user_name': name,
         'initials': initials,
-        'profile_image': session.get('profile_image', ''),
-        'role': session.get('role', 'user'),
-        'nexa_access': session.get('nexa_access', True),
-        'access_last_date': session.get('access_last_date'),
+        'profile_image': g.user.get('profile_image', ''),
+        'role': g.user.get('role', 'user'),
+        'nexa_access': g.user.get('nexa_access', True),
+        'access_last_date': g.user.get('access_last_date'),
     })
 
 
 @app.route('/session', methods=['POST'])
+@require_weace_token
 def create_session():
     """
-    Called by the frontend after authentication. Receives accessToken + refreshToken,
-    verifies them by fetching the user profile from the we-ace API, then sets up the
-    DB chat session and Flask cookie.
+    Called by the frontend after authentication. Receives accessToken via
+    Authorization: Bearer header (verified by @require_weace_token) + refreshToken in body,
+    fetches the user profile from the we-ace API, then sets up the
+    DB chat session and returns a session_token for subsequent Bearer auth.
     """
     ip = request.remote_addr
     data = request.json or {}
-    access_token = (data.get('accessToken') or '').strip()
+    access_token = g.access_token          # set by @require_weace_token
     refresh_token = (data.get('refreshToken') or '').strip()
     client_user_id = (data.get('userId') or '').strip()
 
-    logger.info("[create_session] request from ip=%s has_access_token=%s has_refresh_token=%s client_user_id=%s",
-                ip, bool(access_token), bool(refresh_token), client_user_id or 'none')
+    logger.info("[create_session] request from ip=%s has_refresh_token=%s client_user_id=%s",
+                ip, bool(refresh_token), client_user_id or 'none')
 
-    if not access_token:
-        logger.warning("[create_session] rejected: missing accessToken from ip=%s", ip)
-        return jsonify({'error': 'accessToken is required'}), 400
-
-    # Verify token and fetch user details from profile API
+    # Fetch full user details from profile API
     logger.info("[create_session] fetching profile from we-ace API")
+    try:
+        user_resp = http_requests.get(
+            f'{WEACE_API_URL}/api/v1/users/profile',
+            headers={'Authorization': f'Bearer {access_token}'},
+            timeout=10,
+        )
+        logger.info("[create_session] profile API responded with status=%s", user_resp.status_code)
+        if not user_resp.ok:
+            logger.warning("[create_session] profile API error: status=%s ip=%s",
+                           user_resp.status_code, ip)
+            return jsonify({'error': 'Failed to fetch user profile'}), user_resp.status_code
+        client_user_id = (user_resp.json().get('data', {}).get('_id') or '').strip()
+    except Exception as e:
+        logger.error("[create_session] profile API request failed: %s", e)
+        return jsonify({'error': f'Profile fetch failed: {e}'}), 502
     try:
         profile_resp = http_requests.get(
             f'{WEACE_API_URL}/api/v1/personal-info/{client_user_id}',
@@ -210,11 +272,10 @@ def create_session():
             timeout=10,
         )
         logger.info("[create_session] profile API responded with status=%s", profile_resp.status_code)
-
         if not profile_resp.ok:
-            logger.warning("[create_session] profile API rejected token: status=%s ip=%s",
+            logger.warning("[create_session] profile API error: status=%s ip=%s",
                            profile_resp.status_code, ip)
-            return jsonify({'error': 'Invalid or expired access token'}), 401
+            return jsonify({'error': 'Failed to fetch user profile'}), profile_resp.status_code
         profile_data = profile_resp.json()
     except Exception as e:
         logger.error("[create_session] profile API request failed: %s", e)
@@ -289,6 +350,12 @@ def create_session():
         prompt = _build_personalized_prompt(user_name, highlights, profile_context)
         sessions_cache[session_uuid] = [{"role": "system", "content": prompt}]
 
+        # Evict any stale auth_tokens entry for this user (token rotation)
+        stale = [t for t, d in auth_tokens.items() if d.get('user_id') == user_id]
+        for t in stale:
+            auth_tokens.pop(t, None)
+
+        # Keep Flask session only for server-rendered page routes (/dashboard, /admin)
         session['user_id'] = user_id
         session['user_name'] = user_name
         session['email'] = email
@@ -328,6 +395,23 @@ def create_session():
         session['nexa_access'] = nexa_access
         session['access_last_date'] = access_last_date
 
+        auth_tokens[g.access_token] = {
+            'user_id': user_id,
+            'user_name': user_name,
+            'email': email,
+            'profile_image': profile_image,
+            'access_token': access_token,
+            'refresh_token': refresh_token,
+            'session_uuid': session_uuid,
+            'role': role,
+            'org_name': org_name,
+            'org_slug': org_slug,
+            'cohort_id': cohort_id,
+            'profile_context': profile_context,
+            'nexa_access': nexa_access,
+            'access_last_date': access_last_date,
+        }
+
         logger.info("[create_session] session established: user_id=%s user_name=%r nexa_access=%s",
                     user_id, user_name, nexa_access)
 
@@ -353,23 +437,22 @@ def create_session():
 
 
 @app.route('/new-session', methods=['POST'])
+@require_weace_token
 def new_session():
     """
-    Called on every page load when the user is already logged in.
     Discards the previous in-memory history and starts a fresh chat session,
     injecting session highlights from past conversations as AI context.
     """
-    if 'user_id' not in session:
-        return jsonify({'error': 'Not logged in'}), 401
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
 
-    # Free the old in-memory history
-    old_uuid = session.get('session_uuid')
+    old_uuid = g.user.get('session_uuid')
     if old_uuid and old_uuid in sessions_cache:
         del sessions_cache[old_uuid]
 
-    user_id = session['user_id']
-    user_name = session['user_name']
-    email = session.get('email', '')
+    user_id = g.user['user_id']
+    user_name = g.user['user_name']
+    email = g.user.get('email', '')
 
     try:
         returning = has_previous_sessions(user_id)
@@ -377,14 +460,13 @@ def new_session():
 
         session_uuid = str(uuid.uuid4())
         create_chat_session(session_uuid, user_id, user_name, email,
-                            session.get('org_name'), session.get('org_slug'), session.get('cohort_id'))
+                            g.user.get('org_name'), g.user.get('org_slug'), g.user.get('cohort_id'))
 
-        profile_context = session.get('profile_context') or {}
+        profile_context = g.user.get('profile_context') or {}
         prompt = _build_personalized_prompt(user_name, highlights, profile_context)
         sessions_cache[session_uuid] = [{"role": "system", "content": prompt}]
-        session['session_uuid'] = session_uuid
 
-        role = session.get('role', 'user')
+        role = g.user.get('role', 'user')
         if role in ('weace_super_admin', 'corporate_super_admin'):
             nexa_access = True
             access_last_date = None
@@ -392,8 +474,10 @@ def new_session():
             settings = get_user_access_settings(user_id)
             nexa_access = settings['nexa_access']
             access_last_date = settings['access_last_date']
-        session['nexa_access'] = nexa_access
-        session['access_last_date'] = access_last_date
+
+        auth_tokens[g.access_token]['session_uuid'] = session_uuid
+        auth_tokens[g.access_token]['nexa_access'] = nexa_access
+        auth_tokens[g.access_token]['access_last_date'] = access_last_date
 
         initials = ''.join(w[0].upper() for w in user_name.split()[:2])
         recent_messages = [
@@ -404,7 +488,7 @@ def new_session():
             'user_name': user_name,
             'returning': returning,
             'initials': initials,
-            'profile_image': session.get('profile_image', ''),
+            'profile_image': g.user.get('profile_image', ''),
             'role': role,
             'nexa_access': nexa_access,
             'access_last_date': access_last_date,
@@ -449,18 +533,22 @@ def auto_login():
 
 @app.route('/logout', methods=['POST'])
 def logout():
-    session_uuid = session.get('session_uuid')
-    if session_uuid and session_uuid in sessions_cache:
-        del sessions_cache[session_uuid]
+    token = _get_bearer_token()
+    if token and token in auth_tokens:
+        old_uuid = auth_tokens[token].get('session_uuid')
+        if old_uuid and old_uuid in sessions_cache:
+            del sessions_cache[old_uuid]
+        del auth_tokens[token]
     session.clear()
     return jsonify({'ok': True})
 
 
 @app.route('/chat', methods=['POST'])
+@require_weace_token
 def chat():
-    if 'user_id' not in session:
-        return jsonify({'error': 'Not logged in'}), 401
-    if not session.get('nexa_access', False):
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    if not g.user.get('nexa_access', False):
         return jsonify({'error': 'nexa_access_denied'}), 403
     if not client:
         return jsonify({'error': 'AI Coach is not initialised. Check your API key.'}), 500
@@ -470,12 +558,12 @@ def chat():
     if not user_message:
         return jsonify({'error': 'Message is required'}), 400
 
-    user_id = session['user_id']
-    user_name = session['user_name']
-    session_uuid = session['session_uuid']
+    user_id = g.user['user_id']
+    user_name = g.user['user_name']
+    session_uuid = g.user['session_uuid']
 
     conversation_history = _get_or_rebuild_history(
-        session_uuid, user_id, user_name, session.get('profile_context')
+        session_uuid, user_id, user_name, g.user.get('profile_context')
     )
 
     try:
@@ -532,20 +620,20 @@ def dashboard():
 
 
 @app.route('/api/cohorts')
+@require_weace_token
 def cohorts():
-    if 'user_id' not in session:
-        return jsonify({'error': 'Not logged in'}), 401
-    if session.get('role') != 'corporate_super_admin':
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    if g.user.get('role') != 'corporate_super_admin':
         return jsonify({'error': 'Forbidden'}), 403
-    org_slug = session.get('org_slug', '')
-    access_token = session.get('access_token', '')
+    org_slug = g.user.get('org_slug', '')
     if not org_slug:
         return jsonify({'error': 'No organisation associated with this account'}), 400
     try:
         resp = http_requests.get(
             f'{WEACE_API_URL}/api/v1/coaching/cohort',
             params={'organizationId': org_slug},
-            headers={'Authorization': f'Bearer {access_token}'},
+            headers={'Authorization': f'Bearer {g.access_token}'},
             timeout=10,
         )
         if not resp.ok:
@@ -558,12 +646,13 @@ def cohorts():
 
 
 @app.route('/api/analytics')
+@require_weace_token
 def analytics():
-    if 'user_id' not in session:
-        return jsonify({'error': 'Not logged in'}), 401
-    if session.get('role') != 'corporate_super_admin':
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    if g.user.get('role') != 'corporate_super_admin':
         return jsonify({'error': 'Forbidden'}), 403
-    org_slug = session.get('org_slug', '')
+    org_slug = g.user.get('org_slug', '')
     if not org_slug:
         return jsonify({'error': 'No organisation associated with this account'}), 400
     date_from   = request.args.get('date_from',    '').strip() or None
@@ -574,19 +663,20 @@ def analytics():
     try:
         data = get_org_analytics(org_slug, date_from=date_from, date_to=date_to,
                                  gender=gender, level_name=level_name, cohort_name=cohort_name)
-        data['org_name'] = session.get('org_name', '')
+        data['org_name'] = g.user.get('org_name', '')
         return jsonify(data)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 
 @app.route('/api/filters')
+@require_weace_token
 def dashboard_filters():
-    if 'user_id' not in session:
-        return jsonify({'error': 'Not logged in'}), 401
-    if session.get('role') != 'corporate_super_admin':
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    if g.user.get('role') != 'corporate_super_admin':
         return jsonify({'error': 'Forbidden'}), 403
-    org_slug = session.get('org_slug', '')
+    org_slug = g.user.get('org_slug', '')
     if not org_slug:
         return jsonify({'error': 'No organisation associated with this account'}), 400
     try:
@@ -597,12 +687,13 @@ def dashboard_filters():
 
 
 @app.route('/api/sentiment')
+@require_weace_token
 def sentiment():
-    if 'user_id' not in session:
-        return jsonify({'error': 'Not logged in'}), 401
-    if session.get('role') != 'corporate_super_admin':
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    if g.user.get('role') != 'corporate_super_admin':
         return jsonify({'error': 'Forbidden'}), 403
-    org_slug = session.get('org_slug', '')
+    org_slug = g.user.get('org_slug', '')
     if not org_slug:
         return jsonify({'error': 'No organisation associated with this account'}), 400
     date_from   = request.args.get('date_from',    '').strip() or None
@@ -619,12 +710,13 @@ def sentiment():
 
 
 @app.route('/api/sentiment/refresh', methods=['POST'])
+@require_weace_token
 def sentiment_refresh():
-    if 'user_id' not in session:
-        return jsonify({'error': 'Not logged in'}), 401
-    if session.get('role') != 'corporate_super_admin':
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    if g.user.get('role') != 'corporate_super_admin':
         return jsonify({'error': 'Forbidden'}), 403
-    org_slug = session.get('org_slug', '')
+    org_slug = g.user.get('org_slug', '')
     if not org_slug:
         return jsonify({'error': 'No organisation associated with this account'}), 400
     try:
@@ -655,10 +747,11 @@ def admin():
 
 
 @app.route('/api/admin/users')
+@require_weace_token
 def admin_users():
-    if 'user_id' not in session:
-        return jsonify({'error': 'Not logged in'}), 401
-    if session.get('role') != 'weace_super_admin':
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    if g.user.get('role') != 'weace_super_admin':
         return jsonify({'error': 'Forbidden'}), 403
     try:
         users = get_all_users_admin()
@@ -668,10 +761,11 @@ def admin_users():
 
 
 @app.route('/api/admin/users/<user_id>/access_till', methods=['PUT'])
+@require_weace_token
 def admin_set_access_till(user_id):
-    if 'user_id' not in session:
-        return jsonify({'error': 'Not logged in'}), 401
-    if session.get('role') != 'weace_super_admin':
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    if g.user.get('role') != 'weace_super_admin':
         return jsonify({'error': 'Forbidden'}), 403
     data = request.json or {}
     access_till = (data.get('access_till') or '').strip()
@@ -685,10 +779,11 @@ def admin_set_access_till(user_id):
 
 
 @app.route('/api/admin/users/<user_id>/nexa_access', methods=['PUT'])
+@require_weace_token
 def admin_set_nexa_access(user_id):
-    if 'user_id' not in session:
-        return jsonify({'error': 'Not logged in'}), 401
-    if session.get('role') != 'weace_super_admin':
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    if g.user.get('role') != 'weace_super_admin':
         return jsonify({'error': 'Forbidden'}), 403
     data = request.json or {}
     value = bool(data.get('nexa_access', False))

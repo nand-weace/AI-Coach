@@ -802,6 +802,11 @@
     let defaultsApplied = false;
     const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
+    function getAuthHeaders(extra) {
+        const token = localStorage.getItem('we_ace_access_token') || '';
+        return Object.assign({ 'Authorization': `Bearer ${token}` }, extra || {});
+    }
+
     function isActiveThisWeek(lastActive) {
         if (!lastActive) return false;
         return (Date.now() - new Date(lastActive).getTime()) < WEEK_MS;
@@ -835,7 +840,7 @@
 
     async function loadCohorts() {
         try {
-            const res = await fetch('/api/cohorts');
+            const res = await fetch('/api/cohorts', { headers: getAuthHeaders() });
             if (!res.ok) return;
             const data = await res.json();
             const cohortEl = document.getElementById('filter-cohort');
@@ -850,7 +855,7 @@
 
     async function loadFilters() {
         try {
-            const res = await fetch('/api/filters');
+            const res = await fetch('/api/filters', { headers: getAuthHeaders() });
             if (!res.ok) return;
             const data = await res.json();
             const genderEl = document.getElementById('filter-gender');
@@ -911,7 +916,7 @@
         const params = getFilterParams();
         const qs = params.toString() ? '?' + params.toString() : '';
         try {
-            const res = await fetch('/api/analytics' + qs);
+            const res = await fetch('/api/analytics' + qs, { headers: getAuthHeaders() });
             if (res.status === 401) { window.location.href = '/'; return; }
             if (res.status === 403) { window.location.href = '/'; return; }
             const data = await res.json();
@@ -985,7 +990,7 @@
     });
 
     document.getElementById('logout-button').addEventListener('click', async () => {
-        await fetch('/logout', { method: 'POST' });
+        await fetch('/logout', { method: 'POST', headers: getAuthHeaders() });
         window.location.href = '/';
     });
 
@@ -1589,7 +1594,7 @@
         const params = getFilterParams();
         const qs = params.toString() ? '?' + params.toString() : '';
         try {
-            const res = await fetch('/api/sentiment' + qs);
+            const res = await fetch('/api/sentiment' + qs, { headers: getAuthHeaders() });
             if (!res.ok) return;
             const data = await res.json();
             renderSentiment(data);
@@ -1628,7 +1633,7 @@
         document.getElementById('sentiment-grid').innerHTML =
             '<div class="sentiment-no-data"><div class="skeleton" style="width:220px; margin:0 auto;"></div></div>';
         try {
-            const res = await fetch('/api/sentiment/refresh', { method: 'POST' });
+            const res = await fetch('/api/sentiment/refresh', { method: 'POST', headers: getAuthHeaders() });
             const payload = await res.json();
             if (payload.ok && payload.data) {
                 renderSentiment(payload.data);

@@ -249,6 +249,11 @@
 <script>
     let allUsers = [];
 
+    function getAuthHeaders(extra) {
+        const token = localStorage.getItem('we_ace_access_token') || '';
+        return Object.assign({ 'Authorization': `Bearer ${token}` }, extra || {});
+    }
+
     function formatDate(str) {
         if (!str) return '—';
         return new Date(str).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -331,7 +336,7 @@
         try {
             const res = await fetch(`/api/admin/users/${encodeURIComponent(userId)}/access_till`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({ access_till: date }),
             });
             const data = await res.json();
@@ -363,7 +368,7 @@
         try {
             const res = await fetch(`/api/admin/users/${encodeURIComponent(userId)}/nexa_access`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({ nexa_access: next }),
             });
             const data = await res.json();
@@ -390,7 +395,7 @@
 
     async function loadUsers() {
         try {
-            const res = await fetch('/api/admin/users');
+            const res = await fetch('/api/admin/users', { headers: getAuthHeaders() });
             if (res.status === 401 || res.status === 403) { window.location.href = '/'; return; }
             const data = await res.json();
 
@@ -421,7 +426,7 @@
     });
 
     document.getElementById('logout-button').addEventListener('click', async () => {
-        await fetch('/logout', { method: 'POST' });
+        await fetch('/logout', { method: 'POST', headers: getAuthHeaders() });
         window.location.href = '/';
     });
 

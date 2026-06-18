@@ -16,7 +16,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         localStorage.removeItem('we_ace_access_token');
         localStorage.removeItem('we_ace_refresh_token');
         localStorage.removeItem('we_ace_user_id');
+        localStorage.removeItem('we_ace_user_name');
         localStorage.removeItem('we_ace_profile_roles');
+        localStorage.removeItem('we_ace_session_token');
     }
     function storeProfileRoles(roles) {
         if (roles && Array.isArray(roles) && roles.length > 0)
@@ -30,24 +32,26 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (uid) localStorage.setItem('we_ace_user_id', uid);
     }
 
-    // ── Build Flask session — server verifies tokens and fetches profile ────
+    // ── Build session — server verifies tokens and fetches profile ────
     async function buildSession(accessToken, refreshToken, profileRoles) {
         const userId = localStorage.getItem('we_ace_user_id') || '';
-        const payload = { accessToken, refreshToken };
+        const payload = { refreshToken };
         if (userId) payload.userId = userId;
         if (profileRoles && Array.isArray(profileRoles) && profileRoles.length > 0) {
             payload.roles = profileRoles;
         }
-        console.log('Building session with payload:', payload);
-        console.log('userId from localStorage:', userId);
         const res = await fetch('/session', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${accessToken}`,
+            },
             body: JSON.stringify(payload),
         });
         if (!res.ok) return null;
         const data = await res.json();
         if (data.user_id) localStorage.setItem('we_ace_user_id', data.user_id);
+        if (data.user_name) localStorage.setItem('we_ace_user_name', data.user_name);
         return data;
     }
 
@@ -267,7 +271,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Logout
     document.getElementById('logout-button').addEventListener('click', async () => {
-        await fetch('/logout', { method: 'POST' });
+        const accessToken = localStorage.getItem('we_ace_access_token') || '';
+        await fetch('/logout', {
+            method: 'POST',
+            headers: accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {},
+        });
         clearTokens();
         location.reload();
     });
@@ -301,10 +309,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         const typingId = showTypingIndicator();
 
         try {
+            const accessToken = localStorage.getItem('we_ace_access_token') || '';
             const res = await fetch('/chat', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message }),
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
+                },
+                body: JSON.stringify({
+                    message,
+                    user_id: localStorage.getItem('we_ace_user_id') || '',
+                    user_name: localStorage.getItem('we_ace_user_name') || '',
+                }),
             });
             const data = await res.json();
             removeElement(typingId);
