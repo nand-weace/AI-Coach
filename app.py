@@ -573,8 +573,8 @@ def chat():
 
     user_id = g.user['user_id']
     user_name = g.user['user_name']
-    session_uuid = data.get('session_uuid')
-    profile_context = data.get('profile_context')
+    session_uuid = data.get('session_uuid') or ''
+    profile_context = data.get('profile_context') or {}
     
     conversation_history = _get_or_rebuild_history(
         session_uuid, user_id, user_name, profile_context

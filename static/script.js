@@ -59,7 +59,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 'Authorization': `Bearer ${accessToken}`,
             },
             body: JSON.stringify(payload),
-            credentials: 'omit',
         });
         if (!res.ok) return null;
         const data = await res.json();

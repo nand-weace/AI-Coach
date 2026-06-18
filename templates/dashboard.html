@@ -795,8 +795,8 @@
 </div>
 
 <script>
-    const MIN_SESSIONS  = 10;
-    const MIN_MESSAGES  = 30;
+    const MIN_SESSIONS  = 5;
+    const MIN_MESSAGES  = 10;
 
     let allUsers = [];
     let defaultsApplied = false;
@@ -929,7 +929,7 @@
 
             const sessions = data.total_sessions || 0;
             const messages = data.total_messages || 0;
-            const hasEnoughData = sessions >= MIN_SESSIONS && messages >= MIN_MESSAGES;
+            const hasEnoughData = sessions >= MIN_SESSIONS || messages >= MIN_MESSAGES;
             const noDataScreen = document.getElementById('no-data-screen');
             const mainContent  = document.getElementById('main-dashboard-content');
             if (hasEnoughData) {
