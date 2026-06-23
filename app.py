@@ -1,6 +1,7 @@
 import os
 import uuid
 import logging
+from datetime import date
 import requests as http_requests
 from functools import wraps
 from flask import Flask, request, jsonify, render_template, session, redirect, g
@@ -383,8 +384,8 @@ def create_session():
 
         # Super admins always have Nexa access; regular users are controlled by the flag
         if _has_role(role, 'weace_super_admin', 'corporate_super_admin'):
-            nexa_access = True
             access_last_date = None
+            remaining_days = None
             upsert_user_login(
                 user_id,
                 first_name=first, last_name=last, email=email,
@@ -404,6 +405,10 @@ def create_session():
             )
             nexa_access = settings['nexa_access']
             access_last_date = settings['access_last_date']
+            if access_last_date:
+                remaining_days = max(0, (date.fromisoformat(access_last_date.split()[0]) - date.today()).days)
+            else:
+                remaining_days = None
         session['nexa_access'] = nexa_access
         session['access_last_date'] = access_last_date
 
@@ -422,6 +427,7 @@ def create_session():
             'profile_context': profile_context,
             'nexa_access': nexa_access,
             'access_last_date': access_last_date,
+            'remaining_days': remaining_days,
         }
 
         logger.info("[create_session] session established: user_id=%s user_name=%r nexa_access=%s",
@@ -442,6 +448,7 @@ def create_session():
             'role': role,
             'nexa_access': nexa_access,
             'access_last_date': access_last_date,
+            'remaining_days': remaining_days,
             'recent_messages': recent_messages,
             'profile_context': profile_context,
             'org_name': org_name,
@@ -487,14 +494,20 @@ def new_session():
         if _has_role(role, 'weace_super_admin', 'corporate_super_admin'):
             nexa_access = True
             access_last_date = None
+            remaining_days = None
         else:
             settings = get_user_access_settings(user_id)
             nexa_access = settings['nexa_access']
             access_last_date = settings['access_last_date']
+            if access_last_date:
+                remaining_days = max(0, (date.fromisoformat(access_last_date.split()[0]) - date.today()).days)
+            else:
+                remaining_days = None
 
         auth_tokens[g.access_token]['session_uuid'] = session_uuid
         auth_tokens[g.access_token]['nexa_access'] = nexa_access
         auth_tokens[g.access_token]['access_last_date'] = access_last_date
+        auth_tokens[g.access_token]['remaining_days'] = remaining_days
 
         initials = ''.join(w[0].upper() for w in user_name.split()[:2])
         recent_messages = [
@@ -509,6 +522,7 @@ def new_session():
             'role': role,
             'nexa_access': nexa_access,
             'access_last_date': access_last_date,
+            'remaining_days': remaining_days,
             'recent_messages': recent_messages,
         })
     except Exception as e:

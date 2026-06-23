@@ -97,7 +97,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const _sd = await buildSession(_newAccess, _newRefresh, _roles);
                     if (_sd) {
                         showApp(_sd.user_name, _sd.initials, _sd.profile_image, _sd.returning,
-                                _sd.role, _sd.nexa_access, _sd.access_last_date, _sd.recent_messages || []);
+                                _sd.role, _sd.nexa_access, _sd.access_last_date, _sd.remaining_days, _sd.recent_messages || []);
                         _authed = true;
                     }
                 }
@@ -119,7 +119,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (_sd) {
                 storeTokens(_extToken, _extRefresh);
                 showApp(_sd.user_name, _sd.initials, _sd.profile_image, _sd.returning,
-                        _sd.role, _sd.nexa_access, _sd.access_last_date, _sd.recent_messages || []);
+                        _sd.role, _sd.nexa_access, _sd.access_last_date, _sd.remaining_days, _sd.recent_messages || []);
                 _authed = true;
             }
         } catch (_) {}
@@ -146,7 +146,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         if (sd) {
                             storeTokens(newAccess, newRefresh);
                             showApp(sd.user_name, sd.initials, sd.profile_image, sd.returning,
-                                    sd.role, sd.nexa_access, sd.access_last_date, sd.recent_messages || []);
+                                    sd.role, sd.nexa_access, sd.access_last_date, sd.remaining_days, sd.recent_messages || []);
                             _authed = true;
                         }
                     }
@@ -173,7 +173,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const sd = await buildSession(storedAccess, storedRefresh || '', getStoredRoles());
                 if (sd) {
                     showApp(sd.user_name, sd.initials, sd.profile_image, sd.returning,
-                            sd.role, sd.nexa_access, sd.access_last_date, sd.recent_messages || []);
+                            sd.role, sd.nexa_access, sd.access_last_date, sd.remaining_days, sd.recent_messages || []);
                     _authed = true;
                 }
             } catch (_) {}
@@ -252,7 +252,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
             showApp(data.user_name, data.initials, data.profile_image, data.returning,
-                    data.role, data.nexa_access, data.access_last_date, data.recent_messages || []);
+                    data.role, data.nexa_access, data.access_last_date, data.remaining_days, data.recent_messages || []);
         } catch (err) {
             errorEl.textContent = 'Connection error. Please try again.';
             resetBtn();
@@ -358,7 +358,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    function showApp(userName, initials, profileImage, returning, role, nexaAccess, accessLastDate, recentMessages) {
+    function showApp(userName, initials, profileImage, returning, role, nexaAccess, accessLastDate, remainingDays, recentMessages) {
         document.getElementById('login-overlay').style.display = 'none';
         const appEl = document.getElementById('app-container');
         appEl.style.opacity = '0';
@@ -399,6 +399,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             navDivider.style.display = hasNavItem ? 'block' : 'none';
         }
 
+        const wCoachBtn = document.getElementById('btn-weace-coaching');
+        if (wCoachBtn) {
+            const blocked = !nexaAccess || (remainingDays !== null && remainingDays !== undefined && remainingDays < 7);
+            wCoachBtn.disabled = blocked;
+            if (blocked) wCoachBtn.title = 'Access required to use Weace Coaching';
+        }
+
         const welcomeEl = document.getElementById('welcome-text');
         if (returning) {
             welcomeEl.textContent = `Welcome back, ${userName}. Ready to continue your leadership journey? What's on your mind today?`;
@@ -416,20 +423,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (!nexaAccess) {
             showNexaAccessDenied();
-        } else if (accessLastDate && role === 'user') {
-            const days = Math.ceil((new Date(accessLastDate) - new Date()) / (1000 * 60 * 60 * 24));
+        } else if (remainingDays !== null && remainingDays !== undefined) {
             const expiryNotice = document.getElementById('access-expiry-notice');
             const expiryText = document.getElementById('access-expiry-text');
-            if (days > 0 && days < 10) {
-                expiryText.textContent = `Your access expires in ${days} day${days === 1 ? '' : 's'}.`;
-            } else if (days <= 0) {
-                expiryText.textContent = 'Your access has been expired, please contact your corporate Admin.';
-                const input = document.getElementById('user-input');
-                input.disabled = true;
-                input.placeholder = 'Access expired';
-                document.getElementById('send-button').disabled = true;
+            if (remainingDays <= 0) {
+                showNexaAccessDenied();
+            } else if (remainingDays <= 7) {
+                expiryText.textContent = `Your access expires in ${remainingDays} day${remainingDays === 1 ? '' : 's'}.`;
+                expiryNotice.style.display = 'block';
             }
-            if (days < 10) expiryNotice.style.display = 'block';
         }
     }
 

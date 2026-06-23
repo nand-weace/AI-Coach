@@ -566,7 +566,6 @@ def upsert_user_login(user_id: str, first_name: str = None, last_name: str = Non
                 VALUES (%s, 1, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW(), DATE_ADD(NOW(), INTERVAL 7 DAY))
                 ON DUPLICATE KEY UPDATE
                     last_login        = NOW(),
-                    nexa_access       = 1,
                     first_name        = COALESCE(%s, first_name),
                     last_name         = COALESCE(%s, last_name),
                     email             = COALESCE(%s, email),
