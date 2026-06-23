@@ -386,7 +386,7 @@ def create_session():
         if _has_role(role, 'weace_super_admin', 'corporate_super_admin'):
             access_last_date = None
             remaining_days = None
-            upsert_user_login(
+            settings = upsert_user_login(
                 user_id,
                 first_name=first, last_name=last, email=email,
                 org_id=org_slug, org_name=org_name, cohort_id=cohort_id,
@@ -403,14 +403,12 @@ def create_session():
                 level_name=level_name, gender=gender,
                 functional_areas=functional_areas, industry_types=industry_types,
             )
-            nexa_access = settings['nexa_access']
-            access_last_date = settings['access_last_date']
-            if access_last_date:
-                remaining_days = max(0, (date.fromisoformat(access_last_date.split()[0]) - date.today()).days)
-            else:
-                remaining_days = None
-        session['nexa_access'] = nexa_access
-        session['access_last_date'] = access_last_date
+        nexa_access = settings['nexa_access']
+        access_last_date = settings['access_last_date']
+        if access_last_date:
+            remaining_days = max(0, (date.fromisoformat(access_last_date.split()[0]) - date.today()).days)
+        else:
+            remaining_days = None
 
         auth_tokens[g.access_token] = {
             'user_id': user_id,
