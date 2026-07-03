@@ -319,7 +319,8 @@ def get_session_highlights(user_id: str, max_sessions: int = 5) -> list:
         conn.close()
 
 
-def get_org_analytics(org_id: str, date_from=None, date_to=None, gender=None, level_name=None, cohort_name=None) -> dict:
+def get_org_analytics(org_id: str, date_from=None, date_to=None, gender=None, level_name=None,
+                      cohort_name=None, industry_type=None) -> dict:
     """Returns overview stats and per-user activity for the given organisation."""
     conn = get_connection()
     try:
@@ -342,6 +343,9 @@ def get_org_analytics(org_id: str, date_from=None, date_to=None, gender=None, le
             if cohort_name:
                 attr_clause += " AND us.cohort_name = %s"
                 params.append(cohort_name)
+            if industry_type:
+                attr_clause += " AND JSON_CONTAINS(us.industry_types, %s)"
+                params.append(json.dumps(industry_type))
 
             query = f"""
                 SELECT
@@ -819,7 +823,7 @@ def insert_user_sentiment_scores(user_id: str, scores: dict, run_ts: str):
 
 
 def get_org_filter_options(org_slug: str) -> dict:
-    """Returns distinct gender and level_name values for users in the org."""
+    """Returns distinct gender, level_name, and industry_types values for users in the org."""
     conn = get_connection()
     try:
         with conn.cursor() as cur:
@@ -847,7 +851,29 @@ def get_org_filter_options(org_slug: str) -> dict:
             )
             level_names = [row['level_name'] for row in cur.fetchall()]
 
-        return {'genders': genders, 'level_names': level_names}
+            _execute(cur,
+                """
+                SELECT us.industry_types
+                FROM user_settings us
+                JOIN ai_coach_sessions s ON us.user_id = s.user_id
+                WHERE s.org_slug = %s AND us.industry_types IS NOT NULL AND us.industry_types != ''
+                  AND us.industry_types != '[]'
+                """,
+                (org_slug,),
+            )
+            seen: set = set()
+            for row in cur.fetchall():
+                val = row['industry_types']
+                try:
+                    items = json.loads(val) if isinstance(val, str) else (val or [])
+                except (json.JSONDecodeError, ValueError):
+                    items = []
+                for item in items:
+                    if item:
+                        seen.add(item)
+            industry_types = sorted(seen)
+
+        return {'genders': genders, 'level_names': level_names, 'industry_types': industry_types}
     finally:
         conn.close()
 

@@ -25,3 +25,6 @@ __pycache__/
 dist/
 build/
 *.egg-info/
+custom_email.py
+recipients.csv
+send_log.csv

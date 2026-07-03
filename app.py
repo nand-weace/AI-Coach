@@ -679,16 +679,18 @@ def analytics():
     org_slug = g.user.get('org_id', '').strip() or None
     if not org_slug:
         return jsonify({'error': 'No organisation associated with this account'}), 400
-    date_from   = request.args.get('date_from',    '').strip() or None
-    date_to     = request.args.get('date_to',      '').strip() or None
-    gender      = request.args.get('gender',       '').strip() or None
-    level_name  = request.args.get('level_name',   '').strip() or None
-    cohort_name = request.args.get('cohort_name',  '').strip() or None
+    date_from     = request.args.get('date_from',      '').strip() or None
+    date_to       = request.args.get('date_to',        '').strip() or None
+    gender        = request.args.get('gender',         '').strip() or None
+    level_name    = request.args.get('level_name',     '').strip() or None
+    cohort_name   = request.args.get('cohort_name',    '').strip() or None
+    industry_type = request.args.get('industry_type',  '').strip() or None
     req_org_id   = org_slug
     req_org_name = request.args.get('org_name',    '').strip() or None
     try:
         data = get_org_analytics(org_slug, date_from=date_from, date_to=date_to,
-                                 gender=gender, level_name=level_name, cohort_name=cohort_name)
+                                 gender=gender, level_name=level_name, cohort_name=cohort_name,
+                                 industry_type=industry_type)
         data['org_name'] = req_org_name or g.user.get('org_name', '')
         data['org_id']   = req_org_id   or org_slug
         return jsonify(data)

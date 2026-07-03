@@ -312,6 +312,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
+    // Retries only network-level failures (e.g. "Failed to fetch"), not HTTP error responses
+    async function fetchWithRetry(url, options, retries = 4, delayMs = 800) {
+        for (let attempt = 0; ; attempt++) {
+            try {
+                return await fetch(url, options);
+            } catch (err) {
+                if (attempt >= retries) throw err;
+                await new Promise((r) => setTimeout(r, delayMs * (attempt + 1)));
+            }
+        }
+    }
+
     // Chat
     chatForm.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -327,7 +339,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         try {
             const accessToken = localStorage.getItem('we_ace_access_token') || '';
-            const res = await fetch('/chat', {
+            const res = await fetchWithRetry('/chat', {
                 method: 'POST',
                 credentials: 'omit',
                 headers: {
