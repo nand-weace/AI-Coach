@@ -1,4 +1,5 @@
 import os
+import re
 import uuid
 import logging
 from datetime import date
@@ -572,6 +573,33 @@ def logout():
     return jsonify({'ok': True})
 
 
+_SUGGESTIONS_RE = re.compile(
+    r'\[\[\s*SUGGESTIONS\s*\]\](.*?)\[\[\s*/\s*SUGGESTIONS\s*\]\]',
+    re.DOTALL | re.IGNORECASE,
+)
+
+
+def _extract_suggestions(text):
+    """Split the model reply into (clean_text, suggestions).
+
+    The model may append a [[SUGGESTIONS]]...[[/SUGGESTIONS]] block of tappable
+    follow-ups. Strip it from the displayed text and return the parsed list.
+    """
+    if not text:
+        return text, []
+    match = _SUGGESTIONS_RE.search(text)
+    if not match:
+        return text.strip(), []
+
+    clean = (text[:match.start()] + text[match.end():]).strip()
+    suggestions = []
+    for line in match.group(1).splitlines():
+        line = line.strip().lstrip('-*•').strip()
+        if line:
+            suggestions.append(line)
+    return clean, suggestions[:3]
+
+
 @app.route('/chat', methods=['POST'])
 @require_weace_token
 def chat():
@@ -617,9 +645,11 @@ def chat():
             )
             reply = response.choices[0].message.content
 
+        reply, suggestions = _extract_suggestions(reply)
+
         conversation_history.append({"role": "assistant", "content": reply})
         save_message(session_uuid, user_id, 'assistant', reply)
-        return jsonify({'response': reply})
+        return jsonify({'response': reply, 'suggestions': suggestions})
 
     except Exception as e:
         if conversation_history and conversation_history[-1]["role"] == "user":

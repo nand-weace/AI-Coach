@@ -330,6 +330,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const message = userInput.value.trim();
         if (!message) return;
 
+        clearSuggestions();
         addMessage(message, 'user');
         userInput.value = '';
         userInput.style.height = 'auto';
@@ -361,6 +362,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 location.reload();
             } else if (res.ok) {
                 addMessage(data.response, 'assistant');
+                renderSuggestions(data.suggestions);
             } else {
                 addMessage(`Error: ${data.error}`, 'assistant');
             }
@@ -501,6 +503,45 @@ document.addEventListener('DOMContentLoaded', async () => {
         wrapper.appendChild(messageDiv);
         chatContainer.appendChild(wrapper);
         scrollToBottom();
+    }
+
+    // Remove any suggestion bubbles currently on screen
+    function clearSuggestions() {
+        const existing = document.getElementById('suggestion-row');
+        if (existing) existing.remove();
+    }
+
+    // Render tappable follow-up nudges below the latest assistant reply
+    function renderSuggestions(suggestions) {
+        clearSuggestions();
+        if (!Array.isArray(suggestions) || suggestions.length === 0) return;
+        if (userInput.disabled) return; // access expired — no interaction
+
+        const row = document.createElement('div');
+        row.className = 'suggestion-row';
+        row.id = 'suggestion-row';
+
+        suggestions.forEach(text => {
+            const label = (text || '').trim();
+            if (!label) return;
+            const chip = document.createElement('button');
+            chip.type = 'button';
+            chip.className = 'suggestion-chip';
+            chip.textContent = label;
+            chip.addEventListener('click', () => sendMessage(label));
+            row.appendChild(chip);
+        });
+
+        if (!row.childElementCount) return;
+        chatContainer.appendChild(row);
+        scrollToBottom();
+    }
+
+    // Send a message programmatically (used by suggestion chips)
+    function sendMessage(text) {
+        if (userInput.disabled) return;
+        userInput.value = text;
+        chatForm.dispatchEvent(new Event('submit', { cancelable: true }));
     }
 
     function showTypingIndicator() {
