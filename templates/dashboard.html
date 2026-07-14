@@ -269,6 +269,8 @@
         .badge-active { background: rgba(16, 185, 129, 0.1); color: #059669; }
         .badge-inactive { background: rgba(100, 116, 139, 0.1); color: var(--text-muted); }
         .empty-row td { text-align: center; color: var(--text-muted); padding: 40px; }
+        /* Hidden User Activity section/columns — remove the col-hidden class to show again */
+        .col-hidden { display: none; }
         .skeleton { background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 4px; height: 14px; }
         @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
@@ -754,7 +756,7 @@
         <div class="sentiment-no-data"><div class="skeleton" style="width:200px; margin:0 auto;"></div></div>
     </div>
 
-    <div class="table-card">
+    <div class="table-card col-hidden">
         <div class="table-header">
             <h3>User Activity</h3>
             <input type="text" class="table-search" id="search-input" placeholder="Search users…">
@@ -764,10 +766,10 @@
                 <tr>
                     <th>Name</th>
                     <th>Email</th>
-                    <th>Cohort</th>
-                    <th>Sessions</th>
-                    <th>Messages Sent</th>
-                    <th>Last Active</th>
+                    <th class="col-hidden">Cohort</th>
+                    <th class="col-hidden">Sessions</th>
+                    <th class="col-hidden">Messages Sent</th>
+                    <th class="col-hidden">Last Active</th>
                     <th>Status</th>
                 </tr>
             </thead>
@@ -832,10 +834,10 @@
             return `<tr>
                 <td class="user-name-cell">${escHtml(u.user_name || '—')}</td>
                 <td class="email-cell">${escHtml(u.email || '—')}</td>
-                <td>${escHtml(u.cohort_name || '—')}</td>
-                <td>${u.session_count}</td>
-                <td>${u.message_count}</td>
-                <td>${formatDate(u.last_active)}</td>
+                <td class="col-hidden">${escHtml(u.cohort_name || '—')}</td>
+                <td class="col-hidden">${u.session_count}</td>
+                <td class="col-hidden">${u.message_count}</td>
+                <td class="col-hidden">${formatDate(u.last_active)}</td>
                 <td><span class="badge ${active ? 'badge-active' : 'badge-inactive'}">${active ? 'Active' : 'Inactive'}</span></td>
             </tr>`;
         }).join('');
@@ -975,7 +977,7 @@
             applyFilters();
         } catch (err) {
             document.getElementById('user-table-body').innerHTML =
-                '<tr class="empty-row"><td colspan="6">Failed to load data. Please refresh.</td></tr>';
+                '<tr class="empty-row"><td colspan="7">Failed to load data. Please refresh.</td></tr>';
         }
     }
 

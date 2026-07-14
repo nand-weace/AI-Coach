@@ -435,6 +435,23 @@ def get_all_org_slugs() -> list:
         conn.close()
 
 
+def get_all_orgs() -> list:
+    """Returns distinct organisations (slug + display name) that have coaching sessions."""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur,
+                "SELECT org_slug, MAX(org_name) AS org_name "
+                "FROM ai_coach_sessions "
+                "WHERE org_slug IS NOT NULL AND org_slug != '' "
+                "GROUP BY org_slug ORDER BY org_name"
+            )
+            return [{'slug': r['org_slug'], 'name': r['org_name'] or r['org_slug']}
+                    for r in cur.fetchall()]
+    finally:
+        conn.close()
+
+
 def get_org_user_messages(org_slug: str, limit: int = 1000) -> list:
     conn = get_connection()
     try:
@@ -878,35 +895,44 @@ def get_org_filter_options(org_slug: str) -> dict:
         conn.close()
 
 
-def get_org_sentiment_data(org_slug: str, trend_limit: int = 12, date_from=None, date_to=None,
+def get_org_sentiment_data(org_slug, trend_limit: int = 12, date_from=None, date_to=None,
                            gender=None, level_name=None, cohort_name=None) -> dict | None:
     """
     Returns aggregated sentiment data for the org keyed by dimension name.
+    Pass org_slug=None to aggregate across all organisations (weace_super_admin view).
     Scores and bands are derived from latest per-user sentiment_score rows.
-    Insights come from org_sentiment (LLM-generated).
+    Insights come from org_sentiment (LLM-generated); omitted for the all-orgs view.
     Trend is avg score per dimension grouped by run date.
     """
     conn = get_connection()
     try:
         with conn.cursor() as cur:
-            # Build user filter subquery (with optional gender/level_name/cohort_name)
+            # Build user filter subquery. org_slug=None means all organisations (weace_super_admin).
             if gender or level_name or cohort_name:
                 user_subquery = ("SELECT DISTINCT s.user_id FROM ai_coach_sessions s "
-                                 "JOIN user_settings us ON s.user_id = us.user_id "
-                                 "WHERE s.org_slug = %s")
-                user_subquery_params: list = [org_slug]
+                                 "JOIN user_settings us ON s.user_id = us.user_id")
+                conds: list = []
+                user_subquery_params: list = []
+                if org_slug:
+                    conds.append("s.org_slug = %s")
+                    user_subquery_params.append(org_slug)
                 if gender:
-                    user_subquery += " AND us.gender = %s"
+                    conds.append("us.gender = %s")
                     user_subquery_params.append(gender)
                 if level_name:
-                    user_subquery += " AND us.level_name = %s"
+                    conds.append("us.level_name = %s")
                     user_subquery_params.append(level_name)
                 if cohort_name:
-                    user_subquery += " AND us.cohort_name = %s"
+                    conds.append("us.cohort_name = %s")
                     user_subquery_params.append(cohort_name)
-            else:
+                if conds:
+                    user_subquery += " WHERE " + " AND ".join(conds)
+            elif org_slug:
                 user_subquery = "SELECT DISTINCT user_id FROM ai_coach_sessions WHERE org_slug = %s"
                 user_subquery_params = [org_slug]
+            else:
+                user_subquery = "SELECT DISTINCT user_id FROM ai_coach_sessions"
+                user_subquery_params = []
 
             # Build optional date filter for sentiment_score.calculated_at
             score_date_clause = ""
@@ -985,8 +1011,8 @@ def get_org_sentiment_data(org_slug: str, trend_limit: int = 12, date_from=None,
         for dim in dim_trends:
             dim_trends[dim] = dim_trends[dim][-trend_limit:]
 
-        # Get LLM-generated insights from existing org_sentiment table
-        insight_data = get_org_sentiment(org_slug) or {}
+        # Get LLM-generated insights from existing org_sentiment table (per-org only)
+        insight_data = (get_org_sentiment(org_slug) or {}) if org_slug else {}
 
         result: dict = {}
         for dim in _SENTIMENT_DIMS:
@@ -1017,17 +1043,24 @@ def get_org_sentiment_data(org_slug: str, trend_limit: int = 12, date_from=None,
         conn.close()
 
 
-def get_all_users_admin() -> list:
-    """Returns all users across all orgs with stats and nexa_access, for weace_super_admin."""
+def get_all_users_admin(org_slug=None) -> list:
+    """Returns users with stats and nexa_access, for weace_super_admin.
+    Pass org_slug to scope to a single organisation; None returns all orgs."""
     conn = get_connection()
     try:
         with conn.cursor() as cur:
-            _execute(cur,"""
+            where = ""
+            params: list = []
+            if org_slug:
+                where = "WHERE s.org_slug = %s"
+                params.append(org_slug)
+            _execute(cur, f"""
                 SELECT
                     s.user_id,
                     MAX(s.user_name)  AS user_name,
                     MAX(s.email)      AS email,
                     MAX(s.org_name)   AS org_name,
+                    MAX(s.org_slug)   AS org_slug,
                     MAX(s.cohort_id)  AS cohort_id,
                     MAX(s.started_at) AS last_login,
                     COUNT(DISTINCT s.session_id) AS session_count,
@@ -1038,9 +1071,10 @@ def get_all_users_admin() -> list:
                 FROM ai_coach_sessions s
                 LEFT JOIN ai_coach_messages m ON s.session_id = m.session_id
                 LEFT JOIN user_settings us ON s.user_id = us.user_id
+                {where}
                 GROUP BY s.user_id
                 ORDER BY last_login DESC
-            """)
+            """, params)
             users = cur.fetchall()
             for u in users:
                 if u['last_login']:

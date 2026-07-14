@@ -25,6 +25,7 @@ from database import (
     get_user_profile_context,
     set_user_nexa_access,
     get_all_users_admin,
+    get_all_orgs,
     disable_inactive_users,
     set_user_access_till,
 )
@@ -750,9 +751,15 @@ def sentiment():
         return jsonify({'error': 'Session not initialised — call /session first'}), 401
     if not _has_role(g.user.get('role'), 'corporate_super_admin', 'weace_super_admin'):
         return jsonify({'error': 'Forbidden'}), 403
-    org_slug = g.user.get('org_id', '').strip() or None
-    if not org_slug:
-        return jsonify({'error': 'No organisation associated with this account'}), 400
+    # weace_super_admin can view any organisation (or all) via org_slug param;
+    # corporate admins are always scoped to their own org.
+    if _has_role(g.user.get('role'), 'weace_super_admin'):
+        req_org = request.args.get('org_slug', '').strip()
+        org_slug = None if req_org in ('', 'all', '__all__') else req_org
+    else:
+        org_slug = g.user.get('org_id', '').strip() or None
+        if not org_slug:
+            return jsonify({'error': 'No organisation associated with this account'}), 400
     date_from   = request.args.get('date_from',    '').strip() or None
     date_to     = request.args.get('date_to',      '').strip() or None
     gender      = request.args.get('gender',       '').strip() or None
@@ -773,9 +780,18 @@ def sentiment_refresh():
         return jsonify({'error': 'Session not initialised — call /session first'}), 401
     if not _has_role(g.user.get('role'), 'corporate_super_admin', 'weace_super_admin'):
         return jsonify({'error': 'Forbidden'}), 403
-    org_slug = g.user.get('org_id', '')
-    if not org_slug:
-        return jsonify({'error': 'No organisation associated with this account'}), 400
+    # weace_super_admin recalculates a specific organisation via org_slug param;
+    # aggregate ("all") recalculation is not supported — a single org must be chosen.
+    if _has_role(g.user.get('role'), 'weace_super_admin'):
+        req_org = (request.args.get('org_slug', '').strip()
+                   or (request.json or {}).get('org_slug', '').strip())
+        if not req_org or req_org in ('all', '__all__'):
+            return jsonify({'error': 'Select a specific organisation to recalculate.'}), 400
+        org_slug = req_org
+    else:
+        org_slug = g.user.get('org_id', '')
+        if not org_slug:
+            return jsonify({'error': 'No organisation associated with this account'}), 400
     try:
         from sentiment_job import analyze_org_sentiment
         result = analyze_org_sentiment(org_slug)
@@ -810,9 +826,27 @@ def admin_users():
         return jsonify({'error': 'Session not initialised — call /session first'}), 401
     if not _has_role(g.user.get('role'), 'corporate_super_admin', 'weace_super_admin'):
         return jsonify({'error': 'Forbidden'}), 403
+    # weace_super_admin can scope to one organisation (or all) via org_slug param.
+    org_slug = None
+    if _has_role(g.user.get('role'), 'weace_super_admin'):
+        req_org = request.args.get('org_slug', '').strip()
+        org_slug = None if req_org in ('', 'all', '__all__') else req_org
     try:
-        users = get_all_users_admin()
+        users = get_all_users_admin(org_slug)
         return jsonify({'users': users, 'total': len(users)})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/admin/orgs')
+@require_weace_token
+def admin_orgs():
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    if not _has_role(g.user.get('role'), 'weace_super_admin'):
+        return jsonify({'error': 'Forbidden'}), 403
+    try:
+        return jsonify({'orgs': get_all_orgs()})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
