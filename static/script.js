@@ -97,7 +97,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const _sd = await buildSession(_newAccess, _newRefresh, _roles);
                     if (_sd) {
                         showApp(_sd.user_name, _sd.initials, _sd.profile_image, _sd.returning,
-                                _sd.role, _sd.nexa_access, _sd.access_last_date, _sd.remaining_days, _sd.recent_messages || []);
+                                _sd.role, _sd.nexa_access, _sd.access_last_date, _sd.remaining_days, _sd.recent_messages || [],
+                        _sd.welcome_message, _sd.welcome_suggestions);
                         _authed = true;
                     }
                 }
@@ -119,7 +120,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (_sd) {
                 storeTokens(_extToken, _extRefresh);
                 showApp(_sd.user_name, _sd.initials, _sd.profile_image, _sd.returning,
-                        _sd.role, _sd.nexa_access, _sd.access_last_date, _sd.remaining_days, _sd.recent_messages || []);
+                        _sd.role, _sd.nexa_access, _sd.access_last_date, _sd.remaining_days, _sd.recent_messages || [],
+                        _sd.welcome_message, _sd.welcome_suggestions);
                 _authed = true;
             }
         } catch (_) {}
@@ -146,7 +148,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                         if (sd) {
                             storeTokens(newAccess, newRefresh);
                             showApp(sd.user_name, sd.initials, sd.profile_image, sd.returning,
-                                    sd.role, sd.nexa_access, sd.access_last_date, sd.remaining_days, sd.recent_messages || []);
+                                    sd.role, sd.nexa_access, sd.access_last_date, sd.remaining_days, sd.recent_messages || [],
+                                    sd.welcome_message, sd.welcome_suggestions);
                             _authed = true;
                         }
                     }
@@ -173,7 +176,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const sd = await buildSession(storedAccess, storedRefresh || '', getStoredRoles());
                 if (sd) {
                     showApp(sd.user_name, sd.initials, sd.profile_image, sd.returning,
-                            sd.role, sd.nexa_access, sd.access_last_date, sd.remaining_days, sd.recent_messages || []);
+                            sd.role, sd.nexa_access, sd.access_last_date, sd.remaining_days, sd.recent_messages || [],
+                            sd.welcome_message, sd.welcome_suggestions);
                     _authed = true;
                 }
             } catch (_) {}
@@ -252,7 +256,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
             showApp(data.user_name, data.initials, data.profile_image, data.returning,
-                    data.role, data.nexa_access, data.access_last_date, data.remaining_days, data.recent_messages || []);
+                    data.role, data.nexa_access, data.access_last_date, data.remaining_days, data.recent_messages || [],
+                    data.welcome_message, data.welcome_suggestions);
         } catch (err) {
             errorEl.textContent = 'Connection error. Please try again.';
             resetBtn();
@@ -372,7 +377,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    function showApp(userName, initials, profileImage, returning, role, nexaAccess, accessLastDate, remainingDays, recentMessages) {
+    function showApp(userName, initials, profileImage, returning, role, nexaAccess, accessLastDate, remainingDays, recentMessages, welcomeMessage, welcomeSuggestions) {
         document.getElementById('login-overlay').style.display = 'none';
         const appEl = document.getElementById('app-container');
         appEl.style.opacity = '0';
@@ -421,7 +426,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         const welcomeEl = document.getElementById('welcome-text');
-        if (returning) {
+        if (welcomeMessage && welcomeMessage.trim()) {
+            welcomeEl.textContent = welcomeMessage.trim();
+        } else if (returning) {
             welcomeEl.textContent = `Welcome back, ${userName}. Ready to continue your leadership journey? What's on your mind today?`;
         } else {
             welcomeEl.textContent = `Welcome to your Executive Leadership Coaching Session, ${userName}. I'm Nexa, here to help you navigate complex professional challenges, enhance your leadership skills, and drive strategic impact. What would you like to focus on today?`;
@@ -433,6 +440,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             divider.innerHTML = '<span>Previous conversation</span>';
             chatContainer.appendChild(divider);
             recentMessages.forEach(msg => addMessage(msg.content, msg.role));
+        }
+
+        // Nudge the user to start the engagement with tappable starter prompts
+        if (nexaAccess && Array.isArray(welcomeSuggestions) && welcomeSuggestions.length > 0) {
+            renderSuggestions(welcomeSuggestions);
         }
 
         if (!nexaAccess) {

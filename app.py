@@ -228,6 +228,75 @@ def _get_or_rebuild_history(session_uuid: str, user_id: str, user_name: str,
     return history
 
 
+def _generate_welcome(user_name: str, highlights: list, profile_context: dict = None,
+                      returning: bool = False):
+    """Generate a personalised opening message for a new chat session.
+
+    When the user has past coaching history, the message warmly references an
+    earlier theme and nudges them to pick it back up; otherwise it's a warm
+    first-time greeting. Returns (message, suggestions). Falls back to a static
+    greeting if the AI is unavailable or errors out.
+    """
+    if returning:
+        fallback_msg = (
+            f"Welcome back, {user_name}. Ready to continue your leadership journey? "
+            "What's on your mind today?"
+        )
+    else:
+        fallback_msg = (
+            f"Welcome to your Executive Leadership Coaching Session, {user_name}. "
+            "I'm Nexa, here to help you navigate complex professional challenges, "
+            "enhance your leadership skills, and drive strategic impact. "
+            "What would you like to focus on today?"
+        )
+
+    if client is None:
+        return fallback_msg, []
+
+    system_content = _build_personalized_prompt(user_name, highlights, profile_context)
+    if returning and highlights:
+        instruction = (
+            f"[SESSION START] Greet {user_name} to open a new coaching session. "
+            "Warmly reference a relevant theme from their past coaching highlights and "
+            "invite them to continue it or start something new — without stating that you "
+            "have access to past session records. Keep it to 2-3 warm, concise sentences. "
+            "Then include 2-3 tappable starter nudges in the [[SUGGESTIONS]] block, phrased "
+            "from the user's point of view, that pick up past themes or open new ground."
+        )
+    else:
+        instruction = (
+            f"[SESSION START] Greet {user_name} to open their first coaching session. "
+            "Briefly introduce yourself as Nexa and what you help with, in 2-3 warm, concise "
+            "sentences. Then include 2-3 tappable starter nudges in the [[SUGGESTIONS]] block, "
+            "phrased from the user's point of view, to help them begin."
+        )
+
+    try:
+        if AI_PROVIDER == "claude":
+            response = client.messages.create(
+                model=AI_MODEL,
+                max_tokens=400,
+                system=system_content,
+                messages=[{"role": "user", "content": instruction}],
+            )
+            reply = response.content[0].text
+        else:
+            response = client.chat.completions.create(
+                model=AI_MODEL,
+                messages=[
+                    {"role": "system", "content": system_content},
+                    {"role": "user", "content": instruction},
+                ],
+                temperature=0.7,
+            )
+            reply = response.choices[0].message.content
+        message, suggestions = _extract_suggestions(reply)
+        return (message or fallback_msg), suggestions
+    except Exception as e:
+        logger.warning("[welcome] generation failed for user %s: %s", user_name, e)
+        return fallback_msg, []
+
+
 @app.route('/')
 def index():
     return render_template('index.html', weace_api_url=WEACE_API_URL)
@@ -365,6 +434,9 @@ def create_session():
         prompt = _build_personalized_prompt(user_name, highlights, profile_context)
         sessions_cache[session_uuid] = [{"role": "system", "content": prompt}]
 
+        welcome_message, welcome_suggestions = _generate_welcome(
+            user_name, highlights, profile_context, returning)
+
         # Evict any stale auth_tokens entry for this user (token rotation)
         stale = [t for t, d in auth_tokens.items() if d.get('user_id') == user_id]
         for t in stale:
@@ -450,6 +522,8 @@ def create_session():
             'access_last_date': access_last_date,
             'remaining_days': remaining_days,
             'recent_messages': recent_messages,
+            'welcome_message': welcome_message,
+            'welcome_suggestions': welcome_suggestions,
             'profile_context': profile_context,
             'org_name': org_name,
             'org_id': org_slug,
@@ -490,6 +564,9 @@ def new_session():
         prompt = _build_personalized_prompt(user_name, highlights, profile_context)
         sessions_cache[session_uuid] = [{"role": "system", "content": prompt}]
 
+        welcome_message, welcome_suggestions = _generate_welcome(
+            user_name, highlights, profile_context, returning)
+
         role = g.user.get('role', [])
         if _has_role(role, 'weace_super_admin', 'corporate_super_admin'):
             nexa_access = True
@@ -524,6 +601,8 @@ def new_session():
             'access_last_date': access_last_date,
             'remaining_days': remaining_days,
             'recent_messages': recent_messages,
+            'welcome_message': welcome_message,
+            'welcome_suggestions': welcome_suggestions,
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
