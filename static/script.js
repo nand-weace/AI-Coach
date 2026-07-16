@@ -440,6 +440,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             divider.innerHTML = '<span>Previous conversation</span>';
             chatContainer.appendChild(divider);
             recentMessages.forEach(msg => addMessage(msg.content, msg.role));
+            // Welcome bubble is static markup at the top of the container; move it
+            // below the replayed history so it opens the new session rather than
+            // sitting above the fold once we scroll to the bottom.
+            const welcomeWrapper = welcomeEl.closest('.message-wrapper');
+            if (welcomeWrapper) chatContainer.appendChild(welcomeWrapper);
+            scrollToBottom();
         }
 
         // Nudge the user to start the engagement with tappable starter prompts
