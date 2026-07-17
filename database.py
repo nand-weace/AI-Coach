@@ -259,7 +259,7 @@ def has_previous_sessions(user_id: str) -> bool:
         conn.close()
 
 
-def get_session_highlights(user_id: str, max_sessions: int = 5) -> list:
+def get_session_highlights(user_id: str, max_sessions: int = 50) -> list:
     """
     For each of the user's recent sessions returns the opening topic (first user
     message) and the closing takeaway (last assistant message). Used to build a
