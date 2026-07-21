@@ -168,17 +168,14 @@
             font-size: 0.78rem; color: var(--text-muted); font-family: inherit;
         }
 
-        /* ── Nexa access toggle ── */
-        .nexa-toggle {
-            padding: 4px 14px; border-radius: 999px; border: none;
-            cursor: pointer; font-size: 0.78rem; font-weight: 500;
-            font-family: inherit; transition: all 0.15s;
+        /* ── Nexa access badge (read-only — set by the WeAce user-config API at login) ── */
+        .nexa-badge {
+            display: inline-block;
+            padding: 4px 14px; border-radius: 999px;
+            font-size: 0.78rem; font-weight: 500;
         }
-        .nexa-on { background: rgba(16, 185, 129, 0.1); color: #059669; }
-        .nexa-on:hover { background: rgba(16, 185, 129, 0.22); }
+        .nexa-on  { background: rgba(16, 185, 129, 0.1); color: #059669; }
         .nexa-off { background: rgba(100, 116, 139, 0.1); color: var(--text-muted); }
-        .nexa-off:hover { background: rgba(100, 116, 139, 0.22); }
-        .nexa-toggle:disabled { opacity: 0.5; cursor: default; }
         @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
         /* ── Refresh button ── */
@@ -504,6 +501,14 @@
             <div class="stat-label">Total Chats</div>
             <div class="stat-value loading" id="stat-chats">—</div>
         </div>
+        <div class="stat-card nexa-stat">
+            <div class="stat-label">Total Next Count</div>
+            <div class="stat-value loading" id="stat-next-count">—</div>
+        </div>
+        <div class="stat-card nexa-stat">
+            <div class="stat-label">Total Used Count</div>
+            <div class="stat-value loading" id="stat-used-count">—</div>
+        </div>
     </div>
 
     <!-- ── Sentiment Intelligence ── -->
@@ -526,7 +531,10 @@
     <div class="table-card">
         <div class="table-header">
             <h3>All Users</h3>
-            <input type="text" class="table-search" id="search-input" placeholder="Search name, email, org…">
+            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                <input type="text" class="table-search" id="search-input" placeholder="Search name, email, org…">
+                <button class="refresh-btn" id="export-btn">Export CSV</button>
+            </div>
         </div>
         <table>
             <thead>
@@ -568,6 +576,8 @@
 
 <script>
     let allUsers = [];
+    // Rows currently rendered in the All Users table (after org filter + search).
+    let visibleUsers = [];
 
     // Global organisation filter — drives stats, All Users, and Sentiment sections.
     const ALL_ORGS = '__all__';
@@ -600,6 +610,7 @@
     }
 
     function renderTable(users) {
+        visibleUsers = users;
         const tbody = document.getElementById('user-table-body');
         if (!users.length) {
             tbody.innerHTML = '<tr class="empty-row"><td colspan="8">No users found.</td></tr>';
@@ -622,13 +633,10 @@
                     </div>
                 </td>
                 <td>
-                    <button
-                        class="nexa-toggle ${u.nexa_access ? 'nexa-on' : 'nexa-off'}"
-                        data-user-id="${escHtml(u.user_id)}"
-                        data-access="${u.nexa_access ? '1' : '0'}"
-                        onclick="toggleNexaAccess(this)">
+                    <span class="nexa-badge ${u.nexa_access ? 'nexa-on' : 'nexa-off'}"
+                          title="From the WeAce user-config API at the user's last login">
                         ${u.nexa_access ? 'Enabled' : 'Disabled'}
-                    </button>
+                    </span>
                 </td>
             </tr>
         `}).join('');
@@ -681,46 +689,10 @@
         }
     }
 
-    async function toggleNexaAccess(btn) {
-        const userId = btn.dataset.userId;
-        const current = btn.dataset.access === '1';
-        const next = !current;
-
-        btn.disabled = false;
-        btn.textContent = '…';
-
-        try {
-            const res = await fetch(`/api/admin/users/${encodeURIComponent(userId)}/nexa_access`, {
-                method: 'PUT',
-                headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-                body: JSON.stringify({ nexa_access: next }),
-            });
-            const data = await res.json();
-            if (!res.ok) {
-                alert(data.error || 'Failed to update access.');
-                btn.disabled = false;
-                btn.textContent = current ? 'Enabled' : 'Disabled';
-                return;
-            }
-            btn.dataset.access = next ? '1' : '0';
-            btn.className = `nexa-toggle ${next ? 'nexa-on' : 'nexa-off'}`;
-            btn.textContent = next ? 'Enabled' : 'Disabled';
-            btn.disabled = false;
-
-            // Update local stats
-            const user = allUsers.find(u => u.user_id === userId);
-            if (user) user.nexa_access = next;
-        } catch (_) {
-            alert('Connection error. Please try again.');
-            btn.disabled = false;
-            btn.textContent = current ? 'Enabled' : 'Disabled';
-        }
-    }
-
     async function loadUsers() {
         const qs = currentOrgSlug !== ALL_ORGS
             ? ('?org_slug=' + encodeURIComponent(currentOrgSlug)) : '';
-        document.querySelectorAll('.stat-value').forEach(el => el.classList.add('loading'));
+        document.querySelectorAll('.stat-card:not(.nexa-stat) .stat-value').forEach(el => el.classList.add('loading'));
         document.getElementById('user-table-body').innerHTML =
             '<tr><td colspan="8"><div class="skeleton" style="width:60%; margin:0 auto;"></div></td></tr>';
         try {
@@ -736,7 +708,7 @@
             document.getElementById('stat-users').textContent = allUsers.length;
             document.getElementById('stat-sessions').textContent = totalSessions;
             document.getElementById('stat-chats').textContent = totalChats;
-            document.querySelectorAll('.stat-value').forEach(el => el.classList.remove('loading'));
+            document.querySelectorAll('.stat-card:not(.nexa-stat) .stat-value').forEach(el => el.classList.remove('loading'));
 
             renderTable(allUsers);
         } catch (_) {
@@ -754,12 +726,71 @@
         ));
     });
 
+    // ── Nexa next/used counts (live from the WeAce users API, per organisation) ──
+    async function loadNexaCounts() {
+        const nextEl = document.getElementById('stat-next-count');
+        const usedEl = document.getElementById('stat-used-count');
+        [nextEl, usedEl].forEach(el => { el.textContent = '—'; el.classList.add('loading'); });
+
+        const qs = currentOrgSlug !== ALL_ORGS
+            ? ('?org_slug=' + encodeURIComponent(currentOrgSlug)) : '';
+        try {
+            const res = await fetch('/api/admin/nexa_counts' + qs, { headers: getAuthHeaders() });
+            if (!res.ok) throw new Error('failed');
+            const data = await res.json();
+            nextEl.textContent = (data.next_count ?? 0).toLocaleString();
+            usedEl.textContent = (data.used_count ?? 0).toLocaleString();
+        } catch (_) {
+            nextEl.textContent = '—';
+            usedEl.textContent = '—';
+        } finally {
+            [nextEl, usedEl].forEach(el => el.classList.remove('loading'));
+        }
+    }
+
+    function csvCell(val) {
+        const s = (val === null || val === undefined) ? '' : String(val);
+        return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    }
+
+    document.getElementById('export-btn').addEventListener('click', () => {
+        if (!visibleUsers.length) { alert('No users to export.'); return; }
+
+        const headers = ['Name', 'Email', 'Organisation', 'Active Since', 'First Login',
+                         'Last Login', 'Sessions', 'Chats', 'Access Till', 'Nexa Access'];
+        const rows = visibleUsers.map(u => [
+            u.user_name || '',
+            u.email || '',
+            u.org_name || '',
+            activeSince(u.first_login).replace('—', ''),
+            u.first_login ? u.first_login.slice(0, 10) : '',
+            u.last_login ? u.last_login.slice(0, 10) : '',
+            u.session_count,
+            u.chat_count,
+            u.access_last_date ? u.access_last_date.slice(0, 10) : '',
+            u.nexa_access ? 'Enabled' : 'Disabled',
+        ]);
+
+        const csv = [headers, ...rows].map(r => r.map(csvCell).join(',')).join('\r\n');
+        // BOM keeps Excel happy with UTF-8 names.
+        const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+        const orgPart = currentOrgSlug === ALL_ORGS ? 'all-orgs' : currentOrgSlug;
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `weace-users-${orgPart}-${new Date().toISOString().slice(0, 10)}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(link.href);
+    });
+
     document.getElementById('logout-button').addEventListener('click', async () => {
         await fetch('/logout', { method: 'POST', headers: getAuthHeaders() });
         window.location.href = '/';
     });
 
     loadUsers();
+    loadNexaCounts();
     const SENTIMENT_DIMS = [
         { key: 'growth_mindset', label: 'Growth Mindset', desc: 'Learning-oriented framing of effort and setbacks', inverse: false, theme: 'growth',
           interp: { high: 'Challenges framed as opportunities; strong focus on learning and continuous improvement.', mid: 'Some growth framing present, alongside occasional fixed-mindset language.', low: 'Predominantly fixed-mindset framing; setbacks treated as limitations rather than lessons.' } },
@@ -1382,6 +1413,7 @@
         document.getElementById('search-input').value = '';
         updateRecalcState();
         loadUsers();
+        loadNexaCounts();
         loadSentiment();
     });
 

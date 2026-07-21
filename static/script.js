@@ -1,3 +1,23 @@
+// Language picker — keep in sync with SUPPORTED_LANGUAGES in app.py
+const LANGUAGES = [
+    { code: 'English',    label: 'English' },
+    { code: 'Hindi',      label: 'हिन्दी (Hindi)' },
+    { code: 'Marathi',    label: 'मराठी (Marathi)' },
+    { code: 'Bengali',    label: 'বাংলা (Bengali)' },
+    { code: 'Tamil',      label: 'தமிழ் (Tamil)' },
+    { code: 'Telugu',     label: 'తెలుగు (Telugu)' },
+    { code: 'Kannada',    label: 'ಕನ್ನಡ (Kannada)' },
+    { code: 'Malayalam',  label: 'മലയാളം (Malayalam)' },
+    { code: 'Gujarati',   label: 'ગુજરાતી (Gujarati)' },
+    { code: 'Spanish',    label: 'Español (Spanish)' },
+    { code: 'French',     label: 'Français (French)' },
+    { code: 'German',     label: 'Deutsch (German)' },
+    { code: 'Portuguese', label: 'Português (Portuguese)' },
+    { code: 'Arabic',     label: 'العربية (Arabic)' },
+    { code: 'Chinese',    label: '中文 (Chinese)' },
+    { code: 'Japanese',   label: '日本語 (Japanese)' },
+];
+
 document.addEventListener('DOMContentLoaded', async () => {
     const chatForm = document.getElementById('chat-form');
     const userInput = document.getElementById('user-input');
@@ -31,6 +51,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         localStorage.removeItem('we_ace_org_id');
         localStorage.removeItem('we_ace_org_name');
         localStorage.removeItem('we_ace_cohort_id');
+        localStorage.removeItem('we_ace_language');
     }
     function storeProfileRoles(roles) {
         if (roles && Array.isArray(roles) && roles.length > 0)
@@ -69,6 +90,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (data.org_id) localStorage.setItem('we_ace_org_id', data.org_id);
         if (data.org_name) localStorage.setItem('we_ace_org_name', data.org_name);
         if (data.cohort_id) localStorage.setItem('we_ace_cohort_id', data.cohort_id);
+        if (data.language) localStorage.setItem('we_ace_language', data.language);
         return data;
     }
 
@@ -273,7 +295,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             chipWrap.classList.toggle('open');
         });
         document.addEventListener('click', e => {
-            if (!chipWrap.contains(e.target)) chipWrap.classList.remove('open');
+            if (!chipWrap.contains(e.target)) {
+                chipWrap.classList.remove('open');
+                document.getElementById('language-menu-wrap').classList.remove('open');
+            }
         });
     }
 
@@ -283,6 +308,62 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.open('https://we-ace.com/app/?refresh_token=' + encodeURIComponent(rt), '_blank');
         if (chipWrap) chipWrap.classList.remove('open');
     });
+
+
+    function getLanguage() {
+        return localStorage.getItem('we_ace_language') || 'English';
+    }
+
+    // Looks elements up on each call — showApp can run before this block is reached.
+    function renderLanguageMenu() {
+        const langSubmenu = document.getElementById('language-submenu');
+        const langCurrent = document.getElementById('language-current');
+        if (!langSubmenu || !langCurrent) return;
+        const active = getLanguage();
+        langCurrent.textContent = (LANGUAGES.find(l => l.code === active) || LANGUAGES[0])
+            .label.replace(/\s*\(.*\)$/, '');
+        langSubmenu.innerHTML = '';
+        LANGUAGES.forEach(({ code, label }) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'chip-submenu-option' + (code === active ? ' selected' : '');
+            btn.textContent = label;
+            btn.addEventListener('click', e => {
+                e.stopPropagation();
+                setLanguage(code);
+            });
+            langSubmenu.appendChild(btn);
+        });
+    }
+
+    async function setLanguage(code) {
+        const previous = getLanguage();
+        localStorage.setItem('we_ace_language', code);
+        renderLanguageMenu();
+        document.getElementById('language-menu-wrap').classList.remove('open');
+        if (chipWrap) chipWrap.classList.remove('open');
+        if (code === previous) return;
+        try {
+            const accessToken = localStorage.getItem('we_ace_access_token') || '';
+            await fetch('/language', {
+                method: 'POST',
+                credentials: 'omit',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
+                },
+                body: JSON.stringify({ language: code }),
+            });
+        } catch (err) {
+            // Preference still applies locally — it's sent with every /chat request.
+        }
+    }
+
+    document.getElementById('btn-language').addEventListener('click', e => {
+        e.stopPropagation();
+        document.getElementById('language-menu-wrap').classList.toggle('open');
+    });
+    renderLanguageMenu();
 
     // Edit Profile
     document.getElementById('btn-edit-profile').addEventListener('click', () => {
@@ -358,6 +439,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     user_name: localStorage.getItem('we_ace_user_name') || '',
                     session_uuid: localStorage.getItem('we_ace_session_uuid') || '',
                     profile_context: JSON.parse(localStorage.getItem('we_ace_profile_context') || 'null'),
+                    language: localStorage.getItem('we_ace_language') || 'English',
                 }),
             });
             const data = await res.json();
@@ -386,6 +468,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         appEl.style.transition = 'opacity 0.22s ease';
         appEl.style.opacity = '1';
         document.getElementById('user-display').textContent = userName;
+        renderLanguageMenu();   // reflect the preference restored by /session
         window._userInitials = initials;
         window._profileImage = profileImage || '';
 

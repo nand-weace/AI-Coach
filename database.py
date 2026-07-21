@@ -146,7 +146,7 @@ def init_db():
             _execute(cur,"""
                 CREATE TABLE IF NOT EXISTS user_settings (
                     user_id VARCHAR(36) PRIMARY KEY,
-                    nexa_access TINYINT(1) DEFAULT 0,
+                    nexa_access_cached TINYINT(1) DEFAULT 0,
                     first_name VARCHAR(255) DEFAULT NULL,
                     last_name VARCHAR(255) DEFAULT NULL,
                     email VARCHAR(255) DEFAULT NULL,
@@ -159,6 +159,7 @@ def init_db():
                     gender VARCHAR(50) DEFAULT NULL,
                     functional_areas TEXT DEFAULT NULL,
                     industry_types TEXT DEFAULT NULL,
+                    language VARCHAR(50) DEFAULT NULL,
                     first_login DATETIME DEFAULT CURRENT_TIMESTAMP,
                     last_login DATETIME DEFAULT CURRENT_TIMESTAMP,
                     access_last_date DATETIME DEFAULT NULL,
@@ -166,9 +167,9 @@ def init_db():
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """)
             for col, definition in [
-                ('first_login',      'DATETIME DEFAULT CURRENT_TIMESTAMP AFTER nexa_access'),
+                ('first_login',      'DATETIME DEFAULT CURRENT_TIMESTAMP AFTER nexa_access_cached'),
                 ('access_last_date', 'DATETIME DEFAULT NULL AFTER last_login'),
-                ('first_name',       'VARCHAR(255) DEFAULT NULL AFTER nexa_access'),
+                ('first_name',       'VARCHAR(255) DEFAULT NULL AFTER nexa_access_cached'),
                 ('last_name',        'VARCHAR(255) DEFAULT NULL AFTER first_name'),
                 ('email',            'VARCHAR(255) DEFAULT NULL AFTER last_name'),
                 ('org_id',           'VARCHAR(255) DEFAULT NULL AFTER email'),
@@ -180,6 +181,7 @@ def init_db():
                 ('gender',            'VARCHAR(50) DEFAULT NULL AFTER level_name'),
                 ('functional_areas',  'TEXT DEFAULT NULL AFTER gender'),
                 ('industry_types',    'TEXT DEFAULT NULL AFTER functional_areas'),
+                ('language',          'VARCHAR(50) DEFAULT NULL AFTER industry_types'),
             ]:
                 _execute(cur,
                     "SELECT COUNT(*) AS cnt FROM information_schema.COLUMNS "
@@ -188,6 +190,20 @@ def init_db():
                 )
                 if cur.fetchone()['cnt'] == 0:
                     _execute(cur,f"ALTER TABLE user_settings ADD COLUMN {col} {definition}")
+            # nexa_access is no longer an editable flag — access comes from the WeAce
+            # user-config API at login. Rename the old column into a read-only cache.
+            _execute(cur,
+                "SELECT COLUMN_NAME FROM information_schema.COLUMNS "
+                "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'user_settings' "
+                "AND COLUMN_NAME IN ('nexa_access', 'nexa_access_cached')"
+            )
+            _nexa_cols = {r['COLUMN_NAME'] for r in cur.fetchall()}
+            if 'nexa_access' in _nexa_cols and 'nexa_access_cached' not in _nexa_cols:
+                _execute(cur, "ALTER TABLE user_settings "
+                              "CHANGE COLUMN nexa_access nexa_access_cached TINYINT(1) DEFAULT 0")
+            elif 'nexa_access' in _nexa_cols:
+                _execute(cur, "ALTER TABLE user_settings DROP COLUMN nexa_access")
+
             # Backfill access_last_date for existing rows that predate this column
             _execute(cur,
                 "UPDATE user_settings SET access_last_date = DATE_ADD(first_login, INTERVAL 7 DAY) "
@@ -560,8 +576,12 @@ def upsert_user_login(user_id: str, first_name: str = None, last_name: str = Non
                       email: str = None, org_id: str = None, org_name: str = None,
                       cohort_id: str = None, cohort_name: str = None, country: str = None,
                       level_name: str = None, gender: str = None,
-                      functional_areas: list = None, industry_types: list = None) -> dict:
-    """Create or refresh a user_settings row; enables nexa_access. Returns nexa_access and access_last_date."""
+                      functional_areas: list = None, industry_types: list = None,
+                      nexa_access: bool = False) -> dict:
+    """Create or refresh a user_settings row at login.
+
+    nexa_access comes from the WeAce user-config API and is stored only as a
+    read-only cache for the admin dashboard. Returns access_last_date."""
     conn = get_connection()
     try:
         with conn.cursor() as cur:
@@ -580,13 +600,14 @@ def upsert_user_login(user_id: str, first_name: str = None, last_name: str = Non
             _execute(cur,
                 """
                 INSERT INTO user_settings
-                    (user_id, nexa_access, first_name, last_name, email,
+                    (user_id, nexa_access_cached, first_name, last_name, email,
                      org_id, org_name, cohort_id, cohort_name, country, level_name, gender,
                      functional_areas, industry_types,
                      first_login, last_login, access_last_date)
-                VALUES (%s, 1, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW(), DATE_ADD(NOW(), INTERVAL 7 DAY))
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW(), DATE_ADD(NOW(), INTERVAL 7 DAY))
                 ON DUPLICATE KEY UPDATE
-                    last_login        = NOW(),
+                    last_login         = NOW(),
+                    nexa_access_cached = VALUES(nexa_access_cached),
                     first_name        = COALESCE(%s, first_name),
                     last_name         = COALESCE(%s, last_name),
                     email             = COALESCE(%s, email),
@@ -600,16 +621,16 @@ def upsert_user_login(user_id: str, first_name: str = None, last_name: str = Non
                     functional_areas  = COALESCE(%s, functional_areas),
                     industry_types    = COALESCE(%s, industry_types)
                 """,
-                (user_id, _fn, _ln, _em, _oi, _on, _ci, _cn, _co, _lv, _gd, _fa, _it,
+                (user_id, 1 if nexa_access else 0,
+                 _fn, _ln, _em, _oi, _on, _ci, _cn, _co, _lv, _gd, _fa, _it,
                  _fn, _ln, _em, _oi, _on, _ci, _cn, _co, _lv, _gd, _fa, _it),
             )
             conn.commit()
             _execute(cur,
-                "SELECT nexa_access, access_last_date FROM user_settings WHERE user_id = %s", (user_id,)
+                "SELECT access_last_date FROM user_settings WHERE user_id = %s", (user_id,)
             )
             row = cur.fetchone()
         return {
-            'nexa_access': bool(row['nexa_access']) if row else True,
             'access_last_date': str(row['access_last_date']) if row and row['access_last_date'] else None,
         }
     finally:
@@ -645,44 +666,47 @@ def get_user_profile_context(user_id: str) -> dict:
 
 
 def get_user_access_settings(user_id: str) -> dict:
-    """Returns nexa_access and access_last_date for the given user."""
+    """Returns the cached nexa access flag and access_last_date for the given user."""
     conn = get_connection()
     try:
         with conn.cursor() as cur:
             _execute(cur,
-                "SELECT nexa_access, access_last_date FROM user_settings WHERE user_id = %s", (user_id,)
+                "SELECT nexa_access_cached, access_last_date FROM user_settings WHERE user_id = %s",
+                (user_id,)
             )
             row = cur.fetchone()
         return {
-            'nexa_access': bool(row['nexa_access']) if row else False,
+            'nexa_access': bool(row['nexa_access_cached']) if row else False,
             'access_last_date': str(row['access_last_date']) if row and row['access_last_date'] else None,
         }
     finally:
         conn.close()
 
 
-def get_user_nexa_access(user_id: str) -> bool:
+def get_user_language(user_id: str) -> str | None:
+    """Returns the user's preferred coaching language, or None if never set."""
     conn = get_connection()
     try:
         with conn.cursor() as cur:
-            _execute(cur,"SELECT nexa_access FROM user_settings WHERE user_id = %s", (user_id,))
+            _execute(cur, "SELECT language FROM user_settings WHERE user_id = %s", (user_id,))
             row = cur.fetchone()
-            return bool(row['nexa_access']) if row else False
+        return (row['language'] or None) if row else None
     finally:
         conn.close()
 
 
-def set_user_nexa_access(user_id: str, value: bool):
+def set_user_language(user_id: str, language: str):
+    """Store the user's preferred coaching language."""
     conn = get_connection()
     try:
         with conn.cursor() as cur:
             _execute(cur,
                 """
-                INSERT INTO user_settings (user_id, nexa_access)
+                INSERT INTO user_settings (user_id, language)
                 VALUES (%s, %s)
-                ON DUPLICATE KEY UPDATE nexa_access = VALUES(nexa_access)
+                ON DUPLICATE KEY UPDATE language = VALUES(language)
                 """,
-                (user_id, 1 if value else 0),
+                (user_id, language),
             )
         conn.commit()
     finally:
@@ -703,27 +727,6 @@ def set_user_access_till(user_id: str, access_till: str):
                 (user_id, access_till),
             )
         conn.commit()
-    finally:
-        conn.close()
-
-
-def disable_inactive_users(days: int = 30) -> int:
-    """Disable nexa_access for users who haven't logged in for `days` days. Returns count disabled."""
-    conn = get_connection()
-    try:
-        with conn.cursor() as cur:
-            _execute(cur,
-                """
-                UPDATE user_settings
-                SET nexa_access = 0
-                WHERE nexa_access = 1
-                  AND last_login < DATE_SUB(NOW(), INTERVAL %s DAY)
-                """,
-                (days,),
-            )
-            affected = cur.rowcount
-        conn.commit()
-        return affected
     finally:
         conn.close()
 
@@ -1044,7 +1047,7 @@ def get_org_sentiment_data(org_slug, trend_limit: int = 12, date_from=None, date
 
 
 def get_all_users_admin(org_slug=None) -> list:
-    """Returns users with stats and nexa_access, for weace_super_admin.
+    """Returns users with stats and their last-known Nexa access, for weace_super_admin.
     Pass org_slug to scope to a single organisation; None returns all orgs."""
     conn = get_connection()
     try:
@@ -1065,7 +1068,7 @@ def get_all_users_admin(org_slug=None) -> list:
                     MAX(s.started_at) AS last_login,
                     COUNT(DISTINCT s.session_id) AS session_count,
                     SUM(CASE WHEN m.role = 'user' THEN 1 ELSE 0 END) AS chat_count,
-                    COALESCE(us.nexa_access, 1) AS nexa_access,
+                    COALESCE(us.nexa_access_cached, 0) AS nexa_access,
                     us.first_login AS first_login,
                     us.access_last_date AS access_last_date
                 FROM ai_coach_sessions s

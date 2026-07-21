@@ -20,15 +20,50 @@ from database import (
     upsert_org_sentiment,
     get_org_sentiment_data,
     upsert_user_login,
-    get_user_nexa_access,
     get_user_access_settings,
     get_user_profile_context,
-    set_user_nexa_access,
     get_all_users_admin,
     get_all_orgs,
-    disable_inactive_users,
     set_user_access_till,
+    get_user_language,
+    set_user_language,
 )
+
+# Languages Nexa can coach in. Keep in sync with the picker in templates/index.html.
+SUPPORTED_LANGUAGES = {
+    'English': 'English',
+    'Hindi': 'Hindi',
+    'Marathi': 'Marathi',
+    'Bengali': 'Bengali',
+    'Tamil': 'Tamil',
+    'Telugu': 'Telugu',
+    'Kannada': 'Kannada',
+    'Malayalam': 'Malayalam',
+    'Gujarati': 'Gujarati',
+    'Spanish': 'Spanish',
+    'French': 'French',
+    'German': 'German',
+    'Portuguese': 'Portuguese',
+    'Arabic': 'Arabic',
+    'Chinese': 'Chinese (Simplified)',
+    'Japanese': 'Japanese',
+}
+DEFAULT_LANGUAGE = 'English'
+
+
+def _language_directive(language: str | None) -> str:
+    """System-prompt addendum instructing Nexa to reply in the chosen language."""
+    if not language or language == DEFAULT_LANGUAGE:
+        return ''
+    label = SUPPORTED_LANGUAGES.get(language, language)
+    return (
+        f"\n\n---\nLANGUAGE:\n"
+        f"Write every reply in {label}, including the suggested follow-ups inside the "
+        f"[[SUGGESTIONS]] block. Keep the same warm, informal coaching tone in {label}. "
+        f"Do not translate or alter the [[SUGGESTIONS]] tags themselves. "
+        f"If the user writes in another language, still reply in {label} unless they ask "
+        f"you to switch.\n---"
+    )
 
 load_dotenv()
 
@@ -146,13 +181,9 @@ def _start_scheduler():
     from sentiment_job import run_sentiment_job
     scheduler = BackgroundScheduler(daemon=True)
     scheduler.add_job(run_sentiment_job, 'cron', hour=2, minute=0, id='sentiment_daily')
-    scheduler.add_job(
-        lambda: print(f"Nexa expiry: disabled {disable_inactive_users(30)} user(s)."),
-        'cron', hour=3, minute=0, id='nexa_access_expiry',
-    )
     scheduler.start()
     atexit.register(lambda: scheduler.shutdown())
-    print("Scheduler started: sentiment at 02:00 UTC, Nexa access expiry at 03:00 UTC.")
+    print("Scheduler started: sentiment at 02:00 UTC.")
     return scheduler
 
 
@@ -163,6 +194,29 @@ if os.environ.get('ENABLE_SCHEDULER', 'true').lower() == 'true':
             _scheduler = _start_scheduler()
         except Exception as e:
             print(f"Scheduler failed to start: {e}")
+
+
+def _fetch_nexa_access(token: str) -> bool:
+    """Nexa access from the WeAce user-config API — the source of truth.
+
+    Access requires both flags: nexaCoachAccessCohort (cohort is entitled) and
+    settingNexaCoachAccess (the user's own setting). Falls back to no access if
+    the API is unreachable, so entitlement is never granted on a failed call.
+    """
+    try:
+        resp = http_requests.get(
+            f'{WEACE_API_URL}/api/v1/static-data/user-config',
+            headers={'accept': '*/*', 'Authorization': f'Bearer {token}'},
+            timeout=10,
+        )
+        if not resp.ok:
+            logger.warning("[nexa] user-config API returned status=%s", resp.status_code)
+            return False
+        cfg = (resp.json() or {}).get('data') or {}
+        return bool(cfg.get('nexaCoachAccessCohort')) and bool(cfg.get('settingNexaCoachAccess'))
+    except Exception as e:
+        logger.error("[nexa] user-config API unreachable: %s", e)
+        return False
 
 
 def _build_personalized_prompt(user_name: str, highlights: list, profile_context: dict = None) -> str:
@@ -229,7 +283,7 @@ def _get_or_rebuild_history(session_uuid: str, user_id: str, user_name: str,
 
 
 def _generate_welcome(user_name: str, highlights: list, profile_context: dict = None,
-                      returning: bool = False):
+                      returning: bool = False, language: str = None):
     """Generate a personalised opening message for a new chat session.
 
     When the user has past coaching history, the message warmly references an
@@ -254,6 +308,7 @@ def _generate_welcome(user_name: str, highlights: list, profile_context: dict = 
         return fallback_msg, []
 
     system_content = _build_personalized_prompt(user_name, highlights, profile_context)
+    system_content += _language_directive(language)
     if returning and highlights:
         instruction = (
             f"[SESSION START] Greet {user_name} to open a new coaching session. "
@@ -309,14 +364,16 @@ def me():
         return jsonify({'error': 'Session not initialised — call /session first'}), 401
     name = g.user['user_name']
     initials = ''.join(w[0].upper() for w in name.split()[:2])
+    # Nexa access is resolved from the user-config API at login and cached per token.
+    token_state = auth_tokens.get(g.access_token) or {}
     return jsonify({
         'logged_in': True,
         'user_name': name,
         'initials': initials,
         'profile_image': g.user.get('profile_image', ''),
         'role': g.user.get('role', 'user'),
-        'nexa_access': g.user.get('nexa_access', True),
-        'access_last_date': g.user.get('access_last_date'),
+        'nexa_access': token_state.get('nexa_access', False),
+        'access_last_date': token_state.get('access_last_date'),
     })
 
 
@@ -434,8 +491,9 @@ def create_session():
         prompt = _build_personalized_prompt(user_name, highlights, profile_context)
         sessions_cache[session_uuid] = [{"role": "system", "content": prompt}]
 
+        language = get_user_language(user_id) or DEFAULT_LANGUAGE
         welcome_message, welcome_suggestions = _generate_welcome(
-            user_name, highlights, profile_context, returning)
+            user_name, highlights, profile_context, returning, language)
 
         # Evict any stale auth_tokens entry for this user (token rotation)
         stale = [t for t, d in auth_tokens.items() if d.get('user_id') == user_id]
@@ -456,28 +514,19 @@ def create_session():
         session['cohort_id'] = cohort_id
         session['profile_context'] = profile_context
 
-        # Super admins always have Nexa access; regular users are controlled by the flag
-        if _has_role(role, 'weace_super_admin', 'corporate_super_admin'):
-            access_last_date = None
-            remaining_days = None
-            settings = upsert_user_login(
-                user_id,
-                first_name=first, last_name=last, email=email,
-                org_id=org_slug, org_name=org_name, cohort_id=cohort_id,
-                cohort_name=cohort_name, country=country,
-                level_name=level_name, gender=gender,
-                functional_areas=functional_areas, industry_types=industry_types,
-            )
-        else:
-            settings = upsert_user_login(
-                user_id,
-                first_name=first, last_name=last, email=email,
-                org_id=org_slug, org_name=org_name, cohort_id=cohort_id,
-                cohort_name=cohort_name, country=country,
-                level_name=level_name, gender=gender,
-                functional_areas=functional_areas, industry_types=industry_types,
-            )
-        nexa_access = settings['nexa_access']
+        # Super admins always have Nexa access; everyone else is decided by the
+        # user-config API at login and cached for the admin dashboard.
+        nexa_access = (True if _has_role(role, 'weace_super_admin', 'corporate_super_admin')
+                       else _fetch_nexa_access(g.access_token))
+        settings = upsert_user_login(
+            user_id,
+            first_name=first, last_name=last, email=email,
+            org_id=org_slug, org_name=org_name, cohort_id=cohort_id,
+            cohort_name=cohort_name, country=country,
+            level_name=level_name, gender=gender,
+            functional_areas=functional_areas, industry_types=industry_types,
+            nexa_access=nexa_access,
+        )
         access_last_date = settings['access_last_date']
         if access_last_date:
             remaining_days = max(0, (date.fromisoformat(access_last_date.split()[0]) - date.today()).days)
@@ -524,6 +573,7 @@ def create_session():
             'recent_messages': recent_messages,
             'welcome_message': welcome_message,
             'welcome_suggestions': welcome_suggestions,
+            'language': language,
             'profile_context': profile_context,
             'org_name': org_name,
             'org_id': org_slug,
@@ -564,8 +614,9 @@ def new_session():
         prompt = _build_personalized_prompt(user_name, highlights, profile_context)
         sessions_cache[session_uuid] = [{"role": "system", "content": prompt}]
 
+        language = get_user_language(user_id) or DEFAULT_LANGUAGE
         welcome_message, welcome_suggestions = _generate_welcome(
-            user_name, highlights, profile_context, returning)
+            user_name, highlights, profile_context, returning, language)
 
         role = g.user.get('role', [])
         if _has_role(role, 'weace_super_admin', 'corporate_super_admin'):
@@ -574,7 +625,9 @@ def new_session():
             remaining_days = None
         else:
             settings = get_user_access_settings(user_id)
-            nexa_access = settings['nexa_access']
+            # Resolved at login by the user-config API; cached per token, then in the DB.
+            token_state = auth_tokens.get(g.access_token) or {}
+            nexa_access = token_state.get('nexa_access', settings['nexa_access'])
             access_last_date = settings['access_last_date']
             if access_last_date:
                 remaining_days = max(0, (date.fromisoformat(access_last_date.split()[0]) - date.today()).days)
@@ -603,6 +656,7 @@ def new_session():
             'recent_messages': recent_messages,
             'welcome_message': welcome_message,
             'welcome_suggestions': welcome_suggestions,
+            'language': language,
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -639,6 +693,28 @@ def auto_login():
         return redirect('/')
 
     return render_template('index.html', weace_api_url=WEACE_API_URL)
+
+
+@app.route('/language', methods=['GET', 'POST'])
+@require_weace_token
+def user_language():
+    """Read or update the language Nexa replies in for the logged-in user."""
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+
+    user_id = g.user['user_id']
+    if request.method == 'GET':
+        return jsonify({
+            'language': get_user_language(user_id) or DEFAULT_LANGUAGE,
+            'languages': [{'code': c, 'label': l} for c, l in SUPPORTED_LANGUAGES.items()],
+        })
+
+    language = ((request.json or {}).get('language') or '').strip()
+    if language not in SUPPORTED_LANGUAGES:
+        return jsonify({'error': 'Unsupported language'}), 400
+    set_user_language(user_id, language)
+    logger.info("[language] user_id=%s set language=%s", user_id, language)
+    return jsonify({'ok': True, 'language': language})
 
 
 @app.route('/logout', methods=['POST'])
@@ -700,15 +776,22 @@ def chat():
         session_uuid, user_id, user_name, profile_context
     )
 
+    # The cached system prompt is language-neutral; the directive is applied per
+    # request so a mid-session language switch takes effect immediately.
+    language = (data.get('language') or '').strip()
+    if language not in SUPPORTED_LANGUAGES:
+        language = get_user_language(user_id) or DEFAULT_LANGUAGE
+
     try:
         conversation_history.append({"role": "user", "content": user_message})
         save_message(session_uuid, user_id, 'user', user_message)
 
+        system_content = next(
+            (m["content"] for m in conversation_history if m["role"] == "system"),
+            SYSTEM_INSTRUCTION,
+        ) + _language_directive(language)
+
         if AI_PROVIDER == "claude":
-            system_content = next(
-                (m["content"] for m in conversation_history if m["role"] == "system"),
-                SYSTEM_INSTRUCTION,
-            )
             api_messages = [m for m in conversation_history if m["role"] != "system"]
             response = client.messages.create(
                 model=AI_MODEL,
@@ -720,7 +803,8 @@ def chat():
         else:
             response = client.chat.completions.create(
                 model=AI_MODEL,
-                messages=conversation_history,
+                messages=[{"role": "system", "content": system_content}]
+                         + [m for m in conversation_history if m["role"] != "system"],
                 temperature=0.7,
             )
             reply = response.choices[0].message.content
@@ -930,6 +1014,99 @@ def admin_orgs():
         return jsonify({'error': str(e)}), 500
 
 
+def _first_num(row: dict, *keys):
+    """First numeric value among candidate keys (WeAce API casing varies)."""
+    for k in keys:
+        v = row.get(k)
+        if isinstance(v, bool):
+            continue
+        if isinstance(v, (int, float)):
+            return v
+        if isinstance(v, str) and v.strip().lstrip('-').isdigit():
+            return int(v.strip())
+    return None
+
+
+def _nexa_rows(payload):
+    """Pulls the user list out of a WeAce /users response, whatever it's wrapped in."""
+    node = payload.get('data', payload) if isinstance(payload, dict) else payload
+    if isinstance(node, list):
+        return node, (payload if isinstance(payload, dict) else {})
+    if isinstance(node, dict):
+        for key in ('users', 'items', 'records', 'results', 'data', 'docs'):
+            if isinstance(node.get(key), list):
+                return node[key], node
+    return [], (node if isinstance(node, dict) else {})
+
+
+@app.route('/api/admin/nexa_counts')
+@require_weace_token
+def admin_nexa_counts():
+    """Aggregate Nexa next/used counts for an organisation, from the WeAce users API."""
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    if not _has_role(g.user.get('role'), 'corporate_super_admin', 'weace_super_admin'):
+        return jsonify({'error': 'Forbidden'}), 403
+
+    if _has_role(g.user.get('role'), 'weace_super_admin'):
+        req_org = request.args.get('org_slug', '').strip()
+        org_id = None if req_org in ('', 'all', '__all__') else req_org
+    else:
+        org_id = g.user.get('org_id', '').strip() or None
+
+    PAGE_SIZE, MAX_PAGES = 100, 50
+    next_total = used_total = 0
+    user_total = 0
+    page = 1
+    try:
+        while page <= MAX_PAGES:
+            params = {'page': page, 'limit': PAGE_SIZE, 'nexa': 'true', 'roleId': '7,10'}
+            if org_id:
+                params['organizationId'] = org_id
+            resp = http_requests.get(
+                f'{WEACE_API_URL}/api/v1/users',
+                params=params,
+                headers={'Authorization': f'Bearer {g.access_token}'},
+                timeout=20,
+            )
+            if not resp.ok:
+                return jsonify({'error': 'Failed to fetch Nexa counts',
+                                'status': resp.status_code}), resp.status_code
+            rows, container = _nexa_rows(resp.json())
+
+            # If the API already aggregates for us, trust that and stop paging.
+            agg_next = _first_num(container, 'totalNextCount', 'totalNexaCount', 'nextCount')
+            agg_used = _first_num(container, 'totalUsedCount', 'usedCount')
+            if agg_next is not None and agg_used is not None:
+                return jsonify({
+                    'org_id': org_id,
+                    'user_count': _first_num(container, 'total', 'totalCount', 'totalUsers') or len(rows),
+                    'next_count': agg_next,
+                    'used_count': agg_used,
+                })
+
+            for r in rows:
+                if not isinstance(r, dict):
+                    continue
+                nexa = r.get('nexa') if isinstance(r.get('nexa'), dict) else r
+                next_total += _first_num(nexa, 'nextCount', 'nexaCount', 'next_count',
+                                         'totalCount', 'sessionCount') or 0
+                used_total += _first_num(nexa, 'usedCount', 'used_count', 'usedSessions') or 0
+            user_total += len(rows)
+            if len(rows) < PAGE_SIZE:
+                break
+            page += 1
+
+        return jsonify({
+            'org_id': org_id,
+            'user_count': user_total,
+            'next_count': next_total,
+            'used_count': used_total,
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/admin/users/<user_id>/access_till', methods=['PUT'])
 @require_weace_token
 def admin_set_access_till(user_id):
@@ -944,22 +1121,6 @@ def admin_set_access_till(user_id):
     try:
         set_user_access_till(user_id, access_till)
         return jsonify({'ok': True, 'access_till': access_till})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-@app.route('/api/admin/users/<user_id>/nexa_access', methods=['PUT'])
-@require_weace_token
-def admin_set_nexa_access(user_id):
-    if not g.user:
-        return jsonify({'error': 'Session not initialised — call /session first'}), 401
-    if not _has_role(g.user.get('role'), 'corporate_super_admin', 'weace_super_admin'):
-        return jsonify({'error': 'Forbidden'}), 403
-    data = request.json or {}
-    value = bool(data.get('nexa_access', False))
-    try:
-        set_user_nexa_access(user_id, value)
-        return jsonify({'ok': True, 'nexa_access': value})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
