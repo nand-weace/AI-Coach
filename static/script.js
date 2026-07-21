@@ -65,6 +65,100 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (uid) localStorage.setItem('we_ace_user_id', uid);
     }
 
+    // ── Login progress stepper ──────────────────────────────────────────────
+    // /session does several slow things server-side (profile API, personal-info
+    // API, history lookup, LLM welcome generation). We can't stream those, so we
+    // walk the user through the stages on a timer and hold on the last one until
+    // the request actually resolves.
+    const LOGIN_STEPS = [
+        { label: 'Signing you in',              hold: 1200 },
+        { label: 'Verifying your credentials',  hold: 1800 },
+        { label: 'Fetching your profile',       hold: 2600 },
+        { label: 'Analysing your past sessions', hold: 3500 },
+        { label: 'Personalising your coaching space', hold: 0 },
+    ];
+
+    const loginProgress = (() => {
+        let timer = null;
+        let index = 0;
+
+        const CHECK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+            'stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">' +
+            '<polyline points="20 6 9 17 4 12"/></svg>';
+
+        function render() {
+            const list = document.getElementById('login-steps');
+            if (!list) return;
+            // Build once, then only restate — rebuilding would replay the
+            // entry animation for every row on each advance.
+            if (list.childElementCount !== LOGIN_STEPS.length) {
+                list.innerHTML = '';
+                LOGIN_STEPS.forEach((step, i) => {
+                    const li = document.createElement('li');
+                    li.className = 'login-step';
+                    li.style.setProperty('--step-delay', (i * 70) + 'ms');
+                    li.innerHTML =
+                        '<span class="login-step-marker"><span class="login-step-dot"></span></span>' +
+                        '<span class="login-step-label">' + step.label + '</span>';
+                    list.appendChild(li);
+                });
+            }
+
+            Array.from(list.children).forEach((li, i) => {
+                const state = i < index ? 'done' : (i === index ? 'active' : 'pending');
+                if (li.dataset.state === state) return;
+                li.dataset.state = state;
+                li.className = 'login-step ' + state;
+                li.firstElementChild.innerHTML = state === 'done'
+                    ? CHECK_SVG
+                    : '<span class="login-step-dot"></span>';
+            });
+
+            // Rail + bar fill: sit halfway into the running step.
+            const frac = (index + 0.5) / LOGIN_STEPS.length;
+            list.style.setProperty('--rail-fill', frac.toFixed(3));
+            const fill = document.getElementById('login-progress-fill');
+            if (fill) fill.style.width = (frac * 100).toFixed(1) + '%';
+        }
+
+        function schedule() {
+            const hold = LOGIN_STEPS[index].hold;
+            if (!hold) return;                               // last step: hold here
+            timer = setTimeout(() => {
+                index = Math.min(index + 1, LOGIN_STEPS.length - 1);
+                render();
+                schedule();
+            }, hold);
+        }
+
+        return {
+            start(from = 0) {
+                this.stop();
+                index = from;
+                const loader = document.getElementById('login-loader');
+                const status = document.getElementById('login-status');
+                const form = document.getElementById('login-form');
+                if (form) form.style.display = 'none';
+                if (loader) loader.style.display = 'flex';
+                if (status) status.textContent = 'Setting up Nexa for you';
+                render();
+                schedule();
+            },
+            // Jump straight to a step (e.g. auth returned — login is confirmed).
+            advanceTo(i) {
+                if (i <= index) return;
+                clearTimeout(timer);
+                index = Math.min(i, LOGIN_STEPS.length - 1);
+                render();
+                schedule();
+            },
+            stop() {
+                clearTimeout(timer);
+                timer = null;
+            },
+        };
+    })();
+
     // ── Build session — server verifies tokens and fetches profile ────
     async function buildSession(accessToken, refreshToken, profileRoles) {
         const userId = localStorage.getItem('we_ace_user_id') || '';
@@ -73,6 +167,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (profileRoles && Array.isArray(profileRoles) && profileRoles.length > 0) {
             payload.roles = profileRoles;
         }
+        loginProgress.advanceTo(2);   // profile + history + welcome happen inside /session
         const res = await fetch('/session', {
             method: 'POST',
             headers: {
@@ -99,6 +194,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     const _urlRefreshToken = _qp.get('refresh_token');
     const _extToken = _qp.get('access_token');
     let _authed = false;
+
+    // Any stored/incoming credential means we're about to run the slow auth
+    // chain — show the stepper instead of a bare spinner.
+    if (_urlRefreshToken || _extToken ||
+        localStorage.getItem('we_ace_refresh_token') ||
+        localStorage.getItem('we_ace_access_token')) {
+        loginProgress.start(1);   // credentials already in hand
+    }
 
     if (_urlRefreshToken && !_extToken) {
         history.replaceState({}, '', '/'); // strip token from URL immediately
@@ -234,10 +337,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         const errorEl = document.getElementById('login-error');
         const btn = document.getElementById('login-button');
 
-        const resetBtn = () => { btn.disabled = false; btn.innerHTML = 'Sign In'; };
+        const resetBtn = () => {
+            loginProgress.stop();
+            showLoginForm();
+            btn.disabled = false;
+            btn.innerHTML = 'Sign In';
+        };
         btn.disabled = true;
         btn.innerHTML = '<span class="btn-spinner"></span>Signing in…';
         errorEl.textContent = '';
+        loginProgress.start(0);
 
         // Step 1: authenticate directly against the we-ace auth API
         const AUTH_URL_MAP = {
@@ -265,6 +374,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         // Store tokens and user ID from login response immediately
+        loginProgress.advanceTo(1);   // credentials accepted
         storeTokens(authData.accessToken, authData.refreshToken);
         extractAndStoreUserId(authData);
         storeProfileRoles(authData.profileDetails?.roles);
@@ -460,6 +570,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     function showApp(userName, initials, profileImage, returning, role, nexaAccess, accessLastDate, remainingDays, recentMessages, welcomeMessage, welcomeSuggestions) {
+        loginProgress.stop();
         document.getElementById('login-overlay').style.display = 'none';
         const appEl = document.getElementById('app-container');
         appEl.style.opacity = '0';
@@ -551,6 +662,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function showLoginForm() {
+        loginProgress.stop();
         document.getElementById('login-loader').style.display = 'none';
         document.getElementById('login-form').style.display = 'block';
         document.getElementById('login-error').style.display = 'block';

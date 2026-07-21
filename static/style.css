@@ -524,6 +524,271 @@ body {
     font-size: 0.88rem;
     color: var(--text-muted);
 }
+
+/* ── Staged login progress ────────────────────────────────────────────────
+   /session is slow (profile APIs + history + LLM welcome), so the wait is
+   staged as a lit timeline rather than a bare spinner. */
+
+#login-loader {
+    gap: 18px;
+    padding: 8px 0 4px;
+    width: 100%;
+}
+
+/* Aurora orb — the "Nexa is thinking" mark */
+.login-orb {
+    position: relative;
+    width: 62px;
+    height: 62px;
+    display: grid;
+    place-items: center;
+}
+
+.login-orb-core {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--accent-gradient);
+    box-shadow: 0 0 22px rgba(99, 102, 241, 0.55);
+    animation: orb-breathe 2.4s ease-in-out infinite;
+}
+
+.login-orb-ring {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 1.5px solid rgba(139, 92, 246, 0.14);
+    border-top-color: #2563eb;
+    border-right-color: #8b5cf6;
+    animation: orb-sweep 2.6s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+.login-orb-ring:nth-child(2) {
+    inset: 9px;
+    animation-duration: 1.9s;
+    animation-direction: reverse;
+    opacity: 0.85;
+}
+
+@keyframes orb-sweep {
+    to { transform: rotate(360deg); }
+}
+
+@keyframes orb-breathe {
+    0%, 100% { transform: scale(1);    opacity: 0.9; }
+    50%      { transform: scale(1.18); opacity: 1; }
+}
+
+/* Status headline — gradient text with a travelling sheen */
+.login-status,
+#login-loader p {
+    font-size: 0.95rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    background: linear-gradient(100deg,
+        var(--text-main) 0%, var(--text-main) 35%,
+        #8b5cf6 50%,
+        var(--text-main) 65%, var(--text-main) 100%);
+    background-size: 220% 100%;
+    -webkit-background-clip: text;
+            background-clip: text;
+    color: transparent;
+    animation: status-sheen 2.8s linear infinite;
+}
+
+@keyframes status-sheen {
+    from { background-position: 130% 0; }
+    to   { background-position: -30% 0; }
+}
+
+/* Timeline */
+.login-steps {
+    --rail-fill: 0%;
+    list-style: none;
+    position: relative;
+    margin: 0;
+    padding: 2px 0;
+    width: 100%;
+    max-width: 268px;
+    display: flex;
+    flex-direction: column;
+    gap: 13px;
+}
+
+/* Rail behind the markers: grey track + gradient fill that grows */
+.login-steps::before,
+.login-steps::after {
+    content: '';
+    position: absolute;
+    left: 9px;
+    top: 11px;
+    bottom: 11px;
+    width: 2px;
+    border-radius: 2px;
+}
+
+.login-steps::before {
+    background: rgba(100, 116, 139, 0.16);
+}
+
+.login-steps::after {
+    bottom: auto;
+    height: calc((100% - 22px) * var(--rail-fill));
+    background: linear-gradient(180deg, #2563eb 0%, #8b5cf6 100%);
+    box-shadow: 0 0 10px rgba(99, 102, 241, 0.4);
+    transition: height 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.login-step {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.845rem;
+    line-height: 1.2;
+    color: var(--text-muted);
+    animation: step-in 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    animation-delay: var(--step-delay, 0ms);
+    transition: color 0.35s, opacity 0.35s;
+}
+
+.login-step-marker {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: var(--bg-color);
+    color: #fff;
+    transition: background 0.35s, box-shadow 0.35s;
+}
+
+.login-step-marker svg {
+    width: 11px;
+    height: 11px;
+    animation: check-pop 0.4s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+
+.login-step-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: rgba(100, 116, 139, 0.35);
+    transition: background 0.35s;
+}
+
+/* Pending */
+.login-step.pending {
+    opacity: 0.4;
+}
+
+/* Active — glowing pulse ring + gradient label */
+.login-step.active {
+    color: var(--text-main);
+    font-weight: 600;
+}
+
+.login-step.active .login-step-marker {
+    background: var(--bg-color);
+    box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.35);
+}
+
+.login-step.active .login-step-marker::after {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    border-radius: 50%;
+    border: 2px solid rgba(139, 92, 246, 0.5);
+    animation: marker-pulse 1.7s ease-out infinite;
+}
+
+.login-step.active .login-step-dot {
+    background: var(--accent-gradient);
+    animation: orb-breathe 1.7s ease-in-out infinite;
+}
+
+.login-step.active .login-step-label::after {
+    content: '…';
+    opacity: 0.55;
+}
+
+/* Done */
+.login-step.done {
+    color: var(--text-muted);
+    opacity: 0.8;
+}
+
+.login-step.done .login-step-marker {
+    background: var(--accent-gradient);
+    box-shadow: 0 0 12px rgba(99, 102, 241, 0.35);
+}
+
+@keyframes marker-pulse {
+    0%   { transform: scale(0.85); opacity: 0.9; }
+    70%  { transform: scale(1.55); opacity: 0; }
+    100% { transform: scale(1.55); opacity: 0; }
+}
+
+@keyframes check-pop {
+    from { transform: scale(0.3); opacity: 0; }
+    to   { transform: scale(1);   opacity: 1; }
+}
+
+@keyframes step-in {
+    from { opacity: 0; transform: translateY(6px); }
+}
+
+/* Bottom progress bar with a moving sheen */
+.login-progress {
+    position: relative;
+    width: 100%;
+    max-width: 268px;
+    height: 3px;
+    border-radius: 999px;
+    background: rgba(100, 116, 139, 0.14);
+    overflow: hidden;
+}
+
+.login-progress-fill {
+    width: 0;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--accent-gradient);
+    transition: width 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.login-progress-fill::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg,
+        transparent, rgba(255, 255, 255, 0.75), transparent);
+    animation: bar-sheen 1.5s ease-in-out infinite;
+}
+
+@keyframes bar-sheen {
+    from { transform: translateX(-100%); }
+    to   { transform: translateX(100%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .login-orb-ring,
+    .login-orb-core,
+    .login-status,
+    .login-step,
+    .login-step-dot,
+    .login-step-marker::after,
+    .login-progress-fill::after {
+        animation: none !important;
+    }
+}
+
 .btn-spinner {
     display: inline-block;
     width: 16px;

@@ -20,8 +20,16 @@
             <h2>Welcome to Nexa</h2>
             <p class="login-subtitle">Sign in to start your coaching session</p>
             <div id="login-loader">
-                <div class="login-spinner"></div>
-                <p>Logging into Nexa…</p>
+                <div class="login-orb" aria-hidden="true">
+                    <span class="login-orb-ring"></span>
+                    <span class="login-orb-ring"></span>
+                    <span class="login-orb-core"></span>
+                </div>
+                <p id="login-status" class="login-status">Logging into Nexa…</p>
+                <ul id="login-steps" class="login-steps" aria-live="polite"></ul>
+                <div class="login-progress" aria-hidden="true">
+                    <div class="login-progress-fill" id="login-progress-fill"></div>
+                </div>
             </div>
             <form id="login-form" style="display:none;">
                 <input type="email" id="login-email" placeholder="Email address" autocomplete="email" required />
