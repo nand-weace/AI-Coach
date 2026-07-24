@@ -23,6 +23,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     const userInput = document.getElementById('user-input');
     const chatContainer = document.getElementById('chat-container');
 
+    // ── Infinite scroll state (older history paged in as the user scrolls up) ──
+    let oldestMessageId = null;   // id of the topmost loaded message
+    let hasMoreHistory = false;   // whether older messages may still exist
+    let loadingHistory = false;   // guards against overlapping fetches
+    let historyAnchor = null;     // node above which older messages are inserted
+
     if (typeof marked !== 'undefined') {
         marked.setOptions({ breaks: true, gfm: true });
     }
@@ -475,6 +481,73 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     renderLanguageMenu();
 
+    // Corporate Knowledge — corporate super admins manage org-specific content
+    // that Nexa weaves into its replies for their organisation's users.
+    (function initCorpContent() {
+        const openBtn = document.getElementById('btn-corp-content');
+        const overlay = document.getElementById('corp-content-overlay');
+        if (!openBtn || !overlay) return;
+        const input = document.getElementById('corp-content-input');
+        const status = document.getElementById('corp-content-status');
+        const saveBtn = document.getElementById('corp-content-save');
+
+        function setStatus(msg, kind) {
+            status.textContent = msg || '';
+            status.className = 'corp-modal-status' + (kind ? ' ' + kind : '');
+        }
+        function closeModal() { overlay.style.display = 'none'; }
+
+        async function openModal() {
+            if (chipWrap) chipWrap.classList.remove('open');
+            input.value = '';
+            setStatus('Loading…');
+            overlay.style.display = 'flex';
+            input.focus();
+            try {
+                const accessToken = localStorage.getItem('we_ace_access_token') || '';
+                const res = await fetch('/api/org-content', {
+                    headers: accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {},
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Failed to load');
+                input.value = data.content || '';
+                setStatus('');
+            } catch (err) {
+                setStatus(err.message || 'Failed to load', 'error');
+            }
+        }
+
+        async function saveContent() {
+            saveBtn.disabled = true;
+            setStatus('Saving…');
+            try {
+                const accessToken = localStorage.getItem('we_ace_access_token') || '';
+                const res = await fetch('/api/org-content', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
+                    },
+                    body: JSON.stringify({ content: input.value }),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Failed to save');
+                setStatus('Saved', 'success');
+                setTimeout(closeModal, 700);
+            } catch (err) {
+                setStatus(err.message || 'Failed to save', 'error');
+            } finally {
+                saveBtn.disabled = false;
+            }
+        }
+
+        openBtn.addEventListener('click', openModal);
+        saveBtn.addEventListener('click', saveContent);
+        document.getElementById('corp-content-cancel').addEventListener('click', closeModal);
+        document.getElementById('corp-content-close').addEventListener('click', closeModal);
+        overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
+    })();
+
     // Edit Profile
     document.getElementById('btn-edit-profile').addEventListener('click', () => {
         const rt = localStorage.getItem('we_ace_refresh_token') || '';
@@ -612,6 +685,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             navDivider.style.display = hasNavItem ? 'block' : 'none';
         }
 
+        const corpContentBtn = document.getElementById('btn-corp-content');
+        if (corpContentBtn) {
+            corpContentBtn.style.display =
+                hasRole(role, 'corporate_super_admin', 'weace_super_admin') ? 'flex' : 'none';
+        }
+
         const wCoachBtn = document.getElementById('btn-weace-coaching');
         if (wCoachBtn) {
             const blocked = !nexaAccess || (remainingDays !== null && remainingDays !== undefined && remainingDays < 7);
@@ -633,7 +712,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             divider.className = 'history-divider';
             divider.innerHTML = '<span>Previous conversation</span>';
             chatContainer.appendChild(divider);
-            recentMessages.forEach(msg => addMessage(msg.content, msg.role));
+            recentMessages.forEach(msg => addMessage(msg.content, msg.role, msg.created_at));
+
+            // Enable infinite scroll: remember the oldest loaded id so scrolling
+            // up can page in earlier messages, inserted above this divider.
+            const ids = recentMessages.map(m => m.id).filter(Number.isFinite);
+            if (ids.length) {
+                oldestMessageId = Math.min(...ids);
+                hasMoreHistory = true;
+                historyAnchor = divider;
+            }
             // Welcome bubble is static markup at the top of the container; move it
             // below the replayed history so it opens the new session rather than
             // sitting above the fold once we scroll to the bottom.
@@ -685,7 +773,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         return span;
     }
 
-    function addMessage(text, sender) {
+    // Format a message timestamp as e.g. "24 Jul, 3:45 PM" (today shows time only).
+    function formatMessageTime(value) {
+        const d = value ? new Date(value) : new Date();
+        if (isNaN(d.getTime())) return '';
+        const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+        const now = new Date();
+        const sameDay = d.toDateString() === now.toDateString();
+        if (sameDay) return time;
+        const date = d.toLocaleDateString([], { day: 'numeric', month: 'short' });
+        return `${date}, ${time}`;
+    }
+
+    function buildMessage(text, sender, timestamp) {
         const wrapper = document.createElement('div');
         wrapper.className = `message-wrapper ${sender}`;
 
@@ -712,10 +812,30 @@ document.addEventListener('DOMContentLoaded', async () => {
             messageDiv.textContent = text;
         }
 
+        const timeEl = document.createElement('div');
+        timeEl.className = 'message-time';
+        timeEl.textContent = formatMessageTime(timestamp);
+
+        const bubble = document.createElement('div');
+        bubble.className = 'message-body';
+        bubble.appendChild(messageDiv);
+        bubble.appendChild(timeEl);
+
         wrapper.appendChild(avatar);
-        wrapper.appendChild(messageDiv);
-        chatContainer.appendChild(wrapper);
+        wrapper.appendChild(bubble);
+        return wrapper;
+    }
+
+    function addMessage(text, sender, timestamp) {
+        chatContainer.appendChild(buildMessage(text, sender, timestamp));
         scrollToBottom();
+    }
+
+    // Insert an older message above `referenceNode` (for infinite scroll).
+    function prependMessage(text, sender, referenceNode, timestamp) {
+        const el = buildMessage(text, sender, timestamp);
+        chatContainer.insertBefore(el, referenceNode || chatContainer.firstChild);
+        return el;
     }
 
     // Remove any suggestion bubbles currently on screen
@@ -790,4 +910,55 @@ document.addEventListener('DOMContentLoaded', async () => {
     function scrollToBottom() {
         chatContainer.scrollTop = chatContainer.scrollHeight;
     }
+
+    // Fetch the previous 20 messages and prepend them, preserving scroll position.
+    async function loadOlderMessages() {
+        if (loadingHistory || !hasMoreHistory || oldestMessageId == null) return;
+        loadingHistory = true;
+
+        const loader = document.createElement('div');
+        loader.className = 'history-loader';
+        loader.textContent = 'Loading earlier messages…';
+        chatContainer.insertBefore(loader, chatContainer.firstChild);
+
+        try {
+            const accessToken = localStorage.getItem('we_ace_access_token') || '';
+            const res = await fetch(`/history?before_id=${oldestMessageId}`, {
+                headers: accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {},
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to load history');
+
+            // Anchor scroll so the viewport stays on the same message after prepending.
+            const prevHeight = chatContainer.scrollHeight;
+            const prevTop = chatContainer.scrollTop;
+
+            // Insert oldest-first above the current anchor; the batch's topmost
+            // element becomes the anchor so the next (older) batch lands above it.
+            const anchor = historyAnchor || chatContainer.firstChild;
+            let newTop = null;
+            (data.messages || []).forEach(msg => {
+                const el = prependMessage(msg.content, msg.role, anchor, msg.created_at);
+                if (!newTop) newTop = el;
+            });
+            if (newTop) historyAnchor = newTop;
+
+            if (data.messages && data.messages.length) {
+                oldestMessageId = data.messages[0].id;
+            }
+            hasMoreHistory = !!data.has_more;
+
+            chatContainer.scrollTop = prevTop + (chatContainer.scrollHeight - prevHeight);
+        } catch (err) {
+            console.error('[history] load failed:', err);
+        } finally {
+            loader.remove();
+            loadingHistory = false;
+        }
+    }
+
+    // Trigger a page load when the user scrolls near the top of the chat.
+    chatContainer.addEventListener('scroll', () => {
+        if (chatContainer.scrollTop <= 60) loadOlderMessages();
+    });
 });

@@ -1,5 +1,6 @@
 import os
 import re
+import time
 import uuid
 import logging
 from datetime import date
@@ -15,6 +16,9 @@ from database import (
     has_previous_sessions,
     get_session_highlights,
     get_user_history,
+    get_user_history_before,
+    get_org_custom_content,
+    upsert_org_custom_content,
     get_org_analytics,
     get_org_filter_options,
     upsert_org_sentiment,
@@ -63,6 +67,44 @@ def _language_directive(language: str | None) -> str:
         f"Do not translate or alter the [[SUGGESTIONS]] tags themselves. "
         f"If the user writes in another language, still reply in {label} unless they ask "
         f"you to switch.\n---"
+    )
+
+
+# Short-lived cache of per-org custom content so /chat doesn't hit the DB on every
+# message. Corporate admins editing content see it reflected within the TTL window.
+_ORG_CONTENT_TTL = 60  # seconds
+_org_content_cache: dict = {}  # org_slug -> (expires_at, content)
+
+
+def _get_org_content_cached(org_slug: str | None) -> str | None:
+    if not org_slug:
+        return None
+    now = time.time()
+    cached = _org_content_cache.get(org_slug)
+    if cached and cached[0] > now:
+        return cached[1]
+    try:
+        content = get_org_custom_content(org_slug)
+    except Exception as e:
+        logger.error("[org_content] fetch failed for org=%s: %s", org_slug, e)
+        return cached[1] if cached else None
+    _org_content_cache[org_slug] = (now + _ORG_CONTENT_TTL, content)
+    return content
+
+
+def _org_content_directive(org_slug: str | None) -> str:
+    """System-prompt addendum carrying the organisation's own reference material."""
+    content = _get_org_content_cached(org_slug)
+    if not content or not content.strip():
+        return ''
+    return (
+        f"\n\n---\nORGANISATION KNOWLEDGE:\n"
+        f"The following is organisation-specific information, policies, and context "
+        f"provided by this user's company. Draw on it when it's relevant to the user's "
+        f"question — reflect their company's policies, programmes, and terminology. "
+        f"If it isn't relevant to what they're asking, ignore it. Never dump this "
+        f"content verbatim or announce that you were given it; weave it in naturally.\n\n"
+        f"{content.strip()}\n---"
     )
 
 load_dotenv()
@@ -556,7 +598,8 @@ def create_session():
 
         initials = ''.join(w[0].upper() for w in user_name.split()[:2])
         recent_messages = [
-            {'role': r['role'], 'content': r['content']}
+            {'id': r['id'], 'role': r['role'], 'content': r['content'],
+             'created_at': r['created_at'].isoformat() if r.get('created_at') else None}
             for r in get_user_history(user_id, 15)
         ]
         return jsonify({
@@ -641,7 +684,8 @@ def new_session():
 
         initials = ''.join(w[0].upper() for w in user_name.split()[:2])
         recent_messages = [
-            {'role': r['role'], 'content': r['content']}
+            {'id': r['id'], 'role': r['role'], 'content': r['content'],
+             'created_at': r['created_at'].isoformat() if r.get('created_at') else None}
             for r in get_user_history(user_id, 10)
         ]
         return jsonify({
@@ -693,6 +737,67 @@ def auto_login():
         return redirect('/')
 
     return render_template('index.html', weace_api_url=WEACE_API_URL)
+
+
+@app.route('/history', methods=['GET'])
+@require_weace_token
+def chat_history():
+    """Page older chat messages for infinite scroll. Returns up to 20 messages
+    older than `before_id` (oldest-first) and whether more history remains."""
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+
+    user_id = g.user['user_id']
+    try:
+        before_id = int(request.args.get('before_id'))
+    except (TypeError, ValueError):
+        return jsonify({'error': 'A numeric before_id is required'}), 400
+
+    PAGE = 20
+    rows = get_user_history_before(user_id, before_id, PAGE + 1)
+    has_more = len(rows) > PAGE
+    messages = [
+        {'id': r['id'], 'role': r['role'], 'content': r['content'],
+         'created_at': r['created_at'].isoformat() if r.get('created_at') else None}
+        for r in rows[-PAGE:]
+    ]
+    return jsonify({'messages': messages, 'has_more': has_more})
+
+
+@app.route('/api/org-content', methods=['GET', 'POST'])
+@require_weace_token
+def org_content():
+    """Read or update the corporate-specific content Nexa draws on for this org.
+    Restricted to corporate super admins, scoped to their own organisation."""
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    if not _has_role(g.user.get('role'), 'corporate_super_admin', 'weace_super_admin'):
+        return jsonify({'error': 'Forbidden'}), 403
+
+    org_slug = (g.user.get('org_id') or '').strip() or None
+    if not org_slug:
+        return jsonify({'error': 'No organisation associated with this account'}), 400
+
+    if request.method == 'GET':
+        return jsonify({'content': get_org_custom_content(org_slug) or ''})
+
+    content = ((request.json or {}).get('content') or '').strip()
+    if len(content) > 20000:
+        return jsonify({'error': 'Content is too long (20,000 character limit)'}), 400
+    upsert_org_custom_content(org_slug, content, g.user.get('user_id'))
+    _org_content_cache.pop(org_slug, None)  # reflect the change on the next message
+    logger.info("[org_content] org=%s updated by user_id=%s (%d chars)",
+                org_slug, g.user.get('user_id'), len(content))
+    return jsonify({'ok': True, 'content': content})
+
+
+@app.route('/languages', methods=['GET'])
+def list_languages():
+    """List all languages Nexa can coach in. Public — no session required."""
+    return jsonify({
+        'languages': [{'code': c, 'label': l} for c, l in SUPPORTED_LANGUAGES.items()],
+        'default': DEFAULT_LANGUAGE,
+    })
 
 
 @app.route('/language', methods=['GET', 'POST'])
@@ -789,7 +894,7 @@ def chat():
         system_content = next(
             (m["content"] for m in conversation_history if m["role"] == "system"),
             SYSTEM_INSTRUCTION,
-        ) + _language_directive(language)
+        ) + _org_content_directive(g.user.get('org_id')) + _language_directive(language)
 
         if AI_PROVIDER == "claude":
             api_messages = [m for m in conversation_history if m["role"] != "system"]

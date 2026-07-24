@@ -217,6 +217,29 @@ body {
     border-top-right-radius: 4px;
 }
 
+.message-body {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.message-time {
+    margin-top: 4px;
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    opacity: 0.8;
+}
+
+.message-wrapper.assistant .message-time {
+    text-align: left;
+    padding-left: 4px;
+}
+
+.message-wrapper.user .message-time {
+    text-align: right;
+    padding-right: 4px;
+}
+
 /* Follow-up suggestion bubbles */
 .suggestion-row {
     display: flex;
@@ -1132,5 +1155,120 @@ body {
     background: var(--glass-border);
 }
 
+.history-loader {
+    text-align: center;
+    padding: 10px 0;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    animation: pulse 1.2s ease-in-out infinite;
+}
+@keyframes pulse {
+    0%, 100% { opacity: 0.45; }
+    50% { opacity: 1; }
+}
 
+/* ── Corporate Knowledge modal ─────────────────────────────────────────── */
+.corp-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.45);
+    backdrop-filter: blur(2px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 20px;
+}
+.corp-modal {
+    background: var(--bg-color);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    width: 100%;
+    max-width: 640px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    padding: 24px;
+    box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.35);
+}
+.corp-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.corp-modal-header h2 {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--text-main);
+}
+.corp-modal-close {
+    background: none;
+    border: none;
+    font-size: 1.6rem;
+    line-height: 1;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0 4px;
+}
+.corp-modal-desc {
+    margin: 8px 0 16px;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+.corp-modal-textarea {
+    width: 100%;
+    flex: 1;
+    min-height: 200px;
+    resize: vertical;
+    padding: 12px 14px;
+    border: 1px solid var(--glass-border);
+    border-radius: 10px;
+    background: var(--glass-bg);
+    color: var(--text-main);
+    font-family: inherit;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+.corp-modal-textarea:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+.corp-modal-footer {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 16px;
+}
+.corp-modal-status {
+    flex: 1;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+}
+.corp-modal-status.success { color: #16a34a; }
+.corp-modal-status.error { color: #dc2626; }
+.corp-modal-btn {
+    padding: 9px 18px;
+    border-radius: 9px;
+    font-size: 0.88rem;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid transparent;
+}
+.corp-modal-btn.secondary {
+    background: transparent;
+    border-color: var(--glass-border);
+    color: var(--text-main);
+}
+.corp-modal-btn.primary {
+    background: var(--accent-gradient);
+    color: #fff;
+}
+.corp-modal-btn.primary:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
 

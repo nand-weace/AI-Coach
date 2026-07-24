@@ -79,6 +79,12 @@
                             </svg>
                             Admin
                         </a>
+                        <button class="chip-dropdown-item" id="btn-corp-content" style="display:none;">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+                            </svg>
+                            Corporate Knowledge
+                        </button>
                         <button class="chip-dropdown-item" id="btn-weace-coaching">
                             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
@@ -145,6 +151,27 @@
                 </button>
             </form>
         </footer>
+    </div>
+
+    <!-- Corporate Knowledge modal (corporate super admins only) -->
+    <div id="corp-content-overlay" class="corp-modal-overlay" style="display:none;">
+        <div class="corp-modal" role="dialog" aria-modal="true" aria-labelledby="corp-modal-title">
+            <div class="corp-modal-header">
+                <h2 id="corp-modal-title">Corporate Knowledge</h2>
+                <button class="corp-modal-close" id="corp-content-close" aria-label="Close">&times;</button>
+            </div>
+            <p class="corp-modal-desc">
+                Add company-specific information, policies, programmes, or terminology.
+                Nexa will draw on this in its responses to your organisation's users when relevant.
+            </p>
+            <textarea id="corp-content-input" class="corp-modal-textarea" rows="12"
+                placeholder="e.g. Our leadership framework has 4 pillars… Our internal mobility policy is… We refer to managers as 'pod leads'…"></textarea>
+            <div class="corp-modal-footer">
+                <span id="corp-content-status" class="corp-modal-status"></span>
+                <button class="corp-modal-btn secondary" id="corp-content-cancel">Cancel</button>
+                <button class="corp-modal-btn primary" id="corp-content-save">Save</button>
+            </div>
+        </div>
     </div>
 
 <script>window.WEACE_API_URL = "{{ weace_api_url }}";</script>

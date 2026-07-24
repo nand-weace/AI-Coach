@@ -111,6 +111,16 @@ def init_db():
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """)
             _execute(cur,"""
+                CREATE TABLE IF NOT EXISTS org_custom_content (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    org_slug VARCHAR(255) NOT NULL UNIQUE,
+                    content TEXT,
+                    updated_by VARCHAR(36),
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    INDEX idx_org_slug (org_slug)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """)
+            _execute(cur,"""
                 CREATE TABLE IF NOT EXISTS sentiment (
                     id INT AUTO_INCREMENT PRIMARY KEY,
                     name VARCHAR(100) NOT NULL UNIQUE,
@@ -248,13 +258,35 @@ def get_user_history(user_id: str, limit: int = 20) -> list:
         with conn.cursor() as cur:
             _execute(cur,
                 """
-                SELECT role, content, created_at
+                SELECT id, role, content, created_at
                 FROM ai_coach_messages
                 WHERE user_id = %s
                 ORDER BY created_at DESC
                 LIMIT %s
                 """,
                 (user_id, limit),
+            )
+            rows = cur.fetchall()
+            return list(reversed(rows))
+    finally:
+        conn.close()
+
+
+def get_user_history_before(user_id: str, before_id: int, limit: int = 20) -> list:
+    """Page older messages for infinite scroll: up to `limit` messages with an
+    id lower than `before_id`, returned oldest-first."""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur,
+                """
+                SELECT id, role, content, created_at
+                FROM ai_coach_messages
+                WHERE user_id = %s AND id < %s
+                ORDER BY id DESC
+                LIMIT %s
+                """,
+                (user_id, before_id, limit),
             )
             rows = cur.fetchall()
             return list(reversed(rows))
@@ -504,6 +536,44 @@ def get_org_sentiment(org_slug: str) -> dict | None:
                 data = json.loads(data)
             data['calculated_at'] = str(row['calculated_at'])
             return data
+    finally:
+        conn.close()
+
+
+def get_org_custom_content(org_slug: str) -> str | None:
+    """Corporate-specific knowledge/content that Nexa weaves into its replies for
+    users of this organisation. Returns None when nothing has been set."""
+    if not org_slug:
+        return None
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur,
+                "SELECT content FROM org_custom_content WHERE org_slug = %s",
+                (org_slug,),
+            )
+            row = cur.fetchone()
+            return (row['content'] if row else None)
+    finally:
+        conn.close()
+
+
+def upsert_org_custom_content(org_slug: str, content: str, updated_by: str = None):
+    """Create or replace an organisation's custom coaching content."""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur,
+                """
+                INSERT INTO org_custom_content (org_slug, content, updated_by)
+                VALUES (%s, %s, %s)
+                ON DUPLICATE KEY UPDATE
+                    content = VALUES(content),
+                    updated_by = VALUES(updated_by)
+                """,
+                (org_slug, content, updated_by),
+            )
+        conn.commit()
     finally:
         conn.close()
 
