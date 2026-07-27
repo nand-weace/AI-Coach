@@ -92,6 +92,20 @@ def init_db():
                     INDEX idx_session_id (session_id)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """)
+            # Thumbs up/down a user leaves on a Nexa reply. One row per message —
+            # re-rating overwrites, and clearing a rating deletes the row.
+            _execute(cur,"""
+                CREATE TABLE IF NOT EXISTS ai_coach_message_feedback (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    message_id INT NOT NULL UNIQUE,
+                    user_id VARCHAR(36) NOT NULL,
+                    rating TINYINT NOT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    INDEX idx_user_id (user_id),
+                    INDEX idx_rating (rating)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """)
             _execute(cur,"""
                 CREATE TABLE IF NOT EXISTS org_sentiment (
                     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -239,7 +253,8 @@ def create_chat_session(session_id: str, user_id: str, user_name: str = None, em
         conn.close()
 
 
-def save_message(session_id: str, user_id: str, role: str, content: str):
+def save_message(session_id: str, user_id: str, role: str, content: str) -> int | None:
+    """Persist a message and return its new id (used to attach feedback)."""
     conn = get_connection()
     try:
         with conn.cursor() as cur:
@@ -247,7 +262,60 @@ def save_message(session_id: str, user_id: str, role: str, content: str):
                 "INSERT INTO ai_coach_messages (session_id, user_id, role, content) VALUES (%s, %s, %s, %s)",
                 (session_id, user_id, role, content),
             )
+            message_id = cur.lastrowid
         conn.commit()
+        return message_id
+    finally:
+        conn.close()
+
+
+def set_message_feedback(message_id: int, user_id: str, rating: int) -> bool:
+    """Record (or clear, with rating 0) a thumbs up/down on one of the user's own
+    assistant messages. Returns False if the message isn't theirs or isn't a reply."""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur,
+                "SELECT id FROM ai_coach_messages WHERE id = %s AND user_id = %s AND role = 'assistant'",
+                (message_id, user_id),
+            )
+            if not cur.fetchone():
+                return False
+            if rating == 0:
+                _execute(cur, "DELETE FROM ai_coach_message_feedback WHERE message_id = %s", (message_id,))
+            else:
+                _execute(cur,
+                    """
+                    INSERT INTO ai_coach_message_feedback (message_id, user_id, rating)
+                    VALUES (%s, %s, %s)
+                    ON DUPLICATE KEY UPDATE rating = VALUES(rating), user_id = VALUES(user_id)
+                    """,
+                    (message_id, user_id, rating),
+                )
+        conn.commit()
+        return True
+    finally:
+        conn.close()
+
+
+def get_message_feedback(user_id: str, message_ids: list) -> dict:
+    """Map of message_id -> rating for the given messages, so restored history
+    shows the thumbs the user already gave."""
+    if not message_ids:
+        return {}
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            placeholders = ', '.join(['%s'] * len(message_ids))
+            _execute(cur,
+                f"""
+                SELECT message_id, rating
+                FROM ai_coach_message_feedback
+                WHERE user_id = %s AND message_id IN ({placeholders})
+                """,
+                (user_id, *message_ids),
+            )
+            return {r['message_id']: r['rating'] for r in cur.fetchall()}
     finally:
         conn.close()
 
@@ -777,24 +845,6 @@ def set_user_language(user_id: str, language: str):
                 ON DUPLICATE KEY UPDATE language = VALUES(language)
                 """,
                 (user_id, language),
-            )
-        conn.commit()
-    finally:
-        conn.close()
-
-
-def set_user_access_till(user_id: str, access_till: str):
-    """Set access_last_date for a user. access_till is a date string 'YYYY-MM-DD'."""
-    conn = get_connection()
-    try:
-        with conn.cursor() as cur:
-            _execute(cur,
-                """
-                INSERT INTO user_settings (user_id, access_last_date)
-                VALUES (%s, %s)
-                ON DUPLICATE KEY UPDATE access_last_date = VALUES(access_last_date)
-                """,
-                (user_id, access_till),
             )
         conn.commit()
     finally:

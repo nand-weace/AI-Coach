@@ -145,29 +145,6 @@
         .skeleton { background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 4px; height: 14px; }
         @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
-        /* ── Access till inline edit ── */
-        .access-till-cell { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
-        .access-till-date {
-            font-size: 0.82rem; color: var(--text-muted); cursor: pointer;
-            border-bottom: 1px dashed var(--text-muted); transition: color 0.15s, border-color 0.15s;
-        }
-        .access-till-date:hover { color: var(--primary-color); border-color: var(--primary-color); }
-        .access-till-input {
-            padding: 3px 8px; border: 1px solid rgba(37,99,235,0.4); border-radius: 6px;
-            font-family: inherit; font-size: 0.82rem; color: var(--text-main);
-            background: white; outline: none;
-        }
-        .access-till-save-btn {
-            padding: 3px 10px; border: none; border-radius: 6px; cursor: pointer;
-            font-family: inherit; font-size: 0.78rem; font-weight: 500;
-            background: var(--primary-color); color: white; transition: background 0.15s;
-        }
-        .access-till-save-btn:hover { background: var(--primary-hover); }
-        .access-till-cancel-btn {
-            background: none; border: none; padding: 3px 6px; cursor: pointer;
-            font-size: 0.78rem; color: var(--text-muted); font-family: inherit;
-        }
-
         /* ── Nexa access badge (read-only — set by the WeAce user-config API at login) ── */
         .nexa-badge {
             display: inline-block;
@@ -545,12 +522,11 @@
                     <th>Last Login</th>
                     <th>Sessions</th>
                     <th>Chats</th>
-                    <th>Access Till</th>
                     <th>Nexa Access</th>
                 </tr>
             </thead>
             <tbody id="user-table-body">
-                <tr><td colspan="8"><div class="skeleton" style="width:60%; margin:0 auto;"></div></td></tr>
+                <tr><td colspan="7"><div class="skeleton" style="width:60%; margin:0 auto;"></div></td></tr>
             </tbody>
         </table>
     </div>
@@ -613,12 +589,10 @@
         visibleUsers = users;
         const tbody = document.getElementById('user-table-body');
         if (!users.length) {
-            tbody.innerHTML = '<tr class="empty-row"><td colspan="8">No users found.</td></tr>';
+            tbody.innerHTML = '<tr class="empty-row"><td colspan="7">No users found.</td></tr>';
             return;
         }
         tbody.innerHTML = users.map(u => {
-            const tillDate = u.access_last_date ? u.access_last_date.slice(0, 10) : '';
-            const tillDisplay = tillDate ? formatDate(tillDate) : '—';
             return `
             <tr>
                 <td class="cell-name">${escHtml(u.user_name)}</td>
@@ -627,11 +601,6 @@
                 <td class="cell-muted">${formatDate(u.last_login)}</td>
                 <td>${u.session_count}</td>
                 <td>${u.chat_count}</td>
-                <td>
-                    <div class="access-till-cell" id="till-cell-${escHtml(u.user_id)}">
-                        <span class="access-till-date" onclick="showAccessTillEdit('${escHtml(u.user_id)}', '${tillDate}')" title="Click to change">${tillDisplay}</span>
-                    </div>
-                </td>
                 <td>
                     <span class="nexa-badge ${u.nexa_access ? 'nexa-on' : 'nexa-off'}"
                           title="From the WeAce user-config API at the user's last login">
@@ -642,59 +611,12 @@
         `}).join('');
     }
 
-    function showAccessTillEdit(userId, currentDate) {
-        const cell = document.getElementById(`till-cell-${userId}`);
-        cell.innerHTML = `
-            <input type="date" class="access-till-input" id="till-input-${userId}" value="${currentDate}">
-            <button class="access-till-save-btn" onclick="saveAccessTill('${userId}')">Save</button>
-            <button class="access-till-cancel-btn" onclick="cancelAccessTillEdit('${userId}', '${currentDate}')">✕</button>
-        `;
-    }
-
-    function cancelAccessTillEdit(userId, currentDate) {
-        const cell = document.getElementById(`till-cell-${userId}`);
-        const display = currentDate ? formatDate(currentDate) : '—';
-        cell.innerHTML = `
-            <span class="access-till-date" onclick="showAccessTillEdit('${userId}', '${currentDate}')" title="Click to change">${display}</span>
-        `;
-    }
-
-    async function saveAccessTill(userId) {
-        const input = document.getElementById(`till-input-${userId}`);
-        const date = input.value;
-        if (!date) { alert('Please select a date.'); return; }
-
-        input.disabled = true;
-        try {
-            const res = await fetch(`/api/admin/users/${encodeURIComponent(userId)}/access_till`, {
-                method: 'PUT',
-                headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-                body: JSON.stringify({ access_till: date }),
-            });
-            const data = await res.json();
-            if (!res.ok) {
-                alert(data.error || 'Failed to update access date.');
-                input.disabled = false;
-                return;
-            }
-            const cell = document.getElementById(`till-cell-${userId}`);
-            cell.innerHTML = `
-                <span class="access-till-date" onclick="showAccessTillEdit('${userId}', '${date}')" title="Click to change">${formatDate(date)}</span>
-            `;
-            const user = allUsers.find(u => u.user_id === userId);
-            if (user) user.access_last_date = date;
-        } catch (_) {
-            alert('Connection error. Please try again.');
-            input.disabled = false;
-        }
-    }
-
     async function loadUsers() {
         const qs = currentOrgSlug !== ALL_ORGS
             ? ('?org_slug=' + encodeURIComponent(currentOrgSlug)) : '';
         document.querySelectorAll('.stat-card:not(.nexa-stat) .stat-value').forEach(el => el.classList.add('loading'));
         document.getElementById('user-table-body').innerHTML =
-            '<tr><td colspan="8"><div class="skeleton" style="width:60%; margin:0 auto;"></div></td></tr>';
+            '<tr><td colspan="7"><div class="skeleton" style="width:60%; margin:0 auto;"></div></td></tr>';
         try {
             const res = await fetch('/api/admin/users' + qs, { headers: getAuthHeaders() });
             if (res.status === 401 || res.status === 403) { window.location.href = '/'; return; }
@@ -757,7 +679,7 @@
         if (!visibleUsers.length) { alert('No users to export.'); return; }
 
         const headers = ['Name', 'Email', 'Organisation', 'Active Since', 'First Login',
-                         'Last Login', 'Sessions', 'Chats', 'Access Till', 'Nexa Access'];
+                         'Last Login', 'Sessions', 'Chats', 'Nexa Access'];
         const rows = visibleUsers.map(u => [
             u.user_name || '',
             u.email || '',
@@ -767,7 +689,6 @@
             u.last_login ? u.last_login.slice(0, 10) : '',
             u.session_count,
             u.chat_count,
-            u.access_last_date ? u.access_last_date.slice(0, 10) : '',
             u.nexa_access ? 'Enabled' : 'Disabled',
         ]);
 

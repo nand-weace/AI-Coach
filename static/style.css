@@ -240,6 +240,76 @@ body {
     padding-right: 4px;
 }
 
+/* Thumbs up/down on a Nexa reply — stays faint until hovered or rated */
+.message-feedback {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin-top: 2px;
+    padding-left: 2px;
+    opacity: 0.35;
+    transition: opacity 0.18s ease;
+}
+
+.message-wrapper:hover .message-feedback,
+.message-feedback:focus-within,
+.message-feedback.thanks {
+    opacity: 1;
+}
+
+/* Touch devices never hover — keep the thumbs legible there. */
+@media (hover: none) {
+    .message-feedback { opacity: 0.75; }
+}
+
+.feedback-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: background 0.18s ease, color 0.18s ease;
+}
+
+.feedback-btn svg {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linejoin: round;
+}
+
+.feedback-btn:hover {
+    background: var(--user-msg-bg);
+    color: var(--primary-color);
+}
+
+.feedback-btn.active {
+    color: var(--primary-color);
+}
+
+.feedback-btn.active svg {
+    fill: currentColor;
+    stroke: currentColor;
+}
+
+.feedback-thanks {
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    opacity: 0;
+    margin-left: 4px;
+    transition: opacity 0.25s ease;
+}
+
+.message-feedback.thanks .feedback-thanks {
+    opacity: 0.85;
+}
+
 /* Follow-up suggestion bubbles */
 .suggestion-row {
     display: flex;

@@ -3,7 +3,6 @@ import re
 import time
 import uuid
 import logging
-from datetime import date
 import requests as http_requests
 from functools import wraps
 from flask import Flask, request, jsonify, render_template, session, redirect, g
@@ -17,6 +16,8 @@ from database import (
     get_session_highlights,
     get_user_history,
     get_user_history_before,
+    set_message_feedback,
+    get_message_feedback,
     get_org_custom_content,
     upsert_org_custom_content,
     get_org_analytics,
@@ -28,38 +29,57 @@ from database import (
     get_user_profile_context,
     get_all_users_admin,
     get_all_orgs,
-    set_user_access_till,
     get_user_language,
     set_user_language,
 )
 
-# Languages Nexa can coach in. Keep in sync with the picker in templates/index.html.
+# Languages Nexa can coach in, as code -> (display label, name used in the prompt).
+# Keep in sync with the picker in static/script.js.
 SUPPORTED_LANGUAGES = {
-    'English': 'English',
-    'Hindi': 'Hindi',
-    'Marathi': 'Marathi',
-    'Bengali': 'Bengali',
-    'Tamil': 'Tamil',
-    'Telugu': 'Telugu',
-    'Kannada': 'Kannada',
-    'Malayalam': 'Malayalam',
-    'Gujarati': 'Gujarati',
-    'Spanish': 'Spanish',
-    'French': 'French',
-    'German': 'German',
-    'Portuguese': 'Portuguese',
-    'Arabic': 'Arabic',
-    'Chinese': 'Chinese (Simplified)',
-    'Japanese': 'Japanese',
+    'English': ('English', 'English'),
+    'Hindi': ('हिन्दी (Hindi)', 'Hindi'),
+    'Marathi': ('मराठी (Marathi)', 'Marathi'),
+    'Bengali': ('বাংলা (Bengali)', 'Bengali'),
+    'Tamil': ('தமிழ் (Tamil)', 'Tamil'),
+    'Telugu': ('తెలుగు (Telugu)', 'Telugu'),
+    'Kannada': ('ಕನ್ನಡ (Kannada)', 'Kannada'),
+    'Malayalam': ('മലയാളം (Malayalam)', 'Malayalam'),
+    'Gujarati': ('ગુજરાતી (Gujarati)', 'Gujarati'),
+    'Spanish': ('Español (Spanish)', 'Spanish'),
+    'French': ('Français (French)', 'French'),
+    'German': ('Deutsch (German)', 'German'),
+    'Portuguese': ('Português (Portuguese)', 'Portuguese'),
+    'Arabic': ('العربية (Arabic)', 'Arabic'),
+    'Chinese': ('中文 (Chinese)', 'Chinese (Simplified)'),
+    'Japanese': ('日本語 (Japanese)', 'Japanese'),
 }
 DEFAULT_LANGUAGE = 'English'
+
+
+def _language_list() -> list[dict]:
+    """Language options for the API — code plus the label shown in the picker."""
+    return [{'code': code, 'label': label} for code, (label, _) in SUPPORTED_LANGUAGES.items()]
+
+
+def _serialize_messages(user_id: str, rows: list) -> list[dict]:
+    """Shape history rows for the client, including any thumbs the user already
+    left on Nexa's replies so restored messages render in the rated state."""
+    ratings = get_message_feedback(
+        user_id, [r['id'] for r in rows if r['role'] == 'assistant']
+    )
+    return [
+        {'id': r['id'], 'role': r['role'], 'content': r['content'],
+         'created_at': r['created_at'].isoformat() if r.get('created_at') else None,
+         'feedback': ratings.get(r['id'], 0)}
+        for r in rows
+    ]
 
 
 def _language_directive(language: str | None) -> str:
     """System-prompt addendum instructing Nexa to reply in the chosen language."""
     if not language or language == DEFAULT_LANGUAGE:
         return ''
-    label = SUPPORTED_LANGUAGES.get(language, language)
+    label = SUPPORTED_LANGUAGES.get(language, (language, language))[1]
     return (
         f"\n\n---\nLANGUAGE:\n"
         f"Write every reply in {label}, including the suggested follow-ups inside the "
@@ -570,10 +590,6 @@ def create_session():
             nexa_access=nexa_access,
         )
         access_last_date = settings['access_last_date']
-        if access_last_date:
-            remaining_days = max(0, (date.fromisoformat(access_last_date.split()[0]) - date.today()).days)
-        else:
-            remaining_days = None
 
         auth_tokens[g.access_token] = {
             'user_id': user_id,
@@ -590,18 +606,13 @@ def create_session():
             'profile_context': profile_context,
             'nexa_access': nexa_access,
             'access_last_date': access_last_date,
-            'remaining_days': remaining_days,
         }
 
         logger.info("[create_session] session established: user_id=%s user_name=%r nexa_access=%s",
                     user_id, user_name, nexa_access)
 
         initials = ''.join(w[0].upper() for w in user_name.split()[:2])
-        recent_messages = [
-            {'id': r['id'], 'role': r['role'], 'content': r['content'],
-             'created_at': r['created_at'].isoformat() if r.get('created_at') else None}
-            for r in get_user_history(user_id, 15)
-        ]
+        recent_messages = _serialize_messages(user_id, get_user_history(user_id, 15))
         return jsonify({
             'user_id': user_id,
             'user_name': user_name,
@@ -612,7 +623,6 @@ def create_session():
             'role': role,
             'nexa_access': nexa_access,
             'access_last_date': access_last_date,
-            'remaining_days': remaining_days,
             'recent_messages': recent_messages,
             'welcome_message': welcome_message,
             'welcome_suggestions': welcome_suggestions,
@@ -665,29 +675,19 @@ def new_session():
         if _has_role(role, 'weace_super_admin', 'corporate_super_admin'):
             nexa_access = True
             access_last_date = None
-            remaining_days = None
         else:
             settings = get_user_access_settings(user_id)
             # Resolved at login by the user-config API; cached per token, then in the DB.
             token_state = auth_tokens.get(g.access_token) or {}
             nexa_access = token_state.get('nexa_access', settings['nexa_access'])
             access_last_date = settings['access_last_date']
-            if access_last_date:
-                remaining_days = max(0, (date.fromisoformat(access_last_date.split()[0]) - date.today()).days)
-            else:
-                remaining_days = None
 
         auth_tokens[g.access_token]['session_uuid'] = session_uuid
         auth_tokens[g.access_token]['nexa_access'] = nexa_access
         auth_tokens[g.access_token]['access_last_date'] = access_last_date
-        auth_tokens[g.access_token]['remaining_days'] = remaining_days
 
         initials = ''.join(w[0].upper() for w in user_name.split()[:2])
-        recent_messages = [
-            {'id': r['id'], 'role': r['role'], 'content': r['content'],
-             'created_at': r['created_at'].isoformat() if r.get('created_at') else None}
-            for r in get_user_history(user_id, 10)
-        ]
+        recent_messages = _serialize_messages(user_id, get_user_history(user_id, 10))
         return jsonify({
             'user_name': user_name,
             'returning': returning,
@@ -696,7 +696,6 @@ def new_session():
             'role': role,
             'nexa_access': nexa_access,
             'access_last_date': access_last_date,
-            'remaining_days': remaining_days,
             'recent_messages': recent_messages,
             'welcome_message': welcome_message,
             'welcome_suggestions': welcome_suggestions,
@@ -756,12 +755,33 @@ def chat_history():
     PAGE = 20
     rows = get_user_history_before(user_id, before_id, PAGE + 1)
     has_more = len(rows) > PAGE
-    messages = [
-        {'id': r['id'], 'role': r['role'], 'content': r['content'],
-         'created_at': r['created_at'].isoformat() if r.get('created_at') else None}
-        for r in rows[-PAGE:]
-    ]
+    messages = _serialize_messages(user_id, rows[-PAGE:])
     return jsonify({'messages': messages, 'has_more': has_more})
+
+
+@app.route('/feedback', methods=['POST'])
+@require_weace_token
+def message_feedback():
+    """Thumbs up/down on one of Nexa's replies. `rating` is 1 (up), -1 (down),
+    or 0 to undo. Users can only rate their own assistant messages."""
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+
+    data = request.json or {}
+    try:
+        message_id = int(data.get('message_id'))
+        rating = int(data.get('rating'))
+    except (TypeError, ValueError):
+        return jsonify({'error': 'A numeric message_id and rating are required'}), 400
+    if rating not in (-1, 0, 1):
+        return jsonify({'error': 'rating must be 1, -1, or 0'}), 400
+
+    try:
+        if not set_message_feedback(message_id, g.user['user_id'], rating):
+            return jsonify({'error': 'Message not found'}), 404
+        return jsonify({'ok': True, 'message_id': message_id, 'rating': rating})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/api/org-content', methods=['GET', 'POST'])
@@ -795,7 +815,7 @@ def org_content():
 def list_languages():
     """List all languages Nexa can coach in. Public — no session required."""
     return jsonify({
-        'languages': [{'code': c, 'label': l} for c, l in SUPPORTED_LANGUAGES.items()],
+        'languages': _language_list(),
         'default': DEFAULT_LANGUAGE,
     })
 
@@ -811,7 +831,7 @@ def user_language():
     if request.method == 'GET':
         return jsonify({
             'language': get_user_language(user_id) or DEFAULT_LANGUAGE,
-            'languages': [{'code': c, 'label': l} for c, l in SUPPORTED_LANGUAGES.items()],
+            'languages': _language_list(),
         })
 
     language = ((request.json or {}).get('language') or '').strip()
@@ -917,8 +937,9 @@ def chat():
         reply, suggestions = _extract_suggestions(reply)
 
         conversation_history.append({"role": "assistant", "content": reply})
-        save_message(session_uuid, user_id, 'assistant', reply)
-        return jsonify({'response': reply, 'suggestions': suggestions})
+        message_id = save_message(session_uuid, user_id, 'assistant', reply)
+        return jsonify({'response': reply, 'suggestions': suggestions,
+                        'message_id': message_id})
 
     except Exception as e:
         if conversation_history and conversation_history[-1]["role"] == "user":
@@ -1208,24 +1229,6 @@ def admin_nexa_counts():
             'next_count': next_total,
             'used_count': used_total,
         })
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-@app.route('/api/admin/users/<user_id>/access_till', methods=['PUT'])
-@require_weace_token
-def admin_set_access_till(user_id):
-    if not g.user:
-        return jsonify({'error': 'Session not initialised — call /session first'}), 401
-    if not _has_role(g.user.get('role'), 'corporate_super_admin', 'weace_super_admin'):
-        return jsonify({'error': 'Forbidden'}), 403
-    data = request.json or {}
-    access_till = (data.get('access_till') or '').strip()
-    if not access_till:
-        return jsonify({'error': 'access_till date is required'}), 400
-    try:
-        set_user_access_till(user_id, access_till)
-        return jsonify({'ok': True, 'access_till': access_till})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

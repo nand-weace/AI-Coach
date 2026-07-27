@@ -228,7 +228,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const _sd = await buildSession(_newAccess, _newRefresh, _roles);
                     if (_sd) {
                         showApp(_sd.user_name, _sd.initials, _sd.profile_image, _sd.returning,
-                                _sd.role, _sd.nexa_access, _sd.access_last_date, _sd.remaining_days, _sd.recent_messages || [],
+                                _sd.role, _sd.nexa_access, _sd.recent_messages || [],
                         _sd.welcome_message, _sd.welcome_suggestions);
                         _authed = true;
                     }
@@ -251,7 +251,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (_sd) {
                 storeTokens(_extToken, _extRefresh);
                 showApp(_sd.user_name, _sd.initials, _sd.profile_image, _sd.returning,
-                        _sd.role, _sd.nexa_access, _sd.access_last_date, _sd.remaining_days, _sd.recent_messages || [],
+                        _sd.role, _sd.nexa_access, _sd.recent_messages || [],
                         _sd.welcome_message, _sd.welcome_suggestions);
                 _authed = true;
             }
@@ -279,7 +279,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         if (sd) {
                             storeTokens(newAccess, newRefresh);
                             showApp(sd.user_name, sd.initials, sd.profile_image, sd.returning,
-                                    sd.role, sd.nexa_access, sd.access_last_date, sd.remaining_days, sd.recent_messages || [],
+                                    sd.role, sd.nexa_access, sd.recent_messages || [],
                                     sd.welcome_message, sd.welcome_suggestions);
                             _authed = true;
                         }
@@ -307,7 +307,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const sd = await buildSession(storedAccess, storedRefresh || '', getStoredRoles());
                 if (sd) {
                     showApp(sd.user_name, sd.initials, sd.profile_image, sd.returning,
-                            sd.role, sd.nexa_access, sd.access_last_date, sd.remaining_days, sd.recent_messages || [],
+                            sd.role, sd.nexa_access, sd.recent_messages || [],
                             sd.welcome_message, sd.welcome_suggestions);
                     _authed = true;
                 }
@@ -394,7 +394,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
             showApp(data.user_name, data.initials, data.profile_image, data.returning,
-                    data.role, data.nexa_access, data.access_last_date, data.remaining_days, data.recent_messages || [],
+                    data.role, data.nexa_access, data.recent_messages || [],
                     data.welcome_message, data.welcome_suggestions);
         } catch (err) {
             errorEl.textContent = 'Connection error. Please try again.';
@@ -631,7 +631,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (res.status === 401) {
                 location.reload();
             } else if (res.ok) {
-                addMessage(data.response, 'assistant');
+                addMessage(data.response, 'assistant', null, { messageId: data.message_id });
                 renderSuggestions(data.suggestions);
             } else {
                 addMessage(`Error: ${data.error}`, 'assistant');
@@ -642,7 +642,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    function showApp(userName, initials, profileImage, returning, role, nexaAccess, accessLastDate, remainingDays, recentMessages, welcomeMessage, welcomeSuggestions) {
+    function showApp(userName, initials, profileImage, returning, role, nexaAccess, recentMessages, welcomeMessage, welcomeSuggestions) {
         loginProgress.stop();
         document.getElementById('login-overlay').style.display = 'none';
         const appEl = document.getElementById('app-container');
@@ -693,7 +693,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const wCoachBtn = document.getElementById('btn-weace-coaching');
         if (wCoachBtn) {
-            const blocked = !nexaAccess || (remainingDays !== null && remainingDays !== undefined && remainingDays < 7);
+            const blocked = !nexaAccess;
             wCoachBtn.disabled = blocked;
             if (blocked) wCoachBtn.title = 'Access required to use Weace Coaching';
         }
@@ -712,7 +712,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             divider.className = 'history-divider';
             divider.innerHTML = '<span>Previous conversation</span>';
             chatContainer.appendChild(divider);
-            recentMessages.forEach(msg => addMessage(msg.content, msg.role, msg.created_at));
+            recentMessages.forEach(msg => addMessage(msg.content, msg.role, msg.created_at,
+                { messageId: msg.id, feedback: msg.feedback }));
 
             // Enable infinite scroll: remember the oldest loaded id so scrolling
             // up can page in earlier messages, inserted above this divider.
@@ -737,15 +738,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (!nexaAccess) {
             showNexaAccessDenied();
-        } else if (remainingDays !== null && remainingDays !== undefined) {
-            const expiryNotice = document.getElementById('access-expiry-notice');
-            const expiryText = document.getElementById('access-expiry-text');
-            if (remainingDays <= 0) {
-                showNexaAccessDenied();
-            } else if (remainingDays <= 7) {
-                expiryText.textContent = `Your access expires in ${remainingDays} day${remainingDays === 1 ? '' : 's'}.`;
-                expiryNotice.style.display = 'block';
-            }
         }
     }
 
@@ -785,7 +777,88 @@ document.addEventListener('DOMContentLoaded', async () => {
         return `${date}, ${time}`;
     }
 
-    function buildMessage(text, sender, timestamp) {
+    const THUMB_UP_PATH = 'M2 20h2.5V10H2v10zM22 11c0-1.1-.9-2-2-2h-5.6l.9-4.1v-.3c0-.4-.2-.8-.4-1.1L13.8 2 7.6 8.2c-.4.4-.6.9-.6 1.4V19c0 1.1.9 2 2 2h8.5c.8 0 1.5-.5 1.8-1.2l2.6-6.1c.1-.2.1-.5.1-.7v-2z';
+    const THUMB_DOWN_PATH = 'M22 4h-2.5v10H22V4zM2 13c0 1.1.9 2 2 2h5.6l-.9 4.1v.3c0 .4.2.8.4 1.1l1.1 1.1 6.2-6.2c.4-.4.6-.9.6-1.4V5c0-1.1-.9-2-2-2H6.5c-.8 0-1.5.5-1.8 1.2l-2.6 6.1c-.1.2-.1.5-.1.7v2z';
+
+    function makeThumbButton(rating, active) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'feedback-btn' + (active ? ' active' : '');
+        btn.dataset.rating = String(rating);
+        const label = rating === 1 ? 'Good response' : 'Bad response';
+        btn.title = label;
+        btn.setAttribute('aria-label', label);
+        btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+        btn.innerHTML =
+            `<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">` +
+            `<path d="${rating === 1 ? THUMB_UP_PATH : THUMB_DOWN_PATH}"/></svg>`;
+        return btn;
+    }
+
+    // Thumbs up/down row shown under each of Nexa's replies. `current` is the
+    // rating already stored for this message (1, -1, or 0 for none).
+    function buildFeedbackRow(messageId, current) {
+        const row = document.createElement('div');
+        row.className = 'message-feedback';
+        let rating = current || 0;
+
+        [1, -1].forEach(value => {
+            const btn = makeThumbButton(value, rating === value);
+            btn.addEventListener('click', async () => {
+                // Tapping the active thumb clears the rating.
+                const next = rating === value ? 0 : value;
+                const previous = rating;
+                rating = next;
+                paint();
+                const saved = await submitFeedback(messageId, next);
+                if (!saved) {
+                    rating = previous;
+                    paint();
+                } else if (next !== 0) {
+                    row.classList.add('thanks');
+                }
+            });
+            row.appendChild(btn);
+        });
+
+        const note = document.createElement('span');
+        note.className = 'feedback-thanks';
+        note.textContent = 'Thanks for the feedback';
+        row.appendChild(note);
+
+        function paint() {
+            row.querySelectorAll('.feedback-btn').forEach(b => {
+                const on = Number(b.dataset.rating) === rating;
+                b.classList.toggle('active', on);
+                b.setAttribute('aria-pressed', on ? 'true' : 'false');
+            });
+            if (!rating) row.classList.remove('thanks');
+        }
+
+        if (rating) row.classList.add('thanks');
+        return row;
+    }
+
+    // Persist a rating. Returns false so the caller can roll the UI back.
+    async function submitFeedback(messageId, rating) {
+        try {
+            const accessToken = localStorage.getItem('we_ace_access_token') || '';
+            const res = await fetch('/feedback', {
+                method: 'POST',
+                credentials: 'omit',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
+                },
+                body: JSON.stringify({ message_id: messageId, rating }),
+            });
+            return res.ok;
+        } catch (err) {
+            return false;
+        }
+    }
+
+    function buildMessage(text, sender, timestamp, opts = {}) {
         const wrapper = document.createElement('div');
         wrapper.className = `message-wrapper ${sender}`;
 
@@ -821,19 +894,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         bubble.appendChild(messageDiv);
         bubble.appendChild(timeEl);
 
+        // Only stored replies can be rated — transient errors carry no id.
+        if (sender === 'assistant' && Number.isFinite(opts.messageId)) {
+            bubble.appendChild(buildFeedbackRow(opts.messageId, opts.feedback || 0));
+        }
+
         wrapper.appendChild(avatar);
         wrapper.appendChild(bubble);
         return wrapper;
     }
 
-    function addMessage(text, sender, timestamp) {
-        chatContainer.appendChild(buildMessage(text, sender, timestamp));
+    function addMessage(text, sender, timestamp, opts) {
+        chatContainer.appendChild(buildMessage(text, sender, timestamp, opts));
         scrollToBottom();
     }
 
     // Insert an older message above `referenceNode` (for infinite scroll).
-    function prependMessage(text, sender, referenceNode, timestamp) {
-        const el = buildMessage(text, sender, timestamp);
+    function prependMessage(text, sender, referenceNode, timestamp, opts) {
+        const el = buildMessage(text, sender, timestamp, opts);
         chatContainer.insertBefore(el, referenceNode || chatContainer.firstChild);
         return el;
     }
@@ -938,7 +1016,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             const anchor = historyAnchor || chatContainer.firstChild;
             let newTop = null;
             (data.messages || []).forEach(msg => {
-                const el = prependMessage(msg.content, msg.role, anchor, msg.created_at);
+                const el = prependMessage(msg.content, msg.role, anchor, msg.created_at,
+                    { messageId: msg.id, feedback: msg.feedback });
                 if (!newTop) newTop = el;
             });
             if (newTop) historyAnchor = newTop;
