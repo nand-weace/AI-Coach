@@ -362,6 +362,33 @@ def get_user_history_before(user_id: str, before_id: int, limit: int = 20) -> li
         conn.close()
 
 
+def is_resumable_session(session_id: str, user_id: str, max_age_hours: int = 12) -> bool:
+    """True if this session belongs to the user and is recent enough to carry on
+    with — lets a page reload (e.g. coming back from the dashboard) continue the
+    same conversation instead of opening a new one.
+
+    A long conversation stays resumable as long as it is still being used: the
+    window applies to the last message when there is one, otherwise to the time
+    the session opened."""
+    if not session_id or not user_id:
+        return False
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur,
+                "SELECT COUNT(*) AS cnt FROM ai_coach_sessions s "
+                "WHERE s.session_id = %s AND s.user_id = %s "
+                "AND (s.started_at > DATE_SUB(NOW(), INTERVAL %s HOUR) "
+                "     OR EXISTS (SELECT 1 FROM ai_coach_messages m "
+                "                WHERE m.session_id = s.session_id "
+                "                AND m.created_at > DATE_SUB(NOW(), INTERVAL %s HOUR)))",
+                (session_id, user_id, max_age_hours, max_age_hours),
+            )
+            return cur.fetchone()['cnt'] > 0
+    finally:
+        conn.close()
+
+
 def has_previous_sessions(user_id: str) -> bool:
     conn = get_connection()
     try:
@@ -384,53 +411,45 @@ def get_session_highlights(user_id: str, max_sessions: int = 50) -> list:
     conn = get_connection()
     try:
         with conn.cursor() as cur:
+            # One round trip: the derived table picks the user's most recent
+            # sessions and, per session, the row ids of the first user message
+            # and the last assistant message; the joins then fetch just those two
+            # rows by primary key. Ids stand in for created_at ordering — they're
+            # auto-increment, so they break the DATETIME's per-second ties.
             _execute(cur,
                 """
-                SELECT session_id, DATE(MIN(created_at)) AS session_date
-                FROM ai_coach_messages
-                WHERE user_id = %s
-                GROUP BY session_id
-                ORDER BY MIN(created_at) DESC
-                LIMIT %s
+                SELECT s.session_date,
+                       first_user.content      AS topic,
+                       last_assistant.content  AS takeaway
+                FROM (
+                    SELECT DATE(MIN(created_at)) AS session_date,
+                           MIN(created_at) AS started_at,
+                           MIN(CASE WHEN role = 'user' THEN id END) AS first_user_id,
+                           MAX(CASE WHEN role = 'assistant' THEN id END) AS last_assistant_id
+                    FROM ai_coach_messages
+                    WHERE user_id = %s
+                    GROUP BY session_id
+                    HAVING first_user_id IS NOT NULL
+                    ORDER BY started_at DESC
+                    LIMIT %s
+                ) AS s
+                JOIN ai_coach_messages AS first_user
+                  ON first_user.id = s.first_user_id
+                LEFT JOIN ai_coach_messages AS last_assistant
+                  ON last_assistant.id = s.last_assistant_id
+                ORDER BY s.started_at ASC
                 """,
                 (user_id, max_sessions),
             )
-            sessions = cur.fetchall()
 
-            highlights = []
-            for s in sessions:
-                sid = s['session_id']
-                date = str(s['session_date'])
-
-                _execute(cur,
-                    """
-                    SELECT content FROM ai_coach_messages
-                    WHERE session_id = %s AND role = 'user'
-                    ORDER BY created_at ASC LIMIT 1
-                    """,
-                    (sid,),
-                )
-                first_user = cur.fetchone()
-                if not first_user:
-                    continue
-
-                _execute(cur,
-                    """
-                    SELECT content FROM ai_coach_messages
-                    WHERE session_id = %s AND role = 'assistant'
-                    ORDER BY created_at DESC LIMIT 1
-                    """,
-                    (sid,),
-                )
-                last_assistant = cur.fetchone()
-
-                highlights.append({
-                    'date': date,
-                    'topic': first_user['content'][:250],
-                    'takeaway': last_assistant['content'][:350] if last_assistant else '',
-                })
-
-            return list(reversed(highlights))  # oldest first
+            return [
+                {
+                    'date': str(row['session_date']),
+                    'topic': row['topic'][:250],
+                    'takeaway': (row['takeaway'] or '')[:350],
+                }
+                for row in cur.fetchall()
+            ]
     finally:
         conn.close()
 
@@ -771,6 +790,26 @@ def upsert_user_login(user_id: str, first_name: str = None, last_name: str = Non
         return {
             'access_last_date': str(row['access_last_date']) if row and row['access_last_date'] else None,
         }
+    finally:
+        conn.close()
+
+
+def get_user_identity(user_id: str) -> dict:
+    """Name / email / org fields stored at login.
+
+    Lets a session be resumed (e.g. coming back from the dashboard) without
+    re-fetching the profile APIs when the in-memory token cache is cold.
+    """
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur,
+                "SELECT first_name, last_name, email, org_id, org_name, cohort_id "
+                "FROM user_settings WHERE user_id = %s",
+                (user_id,),
+            )
+            row = cur.fetchone()
+        return dict(row) if row else {}
     finally:
         conn.close()
 

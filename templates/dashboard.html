@@ -7,6 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/header.css">
     <style>
         :root {
             --bg-color: #f8fafc;
@@ -29,95 +30,6 @@
                 radial-gradient(circle at 85% 30%, rgba(139, 92, 246, 0.07), transparent 25%);
         }
 
-        /* ── Header ── */
-        .app-header {
-            padding: 16px 32px;
-            border-bottom: 1px solid var(--glass-border);
-            background: rgba(255, 255, 255, 0.85);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            position: sticky;
-            top: 0;
-            z-index: 10;
-        }
-        .header-brand {
-            display: flex;
-            align-items: baseline;
-            gap: 8px;
-        }
-        .header-brand h1 { font-size: 1.25rem; font-weight: 600; letter-spacing: -0.02em; }
-        .header-brand .subtitle { font-size: 0.8rem; color: var(--text-muted); font-weight: 400; position: relative; top: 0.2em; }
-        .header-right { display: flex; align-items: center; gap: 12px; }
-        .nav-link {
-            font-size: 0.85rem;
-            color: var(--text-muted);
-            text-decoration: none;
-            padding: 6px 14px;
-            border-radius: 999px;
-            border: 1px solid var(--glass-border);
-            background: rgba(248, 250, 252, 0.8);
-            transition: color 0.2s, border-color 0.2s;
-        }
-        .nav-link:hover { color: var(--primary-color); border-color: rgba(59, 130, 246, 0.3); }
-        .user-chip {
-            display: flex; align-items: center; gap: 8px;
-            background: rgba(248, 250, 252, 0.8);
-            border: 1px solid var(--glass-border);
-            border-radius: 999px;
-            padding: 4px 12px 4px 4px;
-        }
-        .user-chip-avatar {
-            width: 28px; height: 28px; border-radius: 50%;
-            background: var(--accent-gradient);
-            color: white; font-size: 0.7rem; font-weight: 600;
-            display: flex; align-items: center; justify-content: center;
-            flex-shrink: 0; overflow: hidden;
-        }
-        .user-chip-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
-        .user-display { font-size: 0.85rem; font-weight: 500; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        /* ── User-chip dropdown ── */
-        .user-chip-wrap { position: relative; }
-        .user-chip { cursor: pointer; user-select: none; }
-        .chip-caret {
-            width: 14px; height: 14px; color: var(--text-muted);
-            flex-shrink: 0; transition: transform 0.2s;
-        }
-        .user-chip-wrap.open .chip-caret { transform: rotate(180deg); }
-        .chip-dropdown {
-            display: none;
-            position: absolute;
-            top: calc(100% + 8px);
-            right: 0;
-            min-width: 190px;
-            background: #fff;
-            border: 1px solid var(--glass-border);
-            border-radius: 12px;
-            box-shadow: 0 8px 28px rgba(0,0,0,0.12);
-            overflow: hidden;
-            z-index: 50;
-            animation: dropIn 0.14s ease;
-        }
-        @keyframes dropIn {
-            from { opacity: 0; transform: translateY(-6px); }
-            to   { opacity: 1; transform: translateY(0); }
-        }
-        .user-chip-wrap.open .chip-dropdown { display: block; }
-        .chip-dropdown-item {
-            display: flex; align-items: center; gap: 9px;
-            padding: 10px 14px;
-            font-size: 0.85rem; color: var(--text-main);
-            background: none; border: none; width: 100%;
-            font-family: inherit; cursor: pointer; text-align: left;
-            transition: background 0.15s;
-        }
-        .chip-dropdown-item:hover { background: rgba(59,130,246,0.06); }
-        .chip-dropdown-item svg { flex-shrink: 0; color: var(--text-muted); }
-        .chip-dropdown-divider { height: 1px; background: var(--glass-border); margin: 2px 0; }
-        .chip-dropdown-item.danger { color: #dc2626; }
-        .chip-dropdown-item.danger svg { color: #dc2626; }
 
         /* ── Page body ── */
         .page { max-width: 1100px; margin: 0 auto; padding: 32px 24px 64px; }
@@ -618,48 +530,7 @@
 </head>
 <body>
 
-<header class="app-header">
-    <div style="display:flex; align-items:center; gap:14px;">
-        <a href="/"><img src="/static/nexa-logo.png" alt="Nexa" style="height:35px; width:auto;"></a>
-    </div>
-    <div class="header-right">
-        <a href="/" class="nav-link">Open Chat</a>
-        <div class="user-chip-wrap" id="user-chip-wrap">
-            <div class="user-chip" id="user-chip-trigger">
-                <div class="user-chip-avatar" id="header-avatar">
-                    {% if profile_image %}
-                        <img src="{{ profile_image }}" alt="{{ user_name }}" onerror="this.parentElement.textContent='{{ initials }}'">
-                    {% else %}
-                        {{ initials }}
-                    {% endif %}
-                </div>
-                <span class="user-display">{{ user_name }}</span>
-                <svg class="chip-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="6 9 12 15 18 9"/>
-                </svg>
-            </div>
-            <div class="chip-dropdown" id="chip-dropdown" data-refresh-token="{{ refresh_token | e }}">
-                <button class="chip-dropdown-item" id="btn-weace-coaching">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-                        <polyline points="15 3 21 3 21 9"/>
-                        <line x1="10" y1="14" x2="21" y2="3"/>
-                    </svg>
-                    Weace Coaching
-                </button>
-                <div class="chip-dropdown-divider"></div>
-                <button class="chip-dropdown-item danger" id="logout-button">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                        <polyline points="16 17 21 12 16 7"/>
-                        <line x1="21" y1="12" x2="9" y2="12"/>
-                    </svg>
-                    Logout
-                </button>
-            </div>
-        </div>
-    </div>
-</header>
+{% include '_header.html' %}
 
 <div class="page">
     <div class="page-title" style="display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:12px;">
@@ -795,6 +666,7 @@
     </div>
 </div>
 
+<script src="/static/header.js"></script>
 <script>
     const MIN_SESSIONS  = 5;
     const MIN_MESSAGES  = 10;
@@ -983,29 +855,8 @@
     document.getElementById('filter-level-name').addEventListener('change', () => { updateClearBtn(); reloadAll(); });
     document.getElementById('filter-industry-type').addEventListener('change', () => { updateClearBtn(); reloadAll(); });
 
-    // ── User-chip dropdown ────────────────────────────────────────────────────
-    const chipWrap    = document.getElementById('user-chip-wrap');
-    const chipTrigger = document.getElementById('user-chip-trigger');
-
-    chipTrigger.addEventListener('click', e => {
-        e.stopPropagation();
-        chipWrap.classList.toggle('open');
-    });
-
-    document.addEventListener('click', e => {
-        if (!chipWrap.contains(e.target)) chipWrap.classList.remove('open');
-    });
-
-    document.getElementById('btn-weace-coaching').addEventListener('click', () => {
-        const rt = document.getElementById('chip-dropdown').dataset.refreshToken || '';
-        window.open('https://we-ace.com/app/?refresh_token=' + encodeURIComponent(rt), '_blank');
-        chipWrap.classList.remove('open');
-    });
-
-    document.getElementById('logout-button').addEventListener('click', async () => {
-        await fetch('/logout', { method: 'POST', headers: getAuthHeaders() });
-        window.location.href = '/';
-    });
+    // Shared header — tabs, language picker, chip dropdown, Corporate Knowledge
+    NexaHeader.init();
 
     // Smooth exit navigation — fade out then follow the link
     function smoothNavTo(url) {

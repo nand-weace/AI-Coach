@@ -1,0 +1,108 @@
+{#
+  Shared app header — used by the chat page and the dashboard so both show the
+  same bar with the current tab marked.
+
+  Params:
+    active_tab     'talk' | 'sentiment'
+    show_org_tabs  true to render Sentiment Analysis / Corporate Knowledge as
+                   visible (the dashboard, which is role-gated server-side).
+                   The chat page leaves them hidden and lets script.js reveal
+                   them once it knows the user's roles.
+    show_admin     true to render the Admin link in the chip dropdown
+    user_name, initials, profile_image, refresh_token
+                   server-rendered identity; omitted on the chat page, where
+                   script.js fills them in after /session.
+#}
+<header class="app-header">
+    <div class="logo">
+        <a href="/" class="logo-home"><img src="/static/nexa-logo.png" alt="Nexa" class="logo-icon" style="height:35px; width:auto; vertical-align:middle;" /></a>
+    </div>
+
+    <nav class="app-tabs" id="app-tabs" aria-label="Main navigation">
+        <a href="/" class="app-tab{% if active_tab == 'talk' %} active{% endif %}" id="tab-talk"
+           {% if active_tab == 'talk' %}aria-current="page"{% endif %}>Talk</a>
+
+        <div class="app-tab-wrap" id="language-menu-wrap">
+            <button type="button" class="app-tab" id="btn-language" aria-haspopup="true" aria-expanded="false">
+                Language
+                <span class="app-tab-value" id="language-current">English</span>
+            </button>
+            <div class="tab-popover" id="language-submenu"></div>
+        </div>
+
+        <a id="dashboard-link" href="/dashboard"
+           class="app-tab{% if active_tab == 'sentiment' %} active{% endif %}"
+           {% if active_tab == 'sentiment' %}aria-current="page"{% endif %}
+           {% if not show_org_tabs %}style="display:none;"{% endif %}>Sentiment Analysis</a>
+
+        <button type="button" class="app-tab" id="btn-corp-content"
+                {% if not show_org_tabs %}style="display:none;"{% endif %}>Corporate Knowledge</button>
+
+        <button type="button" class="app-tab" id="btn-weace-coaching">Weace Coaching</button>
+    </nav>
+
+    <div class="header-right">
+        <div class="user-chip-wrap" id="user-chip-wrap">
+            <div class="user-chip" id="user-chip">
+                <div class="user-chip-avatar" id="header-avatar">
+                    {%- if profile_image %}
+                        <img src="{{ profile_image }}" alt="{{ user_name }}" class="avatar-img"
+                             onerror="this.parentElement.textContent='{{ initials }}'">
+                    {%- elif initials %}{{ initials }}{% endif %}
+                </div>
+                <span id="user-display" class="user-display">{{ user_name or '' }}</span>
+                <svg class="chip-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"/>
+                </svg>
+            </div>
+            <div class="chip-dropdown" id="chip-dropdown" data-refresh-token="{{ refresh_token or '' }}">
+                <a id="admin-link" href="/admin" class="chip-dropdown-item"
+                   {% if not show_admin %}style="display:none;"{% endif %}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/>
+                    </svg>
+                    Admin
+                </a>
+                <div class="chip-dropdown-divider" id="chip-nav-divider"
+                     {% if not show_admin %}style="display:none;"{% endif %}></div>
+                <button class="chip-dropdown-item" id="btn-edit-profile">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                        <circle cx="12" cy="7" r="4"/>
+                    </svg>
+                    Edit Profile
+                </button>
+                <button class="chip-dropdown-item danger" id="logout-button">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                        <polyline points="16 17 21 12 16 7"/>
+                        <line x1="21" y1="12" x2="9" y2="12"/>
+                    </svg>
+                    Logout
+                </button>
+            </div>
+        </div>
+        <span class="dot pulse"></span>
+    </div>
+</header>
+
+<!-- Corporate Knowledge modal (corporate super admins only) -->
+<div id="corp-content-overlay" class="corp-modal-overlay" style="display:none;">
+    <div class="corp-modal" role="dialog" aria-modal="true" aria-labelledby="corp-modal-title">
+        <div class="corp-modal-header">
+            <h2 id="corp-modal-title">Corporate Knowledge</h2>
+            <button class="corp-modal-close" id="corp-content-close" aria-label="Close">&times;</button>
+        </div>
+        <p class="corp-modal-desc">
+            Add company-specific information, policies, programmes, or terminology.
+            Nexa will draw on this in its responses to your organisation's users when relevant.
+        </p>
+        <textarea id="corp-content-input" class="corp-modal-textarea" rows="12"
+            placeholder="e.g. Our leadership framework has 4 pillars… Our internal mobility policy is… We refer to managers as 'pod leads'…"></textarea>
+        <div class="corp-modal-footer">
+            <span id="corp-content-status" class="corp-modal-status"></span>
+            <button class="corp-modal-btn secondary" id="corp-content-cancel">Cancel</button>
+            <button class="corp-modal-btn primary" id="corp-content-save">Save</button>
+        </div>
+    </div>
+</div>

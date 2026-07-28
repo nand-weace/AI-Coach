@@ -1,22 +1,8 @@
-// Language picker — keep in sync with SUPPORTED_LANGUAGES in app.py
-const LANGUAGES = [
-    { code: 'English',    label: 'English' },
-    { code: 'Hindi',      label: 'हिन्दी (Hindi)' },
-    { code: 'Marathi',    label: 'मराठी (Marathi)' },
-    { code: 'Bengali',    label: 'বাংলা (Bengali)' },
-    { code: 'Tamil',      label: 'தமிழ் (Tamil)' },
-    { code: 'Telugu',     label: 'తెలుగు (Telugu)' },
-    { code: 'Kannada',    label: 'ಕನ್ನಡ (Kannada)' },
-    { code: 'Malayalam',  label: 'മലയാളം (Malayalam)' },
-    { code: 'Gujarati',   label: 'ગુજરાતી (Gujarati)' },
-    { code: 'Spanish',    label: 'Español (Spanish)' },
-    { code: 'French',     label: 'Français (French)' },
-    { code: 'German',     label: 'Deutsch (German)' },
-    { code: 'Portuguese', label: 'Português (Portuguese)' },
-    { code: 'Arabic',     label: 'العربية (Arabic)' },
-    { code: 'Chinese',    label: '中文 (Chinese)' },
-    { code: 'Japanese',   label: '日本語 (Japanese)' },
-];
+// Thumb icons for the message feedback row. Module scope on purpose: replaying
+// history calls into this from the auth chain, before the rest of the
+// DOMContentLoaded body has run.
+const THUMB_UP_PATH = 'M2 20h2.5V10H2v10zM22 11c0-1.1-.9-2-2-2h-5.6l.9-4.1v-.3c0-.4-.2-.8-.4-1.1L13.8 2 7.6 8.2c-.4.4-.6.9-.6 1.4V19c0 1.1.9 2 2 2h8.5c.8 0 1.5-.5 1.8-1.2l2.6-6.1c.1-.2.1-.5.1-.7v-2z';
+const THUMB_DOWN_PATH = 'M22 4h-2.5v10H22V4zM2 13c0 1.1.9 2 2 2h5.6l-.9 4.1v.3c0 .4.2.8.4 1.1l1.1 1.1 6.2-6.2c.4-.4.6-.9.6-1.4V5c0-1.1-.9-2-2-2H6.5c-.8 0-1.5.5-1.8 1.2l-2.6 6.1c-.1.2-.1.5-.1.7v2z';
 
 document.addEventListener('DOMContentLoaded', async () => {
     const chatForm = document.getElementById('chat-form');
@@ -31,13 +17,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (typeof marked !== 'undefined') {
         marked.setOptions({ breaks: true, gfm: true });
-    }
-
-    // role can be an array of role objects [{slug: '...'}] or a legacy string
-    function hasRole(roleVal, ...slugs) {
-        if (Array.isArray(roleVal))
-            return roleVal.some(r => r && typeof r === 'object' && slugs.includes(r.slug));
-        return slugs.includes(roleVal);
     }
 
     // ── Token persistence helpers ────────────────────────────────────────────
@@ -165,11 +144,74 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
     })();
 
+    // Keeps the browser's copy of the session in step with the server's.
+    function persistSessionData(data) {
+        if (data.user_id) localStorage.setItem('we_ace_user_id', data.user_id);
+        if (data.user_name) localStorage.setItem('we_ace_user_name', data.user_name);
+        if (data.session_uuid) localStorage.setItem('we_ace_session_uuid', data.session_uuid);
+        if (data.profile_context) localStorage.setItem('we_ace_profile_context', JSON.stringify(data.profile_context));
+        if (data.org_id) localStorage.setItem('we_ace_org_id', data.org_id);
+        if (data.org_name) localStorage.setItem('we_ace_org_name', data.org_name);
+        if (data.cohort_id) localStorage.setItem('we_ace_cohort_id', data.cohort_id);
+        if (data.language) localStorage.setItem('we_ace_language', data.language);
+        if (data.role) storeProfileRoles(data.role);
+    }
+
+    // Did this page load come from clicking a tab inside the app? header.js
+    // leaves a marker in sessionStorage (per browser tab, survives the
+    // navigation) just before it hands over. Read once and clear, so only the
+    // load that the click caused counts — a later refresh sees nothing and
+    // starts a new session.
+    function consumeTabNavIntent() {
+        let stamp = null;
+        try {
+            stamp = sessionStorage.getItem('we_ace_tab_nav');
+            sessionStorage.removeItem('we_ace_tab_nav');
+        } catch (_) { return false; }
+        if (!stamp) return false;
+        // Belt and braces: a reload is never a tab switch, whatever is stored.
+        const nav = performance.getEntriesByType('navigation')[0];
+        if (nav && nav.type === 'reload') return false;
+        return Date.now() - Number(stamp) < 5 * 60 * 1000;
+    }
+
+    // ── Resume — fast path back from another tab (dashboard, admin) ─────────
+    // Carries on with the chat session this browser already had: no token
+    // refresh, no profile fetch, no new greeting. Returns null when there's
+    // nothing to resume, and the normal login chain takes over.
+    async function resumeSession() {
+        const accessToken = localStorage.getItem('we_ace_access_token') || '';
+        const sessionUuid = localStorage.getItem('we_ace_session_uuid') || '';
+        if (!accessToken || !sessionUuid) return null;
+        try {
+            const res = await fetch('/session/resume', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${accessToken}`,
+                },
+                body: JSON.stringify({
+                    sessionUuid,
+                    refreshToken: localStorage.getItem('we_ace_refresh_token') || '',
+                }),
+            });
+            if (!res.ok) return null;      // 409 = not resumable, 401 = token stale
+            const data = await res.json();
+            persistSessionData(data);
+            return data;
+        } catch (_) {
+            return null;
+        }
+    }
+
     // ── Build session — server verifies tokens and fetches profile ────
     async function buildSession(accessToken, refreshToken, profileRoles) {
         const userId = localStorage.getItem('we_ace_user_id') || '';
         const payload = { refreshToken };
         if (userId) payload.userId = userId;
+        // No sessionUuid on purpose: reaching /session means a refresh, a fresh
+        // visit or a new login, and each of those opens a new conversation.
+        // Carrying one on is /session/resume's job.
         if (profileRoles && Array.isArray(profileRoles) && profileRoles.length > 0) {
             payload.roles = profileRoles;
         }
@@ -184,14 +226,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
         if (!res.ok) return null;
         const data = await res.json();
-        if (data.user_id) localStorage.setItem('we_ace_user_id', data.user_id);
-        if (data.user_name) localStorage.setItem('we_ace_user_name', data.user_name);
-        if (data.session_uuid) localStorage.setItem('we_ace_session_uuid', data.session_uuid);
-        if (data.profile_context) localStorage.setItem('we_ace_profile_context', JSON.stringify(data.profile_context));
-        if (data.org_id) localStorage.setItem('we_ace_org_id', data.org_id);
-        if (data.org_name) localStorage.setItem('we_ace_org_name', data.org_name);
-        if (data.cohort_id) localStorage.setItem('we_ace_cohort_id', data.cohort_id);
-        if (data.language) localStorage.setItem('we_ace_language', data.language);
+        persistSessionData(data);
         return data;
     }
 
@@ -201,11 +236,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     const _extToken = _qp.get('access_token');
     let _authed = false;
 
+    // ── Auth Step 0: resume the chat session this browser was already in ────
+    // Only when the user got here by clicking a tab (Talk ⇄ Sentiment Analysis
+    // ⇄ Admin) — those are full page loads, and without this every hop would
+    // re-login and open a fresh conversation. A refresh, a fresh visit, or
+    // tokens in the URL (a platform entry, possibly as a different user) all
+    // fall through to the normal chain and start a new session.
+    if (!_urlRefreshToken && !_extToken && consumeTabNavIntent()) {
+        const _resumeStatus = document.getElementById('login-status');
+        if (_resumeStatus) _resumeStatus.textContent = 'Picking up where you left off';
+        const _rd = await resumeSession();
+        if (_rd) {
+            showApp(_rd);
+            _authed = true;
+        }
+    }
+
     // Any stored/incoming credential means we're about to run the slow auth
     // chain — show the stepper instead of a bare spinner.
-    if (_urlRefreshToken || _extToken ||
+    if (!_authed && (_urlRefreshToken || _extToken ||
         localStorage.getItem('we_ace_refresh_token') ||
-        localStorage.getItem('we_ace_access_token')) {
+        localStorage.getItem('we_ace_access_token'))) {
         loginProgress.start(1);   // credentials already in hand
     }
 
@@ -227,9 +278,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const _roles = _rrData.profileDetails?.roles || getStoredRoles();
                     const _sd = await buildSession(_newAccess, _newRefresh, _roles);
                     if (_sd) {
-                        showApp(_sd.user_name, _sd.initials, _sd.profile_image, _sd.returning,
-                                _sd.role, _sd.nexa_access, _sd.recent_messages || [],
-                        _sd.welcome_message, _sd.welcome_suggestions);
+                        showApp(_sd);
                         _authed = true;
                     }
                 }
@@ -250,9 +299,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const _sd = await buildSession(_extToken, _extRefresh, getStoredRoles());
             if (_sd) {
                 storeTokens(_extToken, _extRefresh);
-                showApp(_sd.user_name, _sd.initials, _sd.profile_image, _sd.returning,
-                        _sd.role, _sd.nexa_access, _sd.recent_messages || [],
-                        _sd.welcome_message, _sd.welcome_suggestions);
+                showApp(_sd);
                 _authed = true;
             }
         } catch (_) {}
@@ -278,9 +325,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         const sd = await buildSession(newAccess, newRefresh, roles);
                         if (sd) {
                             storeTokens(newAccess, newRefresh);
-                            showApp(sd.user_name, sd.initials, sd.profile_image, sd.returning,
-                                    sd.role, sd.nexa_access, sd.recent_messages || [],
-                                    sd.welcome_message, sd.welcome_suggestions);
+                            showApp(sd);
                             _authed = true;
                         }
                     }
@@ -306,9 +351,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             try {
                 const sd = await buildSession(storedAccess, storedRefresh || '', getStoredRoles());
                 if (sd) {
-                    showApp(sd.user_name, sd.initials, sd.profile_image, sd.returning,
-                            sd.role, sd.nexa_access, sd.recent_messages || [],
-                            sd.welcome_message, sd.welcome_suggestions);
+                    showApp(sd);
                     _authed = true;
                 }
             } catch (_) {}
@@ -393,177 +436,18 @@ document.addEventListener('DOMContentLoaded', async () => {
                 resetBtn();
                 return;
             }
-            showApp(data.user_name, data.initials, data.profile_image, data.returning,
-                    data.role, data.nexa_access, data.recent_messages || [],
-                    data.welcome_message, data.welcome_suggestions);
+            showApp(data);
         } catch (err) {
             errorEl.textContent = 'Connection error. Please try again.';
             resetBtn();
         }
     });
 
-    // User-chip dropdown toggle
-    const chipWrap = document.getElementById('user-chip-wrap');
-    const chipTrigger = document.getElementById('user-chip');
-    if (chipWrap && chipTrigger) {
-        chipTrigger.addEventListener('click', e => {
-            e.stopPropagation();
-            chipWrap.classList.toggle('open');
-        });
-        document.addEventListener('click', e => {
-            if (!chipWrap.contains(e.target)) {
-                chipWrap.classList.remove('open');
-                document.getElementById('language-menu-wrap').classList.remove('open');
-            }
-        });
-    }
-
-    // Weace Coaching
-    document.getElementById('btn-weace-coaching').addEventListener('click', () => {
-        const rt = localStorage.getItem('we_ace_refresh_token') || '';
-        window.open('https://we-ace.com/app/?refresh_token=' + encodeURIComponent(rt), '_blank');
-        if (chipWrap) chipWrap.classList.remove('open');
-    });
-
-
-    function getLanguage() {
-        return localStorage.getItem('we_ace_language') || 'English';
-    }
-
-    // Looks elements up on each call — showApp can run before this block is reached.
-    function renderLanguageMenu() {
-        const langSubmenu = document.getElementById('language-submenu');
-        const langCurrent = document.getElementById('language-current');
-        if (!langSubmenu || !langCurrent) return;
-        const active = getLanguage();
-        langCurrent.textContent = (LANGUAGES.find(l => l.code === active) || LANGUAGES[0])
-            .label.replace(/\s*\(.*\)$/, '');
-        langSubmenu.innerHTML = '';
-        LANGUAGES.forEach(({ code, label }) => {
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = 'chip-submenu-option' + (code === active ? ' selected' : '');
-            btn.textContent = label;
-            btn.addEventListener('click', e => {
-                e.stopPropagation();
-                setLanguage(code);
-            });
-            langSubmenu.appendChild(btn);
-        });
-    }
-
-    async function setLanguage(code) {
-        const previous = getLanguage();
-        localStorage.setItem('we_ace_language', code);
-        renderLanguageMenu();
-        document.getElementById('language-menu-wrap').classList.remove('open');
-        if (chipWrap) chipWrap.classList.remove('open');
-        if (code === previous) return;
-        try {
-            const accessToken = localStorage.getItem('we_ace_access_token') || '';
-            await fetch('/language', {
-                method: 'POST',
-                credentials: 'omit',
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
-                },
-                body: JSON.stringify({ language: code }),
-            });
-        } catch (err) {
-            // Preference still applies locally — it's sent with every /chat request.
-        }
-    }
-
-    document.getElementById('btn-language').addEventListener('click', e => {
-        e.stopPropagation();
-        document.getElementById('language-menu-wrap').classList.toggle('open');
-    });
-    renderLanguageMenu();
-
-    // Corporate Knowledge — corporate super admins manage org-specific content
-    // that Nexa weaves into its replies for their organisation's users.
-    (function initCorpContent() {
-        const openBtn = document.getElementById('btn-corp-content');
-        const overlay = document.getElementById('corp-content-overlay');
-        if (!openBtn || !overlay) return;
-        const input = document.getElementById('corp-content-input');
-        const status = document.getElementById('corp-content-status');
-        const saveBtn = document.getElementById('corp-content-save');
-
-        function setStatus(msg, kind) {
-            status.textContent = msg || '';
-            status.className = 'corp-modal-status' + (kind ? ' ' + kind : '');
-        }
-        function closeModal() { overlay.style.display = 'none'; }
-
-        async function openModal() {
-            if (chipWrap) chipWrap.classList.remove('open');
-            input.value = '';
-            setStatus('Loading…');
-            overlay.style.display = 'flex';
-            input.focus();
-            try {
-                const accessToken = localStorage.getItem('we_ace_access_token') || '';
-                const res = await fetch('/api/org-content', {
-                    headers: accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {},
-                });
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error || 'Failed to load');
-                input.value = data.content || '';
-                setStatus('');
-            } catch (err) {
-                setStatus(err.message || 'Failed to load', 'error');
-            }
-        }
-
-        async function saveContent() {
-            saveBtn.disabled = true;
-            setStatus('Saving…');
-            try {
-                const accessToken = localStorage.getItem('we_ace_access_token') || '';
-                const res = await fetch('/api/org-content', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
-                    },
-                    body: JSON.stringify({ content: input.value }),
-                });
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error || 'Failed to save');
-                setStatus('Saved', 'success');
-                setTimeout(closeModal, 700);
-            } catch (err) {
-                setStatus(err.message || 'Failed to save', 'error');
-            } finally {
-                saveBtn.disabled = false;
-            }
-        }
-
-        openBtn.addEventListener('click', openModal);
-        saveBtn.addEventListener('click', saveContent);
-        document.getElementById('corp-content-cancel').addEventListener('click', closeModal);
-        document.getElementById('corp-content-close').addEventListener('click', closeModal);
-        overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
-    })();
-
-    // Edit Profile
-    document.getElementById('btn-edit-profile').addEventListener('click', () => {
-        const rt = localStorage.getItem('we_ace_refresh_token') || '';
-        window.open('https://we-ace.com/app/employee/edit/profile?refresh_token=' + encodeURIComponent(rt), '_blank');
-        if (chipWrap) chipWrap.classList.remove('open');
-    });
-
-    // Logout
-    document.getElementById('logout-button').addEventListener('click', async () => {
-        const accessToken = localStorage.getItem('we_ace_access_token') || '';
-        await fetch('/logout', {
-            method: 'POST',
-            headers: accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {},
-        });
-        clearTokens();
-        location.reload();
+    // Header — tabs, language picker, chip dropdown, Corporate Knowledge modal
+    // all live in header.js, shared with the dashboard.
+    NexaHeader.init({
+        onTalk: () => userInput.focus(),          // already on the chat page
+        onLogout: () => { clearTokens(); location.reload(); },
     });
 
     // Auto-resize textarea
@@ -642,7 +526,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    function showApp(userName, initials, profileImage, returning, role, nexaAccess, recentMessages, welcomeMessage, welcomeSuggestions) {
+    function showApp(sessionData) {
+        const {
+            user_name: userName,
+            initials,
+            profile_image: profileImage,
+            returning,
+            role,
+            nexa_access: nexaAccess,
+            welcome_message: welcomeMessage,
+            welcome_suggestions: welcomeSuggestions,
+            // Same chat session as before the page load (came back from another
+            // page) — pick up where the conversation left off.
+            resumed,
+        } = sessionData;
+        const recentMessages = sessionData.recent_messages || [];
+
         loginProgress.stop();
         document.getElementById('login-overlay').style.display = 'none';
         const appEl = document.getElementById('app-container');
@@ -652,7 +551,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         appEl.style.transition = 'opacity 0.22s ease';
         appEl.style.opacity = '1';
         document.getElementById('user-display').textContent = userName;
-        renderLanguageMenu();   // reflect the preference restored by /session
+        NexaHeader.renderLanguageMenu();   // reflect the preference restored by /session
         window._userInitials = initials;
         window._profileImage = profileImage || '';
 
@@ -669,37 +568,19 @@ document.addEventListener('DOMContentLoaded', async () => {
             headerAvatar.appendChild(makeInitialsSpan(initials));
         }
 
-        const dashboardLink = document.getElementById('dashboard-link');
-        if (dashboardLink) {
-            dashboardLink.style.display = hasRole(role, 'corporate_super_admin') ? 'flex' : 'none';
-        }
-
-        const adminLink = document.getElementById('admin-link');
-        if (adminLink) {
-            adminLink.style.display = hasRole(role, 'weace_super_admin') ? 'flex' : 'none';
-        }
-
-        const navDivider = document.getElementById('chip-nav-divider');
-        if (navDivider) {
-            const hasNavItem = hasRole(role, 'corporate_super_admin', 'weace_super_admin');
-            navDivider.style.display = hasNavItem ? 'block' : 'none';
-        }
-
-        const corpContentBtn = document.getElementById('btn-corp-content');
-        if (corpContentBtn) {
-            corpContentBtn.style.display =
-                hasRole(role, 'corporate_super_admin', 'weace_super_admin') ? 'flex' : 'none';
-        }
-
-        const wCoachBtn = document.getElementById('btn-weace-coaching');
-        if (wCoachBtn) {
-            const blocked = !nexaAccess;
-            wCoachBtn.disabled = blocked;
-            if (blocked) wCoachBtn.title = 'Access required to use Weace Coaching';
-        }
+        // Reveals the Sentiment Analysis / Corporate Knowledge tabs and the
+        // Admin link for the roles that may see them.
+        NexaHeader.applyRoles(role);
+        NexaHeader.setNexaAccess(nexaAccess);
 
         const welcomeEl = document.getElementById('welcome-text');
-        if (welcomeMessage && welcomeMessage.trim()) {
+        const welcomeWrapper = welcomeEl.closest('.message-wrapper');
+
+        // Resuming: no fresh greeting and no "previous conversation" break —
+        // the replayed messages are this same, still-running conversation.
+        if (resumed) {
+            if (welcomeWrapper) welcomeWrapper.remove();
+        } else if (welcomeMessage && welcomeMessage.trim()) {
             welcomeEl.textContent = welcomeMessage.trim();
         } else if (returning) {
             welcomeEl.textContent = `Welcome back, ${userName}. Ready to continue your leadership journey? What's on your mind today?`;
@@ -707,27 +588,29 @@ document.addEventListener('DOMContentLoaded', async () => {
             welcomeEl.textContent = `Welcome to your Executive Leadership Coaching Session, ${userName}. I'm Nexa, here to help you navigate complex professional challenges, enhance your leadership skills, and drive strategic impact. What would you like to focus on today?`;
         }
 
-        if (recentMessages && recentMessages.length > 0) {
-            const divider = document.createElement('div');
-            divider.className = 'history-divider';
-            divider.innerHTML = '<span>Previous conversation</span>';
-            chatContainer.appendChild(divider);
+        if (recentMessages.length > 0) {
+            let anchor = null;
+            if (!resumed) {
+                anchor = document.createElement('div');
+                anchor.className = 'history-divider';
+                anchor.innerHTML = '<span>Previous conversation</span>';
+                chatContainer.appendChild(anchor);
+            }
             recentMessages.forEach(msg => addMessage(msg.content, msg.role, msg.created_at,
                 { messageId: msg.id, feedback: msg.feedback }));
 
             // Enable infinite scroll: remember the oldest loaded id so scrolling
-            // up can page in earlier messages, inserted above this divider.
+            // up can page in earlier messages, inserted above this anchor.
             const ids = recentMessages.map(m => m.id).filter(Number.isFinite);
             if (ids.length) {
                 oldestMessageId = Math.min(...ids);
                 hasMoreHistory = true;
-                historyAnchor = divider;
+                historyAnchor = anchor || chatContainer.firstElementChild;
             }
             // Welcome bubble is static markup at the top of the container; move it
             // below the replayed history so it opens the new session rather than
             // sitting above the fold once we scroll to the bottom.
-            const welcomeWrapper = welcomeEl.closest('.message-wrapper');
-            if (welcomeWrapper) chatContainer.appendChild(welcomeWrapper);
+            if (welcomeWrapper && !resumed) chatContainer.appendChild(welcomeWrapper);
             scrollToBottom();
         }
 
@@ -777,8 +660,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         return `${date}, ${time}`;
     }
 
-    const THUMB_UP_PATH = 'M2 20h2.5V10H2v10zM22 11c0-1.1-.9-2-2-2h-5.6l.9-4.1v-.3c0-.4-.2-.8-.4-1.1L13.8 2 7.6 8.2c-.4.4-.6.9-.6 1.4V19c0 1.1.9 2 2 2h8.5c.8 0 1.5-.5 1.8-1.2l2.6-6.1c.1-.2.1-.5.1-.7v-2z';
-    const THUMB_DOWN_PATH = 'M22 4h-2.5v10H22V4zM2 13c0 1.1.9 2 2 2h5.6l-.9 4.1v.3c0 .4.2.8.4 1.1l1.1 1.1 6.2-6.2c.4-.4.6-.9.6-1.4V5c0-1.1-.9-2-2-2H6.5c-.8 0-1.5.5-1.8 1.2l-2.6 6.1c-.1.2-.1.5-.1.7v2z';
 
     function makeThumbButton(rating, active) {
         const btn = document.createElement('button');

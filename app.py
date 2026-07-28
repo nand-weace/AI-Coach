@@ -13,6 +13,7 @@ from database import (
     create_chat_session,
     save_message,
     has_previous_sessions,
+    is_resumable_session,
     get_session_highlights,
     get_user_history,
     get_user_history_before,
@@ -27,6 +28,7 @@ from database import (
     upsert_user_login,
     get_user_access_settings,
     get_user_profile_context,
+    get_user_identity,
     get_all_users_admin,
     get_all_orgs,
     get_user_language,
@@ -54,6 +56,11 @@ SUPPORTED_LANGUAGES = {
     'Japanese': ('日本語 (Japanese)', 'Japanese'),
 }
 DEFAULT_LANGUAGE = 'English'
+
+
+def _elapsed(since: float) -> str:
+    """Human-readable duration since a time.perf_counter() mark, for logging."""
+    return f"{(time.perf_counter() - since) * 1000:.0f}ms"
 
 
 def _language_list() -> list[dict]:
@@ -416,7 +423,7 @@ def _generate_welcome(user_name: str, highlights: list, profile_context: dict = 
 
 @app.route('/')
 def index():
-    return render_template('index.html', weace_api_url=WEACE_API_URL)
+    return render_template('index.html', weace_api_url=WEACE_API_URL, active_tab='talk')
 
 
 @app.route('/me')
@@ -448,46 +455,55 @@ def create_session():
     fetches the user profile from the we-ace API, then sets up the
     DB chat session and returns a session_token for subsequent Bearer auth.
     """
+    started = time.perf_counter()
     ip = request.remote_addr
     data = request.json or {}
     access_token = g.access_token          # set by @require_weace_token
     refresh_token = (data.get('refreshToken') or '').strip()
     client_user_id = g.user.get('user_id')
 
-    logger.info("[create_session] request from ip=%s has_refresh_token=%s client_user_id=%s",
-                ip, bool(refresh_token), client_user_id or 'none')
+    logger.info("[create_session] request from ip=%s ua=%r has_refresh_token=%s "
+                "client_user_id=%s client_session_uuid=%s client_roles=%s",
+                ip, request.headers.get('User-Agent', '')[:120], bool(refresh_token),
+                client_user_id or 'none', (data.get('sessionUuid') or 'none'),
+                len(data.get('roles') or []))
 
     # Fetch full user details from profile API
-    logger.info("[create_session] fetching profile from we-ace API")
+    logger.info("[create_session] fetching profile from we-ace API: %s/api/v1/users/profile", WEACE_API_URL)
     try:
+        t0 = time.perf_counter()
         user_resp = http_requests.get(
             f'{WEACE_API_URL}/api/v1/users/profile',
             headers={'Authorization': f'Bearer {access_token}'},
             timeout=10,
         )
-        logger.info("[create_session] profile API responded with status=%s", user_resp.status_code)
+        logger.info("[create_session] profile API responded with status=%s in %s",
+                    user_resp.status_code, _elapsed(t0))
         if not user_resp.ok:
-            logger.warning("[create_session] profile API error: status=%s ip=%s",
-                           user_resp.status_code, ip)
+            logger.warning("[create_session] profile API error: status=%s ip=%s body=%r",
+                           user_resp.status_code, ip, user_resp.text[:300])
             return jsonify({'error': 'Failed to fetch user profile'}), user_resp.status_code
         client_user_id = (user_resp.json().get('data', {}).get('_id') or '').strip()
+        logger.info("[create_session] profile API resolved user_id=%s", client_user_id or 'MISSING')
     except Exception as e:
-        logger.error("[create_session] profile API request failed: %s", e)
+        logger.error("[create_session] profile API request failed after %s: %s", _elapsed(t0), e)
         return jsonify({'error': f'Profile fetch failed: {e}'}), 502
     try:
+        t0 = time.perf_counter()
         profile_resp = http_requests.get(
             f'{WEACE_API_URL}/api/v1/personal-info/{client_user_id}',
             headers={'Authorization': f'Bearer {access_token}'},
             timeout=10,
         )
-        logger.info("[create_session] profile API responded with status=%s", profile_resp.status_code)
+        logger.info("[create_session] personal-info API responded with status=%s in %s",
+                    profile_resp.status_code, _elapsed(t0))
         if not profile_resp.ok:
-            logger.warning("[create_session] profile API error: status=%s ip=%s",
-                           profile_resp.status_code, ip)
+            logger.warning("[create_session] personal-info API error: status=%s ip=%s body=%r",
+                           profile_resp.status_code, ip, profile_resp.text[:300])
             return jsonify({'error': 'Failed to fetch user profile'}), profile_resp.status_code
         profile_data = profile_resp.json()
     except Exception as e:
-        logger.error("[create_session] profile API request failed: %s", e)
+        logger.error("[create_session] personal-info API request failed after %s: %s", _elapsed(t0), e)
         return jsonify({'error': f'Profile fetch failed: {e}'}), 502
 
     # Parse profile response — user data is nested under 'data'
@@ -501,6 +517,8 @@ def create_session():
         client_roles = data.get('roles') or []
         if isinstance(client_roles, list):
             roles_arr = [r for r in client_roles if isinstance(r, dict)]
+        logger.info("[create_session] profile carried no roles — using %s role(s) forwarded by the client",
+                    len(roles_arr))
 
     role = roles_arr
 
@@ -526,6 +544,11 @@ def create_session():
 
     logger.info("[create_session] parsed profile: user_id=%s email=%s role=%s org_slug=%s",
                 user_id or 'MISSING', email or 'MISSING', role, org_slug or 'none')
+    logger.info("[create_session] profile detail: user_name=%r org_name=%r cohort=%s/%s level=%s "
+                "country=%s gender=%s functional_areas=%s industry_types=%s has_profile_image=%s",
+                user_name, org_name or 'none', cohort_id or 'none', cohort_name or 'none',
+                level_name or 'none', country or 'none', gender or 'none',
+                len(functional_areas), len(industry_types), bool(profile_image))
 
     if not user_id:
         logger.warning("[create_session] could not determine user_id from profile data ip=%s", ip)
@@ -542,25 +565,64 @@ def create_session():
     }
 
     try:
+        t0 = time.perf_counter()
         returning = has_previous_sessions(user_id)
         highlights = get_session_highlights(user_id) if returning else []
+        logger.info("[create_session] history lookup: returning=%s highlights=%s in %s",
+                    returning, len(highlights), _elapsed(t0))
 
-        session_uuid = str(uuid.uuid4())
-        create_chat_session(session_uuid, user_id, user_name, email, org_name, org_slug, cohort_id)
-        logger.info("[create_session] chat session created: session_uuid=%s user_id=%s returning=%s",
-                    session_uuid, user_id, returning)
+        # Tab switches resume through /session/resume, so the client normally
+        # sends no sessionUuid here and this opens a new conversation. Honoured
+        # when it is sent, for older clients and direct API callers.
+        client_session_uuid = (data.get('sessionUuid') or '').strip()
+        resumed = is_resumable_session(client_session_uuid, user_id)
 
-        prompt = _build_personalized_prompt(user_name, highlights, profile_context)
-        sessions_cache[session_uuid] = [{"role": "system", "content": prompt}]
+        if resumed:
+            session_uuid = client_session_uuid
+            logger.info("[create_session] resuming chat session: session_uuid=%s user_id=%s",
+                        session_uuid, user_id)
+        else:
+            if client_session_uuid:
+                logger.info("[create_session] client session_uuid=%s not resumable (wrong user, "
+                            "unknown, or older than the resume window) — starting a new session",
+                            client_session_uuid)
+            session_uuid = str(uuid.uuid4())
+            create_chat_session(session_uuid, user_id, user_name, email, org_name, org_slug, cohort_id)
+            logger.info("[create_session] chat session created: session_uuid=%s user_id=%s returning=%s",
+                        session_uuid, user_id, returning)
+
+        # A resumed session keeps whatever context is already cached; only seed
+        # the prompt when there's nothing to carry over (new session, or the
+        # cache was lost to a restart).
+        if session_uuid not in sessions_cache:
+            prompt = _build_personalized_prompt(user_name, highlights, profile_context)
+            sessions_cache[session_uuid] = [{"role": "system", "content": prompt}]
+            logger.info("[create_session] seeded system prompt: session_uuid=%s prompt_chars=%s "
+                        "cached_sessions=%s", session_uuid, len(prompt), len(sessions_cache))
+        else:
+            logger.info("[create_session] reusing cached conversation: session_uuid=%s messages=%s",
+                        session_uuid, len(sessions_cache[session_uuid]))
 
         language = get_user_language(user_id) or DEFAULT_LANGUAGE
-        welcome_message, welcome_suggestions = _generate_welcome(
-            user_name, highlights, profile_context, returning, language)
+        logger.info("[create_session] language for user_id=%s: %s", user_id, language)
+        if resumed:
+            welcome_message, welcome_suggestions = '', []
+            logger.info("[create_session] resumed session — skipping welcome generation")
+        else:
+            t0 = time.perf_counter()
+            welcome_message, welcome_suggestions = _generate_welcome(
+                user_name, highlights, profile_context, returning, language)
+            logger.info("[create_session] welcome generated in %s: chars=%s suggestions=%s",
+                        _elapsed(t0), len(welcome_message or ''), len(welcome_suggestions or []))
 
         # Evict any stale auth_tokens entry for this user (token rotation)
         stale = [t for t, d in auth_tokens.items() if d.get('user_id') == user_id]
         for t in stale:
             auth_tokens.pop(t, None)
+        if stale:
+            logger.info("[create_session] evicted %s stale token entr%s for user_id=%s "
+                        "(%s tokens cached)", len(stale), 'y' if len(stale) == 1 else 'ies',
+                        user_id, len(auth_tokens))
 
         # Keep Flask session only for server-rendered page routes (/dashboard, /admin)
         session['user_id'] = user_id
@@ -578,8 +640,13 @@ def create_session():
 
         # Super admins always have Nexa access; everyone else is decided by the
         # user-config API at login and cached for the admin dashboard.
-        nexa_access = (True if _has_role(role, 'weace_super_admin', 'corporate_super_admin')
-                       else _fetch_nexa_access(g.access_token))
+        is_super_admin = _has_role(role, 'weace_super_admin', 'corporate_super_admin')
+        t0 = time.perf_counter()
+        nexa_access = True if is_super_admin else _fetch_nexa_access(g.access_token)
+        logger.info("[create_session] nexa_access=%s (source=%s) resolved in %s",
+                    nexa_access, 'super_admin_role' if is_super_admin else 'user-config API',
+                    _elapsed(t0))
+        t0 = time.perf_counter()
         settings = upsert_user_login(
             user_id,
             first_name=first, last_name=last, email=email,
@@ -590,6 +657,8 @@ def create_session():
             nexa_access=nexa_access,
         )
         access_last_date = settings['access_last_date']
+        logger.info("[create_session] user_settings upserted in %s: access_last_date=%s",
+                    _elapsed(t0), access_last_date)
 
         auth_tokens[g.access_token] = {
             'user_id': user_id,
@@ -612,12 +681,20 @@ def create_session():
                     user_id, user_name, nexa_access)
 
         initials = ''.join(w[0].upper() for w in user_name.split()[:2])
+        t0 = time.perf_counter()
         recent_messages = _serialize_messages(user_id, get_user_history(user_id, 15))
+        logger.info("[create_session] replaying %s recent message(s) loaded in %s",
+                    len(recent_messages), _elapsed(t0))
+        logger.info("[create_session] responding to user_id=%s: session_uuid=%s resumed=%s "
+                    "returning=%s nexa_access=%s language=%s messages=%s suggestions=%s total=%s",
+                    user_id, session_uuid, resumed, returning, nexa_access, language,
+                    len(recent_messages), len(welcome_suggestions or []), _elapsed(started))
         return jsonify({
             'user_id': user_id,
             'user_name': user_name,
             'session_uuid': session_uuid,
             'returning': returning,
+            'resumed': resumed,
             'initials': initials,
             'profile_image': profile_image,
             'role': role,
@@ -633,7 +710,144 @@ def create_session():
             'cohort_id': cohort_id,
         })
     except Exception as e:
-        logger.exception("[create_session] unexpected error for user_id=%s: %s", user_id, e)
+        logger.exception("[create_session] unexpected error for user_id=%s after %s: %s",
+                         user_id, _elapsed(started), e)
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/session/resume', methods=['POST'])
+@require_weace_token
+def resume_session():
+    """
+    Fast path for coming back to the chat page from another tab (Sentiment
+    Analysis, Admin, …). Given the chat session the client already had, it
+    re-establishes server state and replays the conversation without the full
+    /session work — no profile/personal-info API round trips, no new session
+    row, no fresh welcome message.
+
+    Returns 409 when there is nothing to resume, so the client can fall back to
+    the normal login chain.
+    """
+    started = time.perf_counter()
+    data = request.json or {}
+    client_session_uuid = (data.get('sessionUuid') or '').strip()
+    refresh_token = (data.get('refreshToken') or '').strip()
+    user_id = (g.user.get('user_id') or '').strip()
+
+    if not client_session_uuid or not user_id:
+        return jsonify({'error': 'Nothing to resume'}), 409
+
+    try:
+        if not is_resumable_session(client_session_uuid, user_id):
+            logger.info("[resume_session] session_uuid=%s not resumable for user_id=%s "
+                        "— client should run the full login chain",
+                        client_session_uuid, user_id)
+            return jsonify({'error': 'Session not resumable'}), 409
+
+        session_uuid = client_session_uuid
+        # The token cache usually still holds everything /session resolved. It's
+        # cold after a token rotation or a server restart — rebuild from what was
+        # stored at login instead of calling the profile APIs again.
+        cached = auth_tokens.get(g.access_token) or {}
+        if cached:
+            user_name = cached['user_name']
+            email = cached.get('email', '')
+            profile_image = cached.get('profile_image', '')
+            org_name = cached.get('org_name', '')
+            org_slug = cached.get('org_id', '')
+            cohort_id = cached.get('cohort_id')
+            profile_context = cached.get('profile_context') or {}
+            role = cached.get('role') or g.user.get('role') or []
+        else:
+            identity = get_user_identity(user_id)
+            name = ' '.join(p for p in [(identity.get('first_name') or '').strip(),
+                                        (identity.get('last_name') or '').strip()] if p)
+            email = (identity.get('email') or g.user.get('email') or '').strip()
+            user_name = name or (g.user.get('user_name') or email.split('@')[0])
+            profile_image = ((g.token_data.get('data') or {}).get('profileImage') or '').strip()
+            org_name = identity.get('org_name') or ''
+            org_slug = identity.get('org_id') or ''
+            cohort_id = identity.get('cohort_id')
+            profile_context = get_user_profile_context(user_id)
+            role = g.user.get('role') or []
+            logger.info("[resume_session] token cache cold — rebuilt identity for user_id=%s from DB",
+                        user_id)
+
+        # Conversation context is lost on a restart; rebuild it from past
+        # highlights so the AI still knows who it's talking to.
+        _get_or_rebuild_history(session_uuid, user_id, user_name, profile_context)
+
+        if _has_role(role, 'weace_super_admin', 'corporate_super_admin'):
+            nexa_access, access_last_date = True, cached.get('access_last_date')
+        elif cached:
+            nexa_access = cached.get('nexa_access', False)
+            access_last_date = cached.get('access_last_date')
+        else:
+            settings = get_user_access_settings(user_id)
+            nexa_access = settings['nexa_access']
+            access_last_date = settings['access_last_date']
+
+        language = get_user_language(user_id) or DEFAULT_LANGUAGE
+
+        # Keep Flask session (server-rendered pages) and the token cache (/chat)
+        # pointing at this same conversation.
+        session['user_id'] = user_id
+        session['user_name'] = user_name
+        session['email'] = email
+        session['profile_image'] = profile_image
+        session['access_token'] = g.access_token
+        session['refresh_token'] = refresh_token or session.get('refresh_token', '')
+        session['session_uuid'] = session_uuid
+        session['role'] = role
+        session['org_name'] = org_name
+        session['org_slug'] = org_slug
+        session['cohort_id'] = cohort_id
+        session['profile_context'] = profile_context
+
+        auth_tokens[g.access_token] = {
+            'user_id': user_id,
+            'user_name': user_name,
+            'email': email,
+            'profile_image': profile_image,
+            'access_token': g.access_token,
+            'refresh_token': refresh_token or (cached.get('refresh_token') or ''),
+            'session_uuid': session_uuid,
+            'role': role,
+            'org_name': org_name,
+            'org_id': org_slug,
+            'cohort_id': cohort_id,
+            'profile_context': profile_context,
+            'nexa_access': nexa_access,
+            'access_last_date': access_last_date,
+        }
+
+        initials = ''.join(w[0].upper() for w in user_name.split()[:2])
+        recent_messages = _serialize_messages(user_id, get_user_history(user_id, 15))
+        logger.info("[resume_session] resumed session_uuid=%s user_id=%s messages=%s in %s",
+                    session_uuid, user_id, len(recent_messages), _elapsed(started))
+        return jsonify({
+            'user_id': user_id,
+            'user_name': user_name,
+            'session_uuid': session_uuid,
+            'returning': True,
+            'resumed': True,
+            'initials': initials,
+            'profile_image': profile_image,
+            'role': role,
+            'nexa_access': nexa_access,
+            'access_last_date': access_last_date,
+            'recent_messages': recent_messages,
+            'welcome_message': '',
+            'welcome_suggestions': [],
+            'language': language,
+            'profile_context': profile_context,
+            'org_name': org_name,
+            'org_id': org_slug,
+            'cohort_id': cohort_id,
+        })
+    except Exception as e:
+        logger.exception("[resume_session] failed for user_id=%s after %s: %s",
+                         user_id, _elapsed(started), e)
         return jsonify({'error': str(e)}), 500
 
 
@@ -735,7 +949,7 @@ def auto_login():
             pass
         return redirect('/')
 
-    return render_template('index.html', weace_api_url=WEACE_API_URL)
+    return render_template('index.html', weace_api_url=WEACE_API_URL, active_tab='talk')
 
 
 @app.route('/history', methods=['GET'])
@@ -962,6 +1176,10 @@ def dashboard():
         org_name=session.get('org_name', 'Organisation'),
         org_slug=session.get('org_slug', ''),
         refresh_token=session.get('refresh_token', ''),
+        # shared header (_header.html)
+        active_tab='sentiment',
+        show_org_tabs=True,
+        show_admin=_has_role(session.get('role'), 'weace_super_admin'),
     )
 
 
