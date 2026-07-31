@@ -18,7 +18,7 @@
     <div id="login-overlay" class="login-overlay">
         <div class="login-card">
             <img src="/static/nexa-logo.png" alt="Nexa Logo" class="login-logo" />
-            <h2>Welcome to Nexa</h2>
+            <h4>Welcome to Nexa</h4>
             <p class="login-subtitle">Sign in to start your coaching session</p>
             <div id="login-loader">
                 <div class="login-orb" aria-hidden="true">
@@ -72,6 +72,9 @@
             </div>
             <form id="chat-form">
                 <textarea id="user-input" rows="1" placeholder="Type your message here..." autocomplete="off"></textarea>
+                <button type="button" id="mic-button" title="Speak your message" aria-label="Speak your message" aria-pressed="false" style="display:none;">
+                    <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" class="mic-icon"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                </button>
                 <button type="submit" id="send-button">
                     <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" class="send-icon"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
                 </button>

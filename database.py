@@ -184,6 +184,7 @@ def init_db():
                     functional_areas TEXT DEFAULT NULL,
                     industry_types TEXT DEFAULT NULL,
                     language VARCHAR(50) DEFAULT NULL,
+                    additional_details TEXT DEFAULT NULL,
                     first_login DATETIME DEFAULT CURRENT_TIMESTAMP,
                     last_login DATETIME DEFAULT CURRENT_TIMESTAMP,
                     access_last_date DATETIME DEFAULT NULL,
@@ -206,6 +207,9 @@ def init_db():
                 ('functional_areas',  'TEXT DEFAULT NULL AFTER gender'),
                 ('industry_types',    'TEXT DEFAULT NULL AFTER functional_areas'),
                 ('language',          'VARCHAR(50) DEFAULT NULL AFTER industry_types'),
+                # Free-text background an admin maintains about the user; fed into
+                # Nexa's system prompt so coaching is grounded in their situation.
+                ('additional_details', 'TEXT DEFAULT NULL AFTER language'),
             ]:
                 _execute(cur,
                     "SELECT COUNT(*) AS cnt FROM information_schema.COLUMNS "
@@ -842,6 +846,42 @@ def get_user_profile_context(user_id: str) -> dict:
         conn.close()
 
 
+def get_user_additional_details(user_id: str) -> str | None:
+    """Free-text background about the user, maintained by an admin. Nexa draws on it
+    when coaching. Returns None when nothing has been set."""
+    if not user_id:
+        return None
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur,
+                "SELECT additional_details FROM user_settings WHERE user_id = %s",
+                (user_id,),
+            )
+            row = cur.fetchone()
+            return (row['additional_details'] if row else None)
+    finally:
+        conn.close()
+
+
+def set_user_additional_details(user_id: str, details: str):
+    """Create or replace the admin-authored background notes for a user."""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur,
+                """
+                INSERT INTO user_settings (user_id, additional_details)
+                VALUES (%s, %s)
+                ON DUPLICATE KEY UPDATE additional_details = VALUES(additional_details)
+                """,
+                (user_id, details or None),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def get_user_access_settings(user_id: str) -> dict:
     """Returns the cached nexa access flag and access_last_date for the given user."""
     conn = get_connection()
@@ -1229,7 +1269,8 @@ def get_all_users_admin(org_slug=None) -> list:
                     SUM(CASE WHEN m.role = 'user' THEN 1 ELSE 0 END) AS chat_count,
                     COALESCE(us.nexa_access_cached, 0) AS nexa_access,
                     us.first_login AS first_login,
-                    us.access_last_date AS access_last_date
+                    us.access_last_date AS access_last_date,
+                    us.additional_details AS additional_details
                 FROM ai_coach_sessions s
                 LEFT JOIN ai_coach_messages m ON s.session_id = m.session_id
                 LEFT JOIN user_settings us ON s.user_id = us.user_id
@@ -1247,6 +1288,7 @@ def get_all_users_admin(org_slug=None) -> list:
                     u['access_last_date'] = str(u['access_last_date'])
                 u['chat_count'] = int(u['chat_count'] or 0)
                 u['nexa_access'] = bool(u['nexa_access'])
+                u['additional_details'] = u['additional_details'] or ''
             return users
     finally:
         conn.close()

@@ -381,6 +381,77 @@ body {
     color: var(--text-muted);
 }
 
+#mic-button {
+    background: transparent;
+    border: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    color: var(--text-muted);
+    cursor: pointer;
+    position: relative;
+    transition: background 0.2s, color 0.2s, transform 0.1s;
+}
+
+#mic-button:hover {
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--primary-color);
+}
+
+#mic-button:active {
+    transform: scale(0.95);
+}
+
+#mic-button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* Listening: solid red pill with an expanding halo so it's obvious the mic is live */
+#mic-button.recording {
+    background: #ef4444;
+    color: #fff;
+}
+
+#mic-button.recording:hover {
+    background: #dc2626;
+    color: #fff;
+}
+
+#mic-button.recording::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 2px solid #ef4444;
+    animation: mic-pulse 1.5s ease-out infinite;
+}
+
+@keyframes mic-pulse {
+    0%   { transform: scale(1);   opacity: 0.7; }
+    100% { transform: scale(1.6); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #mic-button.recording::after { animation: none; opacity: 0; }
+}
+
+/* Live transcript that hasn't been finalised by the recogniser yet */
+#user-input.dictating::placeholder {
+    color: #ef4444;
+}
+
+.voice-hint {
+    padding: 0 16px 6px;
+    text-align: center;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
 #send-button {
     background: var(--primary-color);
     border: none;
@@ -426,8 +497,20 @@ body {
 }
 
 /* Markdown styling within messages */
-.message ul, .message ol { margin-left: 1.5rem; margin-bottom: 0.75rem; }
+/* The global reset zeroes list padding, so markers would sit outside the
+   bubble. Use padding (not margin) to reserve room for them inside it. */
+.message ul, .message ol { padding-left: 1.5rem; margin-bottom: 0.75rem; }
+.message ul { list-style: disc outside; }
+.message ol { list-style: decimal outside; }
+.message ul ul { list-style-type: circle; }
+.message ul ul ul { list-style-type: square; }
+.message ol ol { list-style-type: lower-alpha; }
+.message ol ol ol { list-style-type: lower-roman; }
+/* Nested lists sit tight against their parent item, not double-spaced. */
+.message li > ul, .message li > ol { margin-top: 0.25rem; margin-bottom: 0; }
 .message li { margin-bottom: 0.25rem; }
+.message li::marker { color: var(--text-muted); }
+.message ul:last-child, .message ol:last-child { margin-bottom: 0; }
 .message h1, .message h2, .message h3 { margin-bottom: 0.75rem; font-weight: 600; margin-top: 1rem; }
 .message h1:first-child, .message h2:first-child, .message h3:first-child { margin-top: 0; }
 
@@ -462,7 +545,7 @@ body {
 }
 
 .login-logo {
-    height: 28px;
+    height: 90px;
     width: auto;
     margin-bottom: 8px;
 }

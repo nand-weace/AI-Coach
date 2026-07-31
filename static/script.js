@@ -451,11 +451,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     // Auto-resize textarea
-    userInput.addEventListener('input', () => {
+    function autoResizeInput() {
         userInput.style.height = 'auto';
         userInput.style.height = userInput.scrollHeight + 'px';
         userInput.style.overflowY = userInput.scrollHeight > 160 ? 'auto' : 'hidden';
-    });
+    }
+    userInput.addEventListener('input', autoResizeInput);
 
     // Enter submits; Shift+Enter inserts newline
     userInput.addEventListener('keydown', (e) => {
@@ -464,6 +465,114 @@ document.addEventListener('DOMContentLoaded', async () => {
             chatForm.dispatchEvent(new Event('submit', { cancelable: true }));
         }
     });
+
+    // ── Voice input (browser-native speech recognition) ──────────────────────
+    // Dictation locale per coaching language, so speaking Hindi/Tamil/etc. is
+    // transcribed correctly instead of being forced through en-US.
+    const SPEECH_LOCALES = {
+        English: 'en-US', Hindi: 'hi-IN', Marathi: 'mr-IN', Bengali: 'bn-IN',
+        Tamil: 'ta-IN', Telugu: 'te-IN', Kannada: 'kn-IN', Malayalam: 'ml-IN',
+        Gujarati: 'gu-IN', Spanish: 'es-ES', French: 'fr-FR', German: 'de-DE',
+        Portuguese: 'pt-BR', Arabic: 'ar-SA', Chinese: 'zh-CN', Japanese: 'ja-JP',
+    };
+
+    const micButton = document.getElementById('mic-button');
+    const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recognition = null;      // active recogniser, null when idle
+    let dictationBase = '';      // text already in the box when dictation started
+    const DEFAULT_PLACEHOLDER = userInput.placeholder;
+
+    function showVoiceHint(text) {
+        let hint = document.getElementById('voice-hint');
+        if (!hint) {
+            hint = document.createElement('div');
+            hint.id = 'voice-hint';
+            hint.className = 'voice-hint';
+            chatForm.parentNode.insertBefore(hint, chatForm);
+        }
+        hint.textContent = text;
+        clearTimeout(hint._timer);
+        hint._timer = setTimeout(() => hint.remove(), 5000);
+    }
+
+    function stopDictation() {
+        if (recognition) {
+            recognition.stop();   // onend does the UI cleanup
+        }
+    }
+
+    function startDictation() {
+        if (userInput.disabled || recognition) return;
+
+        const language = localStorage.getItem('we_ace_language') || 'English';
+        const rec = new SpeechRecognitionCtor();
+        rec.lang = SPEECH_LOCALES[language] || 'en-US';
+        rec.continuous = true;      // keep listening through natural pauses
+        rec.interimResults = true;  // stream words into the box as they're spoken
+
+        // Anything already typed is kept; speech is appended after it.
+        dictationBase = userInput.value.trim();
+
+        rec.onstart = () => {
+            micButton.classList.add('recording');
+            micButton.setAttribute('aria-pressed', 'true');
+            micButton.title = 'Stop listening';
+            userInput.classList.add('dictating');
+            userInput.placeholder = 'Listening… speak now';
+        };
+
+        rec.onresult = (event) => {
+            let finalText = '';
+            let interimText = '';
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+                const chunk = event.results[i][0].transcript;
+                if (event.results[i].isFinal) finalText += chunk;
+                else interimText += chunk;
+            }
+            if (finalText) {
+                dictationBase = (dictationBase ? dictationBase + ' ' : '') + finalText.trim();
+            }
+            const parts = [dictationBase, interimText.trim()].filter(Boolean);
+            userInput.value = parts.join(' ');
+            autoResizeInput();
+        };
+
+        rec.onerror = (event) => {
+            if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+                showVoiceHint('Microphone access is blocked. Enable it in your browser settings to use voice.');
+            } else if (event.error === 'no-speech') {
+                showVoiceHint("Didn't catch that — tap the mic and try again.");
+            } else if (event.error !== 'aborted') {
+                showVoiceHint('Voice input stopped unexpectedly. Please try again.');
+            }
+        };
+
+        rec.onend = () => {
+            recognition = null;
+            micButton.classList.remove('recording');
+            micButton.setAttribute('aria-pressed', 'false');
+            micButton.title = 'Speak your message';
+            userInput.classList.remove('dictating');
+            userInput.placeholder = DEFAULT_PLACEHOLDER;
+            userInput.focus();
+        };
+
+        try {
+            rec.start();
+            recognition = rec;
+        } catch (err) {
+            console.error('[voice] start failed:', err);
+            showVoiceHint('Could not start voice input. Please try again.');
+        }
+    }
+
+    if (SpeechRecognitionCtor && micButton) {
+        micButton.style.display = 'flex';
+        micButton.addEventListener('click', () => {
+            if (recognition) stopDictation();
+            else startDictation();
+        });
+    }
 
     // Retries only network-level failures (e.g. "Failed to fetch"), not HTTP error responses
     async function fetchWithRetry(url, options, retries = 4, delayMs = 800) {
@@ -480,6 +589,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Chat
     chatForm.addEventListener('submit', async (e) => {
         e.preventDefault();
+        stopDictation();  // sending ends the dictation turn
         const message = userInput.value.trim();
         if (!message) return;
 
@@ -640,6 +750,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         input.disabled = true;
         input.placeholder = 'Access expired';
         document.getElementById('send-button').disabled = true;
+        const mic = document.getElementById('mic-button');
+        if (mic) mic.disabled = true;
     }
 
     function makeInitialsSpan(initials) {

@@ -15,12 +15,12 @@
 #}
 <header class="app-header">
     <div class="logo">
-        <a href="/" class="logo-home"><img src="/static/nexa-logo.png" alt="Nexa" class="logo-icon" style="height:35px; width:auto; vertical-align:middle;" /></a>
+        <a href="/" class="logo-home"><img src="/static/nexa-logo.png" alt="Nexa" class="logo-icon" style="height:50px; width:auto; vertical-align:middle;" /></a>
     </div>
 
     <nav class="app-tabs" id="app-tabs" aria-label="Main navigation">
         <a href="/" class="app-tab{% if active_tab == 'talk' %} active{% endif %}" id="tab-talk"
-           {% if active_tab == 'talk' %}aria-current="page"{% endif %}>Talk</a>
+           {% if active_tab == 'talk' %}aria-current="page"{% endif %}>Chat</a>
 
         <div class="app-tab-wrap" id="language-menu-wrap">
             <button type="button" class="app-tab" id="btn-language" aria-haspopup="true" aria-expanded="false">
@@ -33,12 +33,12 @@
         <a id="dashboard-link" href="/dashboard"
            class="app-tab{% if active_tab == 'sentiment' %} active{% endif %}"
            {% if active_tab == 'sentiment' %}aria-current="page"{% endif %}
-           {% if not show_org_tabs %}style="display:none;"{% endif %}>Sentiment Analysis</a>
+           {% if not show_org_tabs %}style="display:none;"{% endif %}>Nexa Insights</a>
 
         <button type="button" class="app-tab" id="btn-corp-content"
-                {% if not show_org_tabs %}style="display:none;"{% endif %}>Corporate Knowledge</button>
+                {% if not show_org_tabs %}style="display:none;"{% endif %}>Knowledge Base</button>
 
-        <button type="button" class="app-tab" id="btn-weace-coaching">Weace Coaching</button>
+        <button type="button" class="app-tab" id="btn-weace-coaching">WeAce Platform</button>
     </nav>
 
     <div class="header-right">

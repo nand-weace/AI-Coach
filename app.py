@@ -33,6 +33,8 @@ from database import (
     get_all_orgs,
     get_user_language,
     set_user_language,
+    get_user_additional_details,
+    set_user_additional_details,
 )
 
 # Languages Nexa can coach in, as code -> (display label, name used in the prompt).
@@ -133,6 +135,47 @@ def _org_content_directive(org_slug: str | None) -> str:
         f"content verbatim or announce that you were given it; weave it in naturally.\n\n"
         f"{content.strip()}\n---"
     )
+
+# Same idea for the per-user notes an admin maintains: cached briefly so /chat
+# stays a single AI call, and edits land within the TTL window.
+_USER_DETAILS_TTL = 60  # seconds
+_user_details_cache: dict = {}  # user_id -> (expires_at, details)
+
+
+def _get_user_details_cached(user_id: str | None) -> str | None:
+    if not user_id:
+        return None
+    now = time.time()
+    cached = _user_details_cache.get(user_id)
+    if cached and cached[0] > now:
+        return cached[1]
+    try:
+        details = get_user_additional_details(user_id)
+    except Exception as e:
+        logger.error("[user_details] fetch failed for user_id=%s: %s", user_id, e)
+        return cached[1] if cached else None
+    _user_details_cache[user_id] = (now + _USER_DETAILS_TTL, details)
+    return details
+
+
+def _user_details_directive(user_id: str | None) -> str:
+    """System-prompt addendum carrying the admin-authored notes about this user.
+
+    Read from the database rather than the client-supplied profile context, so the
+    text can only come from an admin.
+    """
+    details = _get_user_details_cached(user_id)
+    if not details or not details.strip():
+        return ''
+    return (
+        f"\n\n---\nADDITIONAL DETAILS ABOUT THIS USER:\n"
+        f"Background on this user recorded by their organisation. Treat it as true "
+        f"and let it shape how you coach them — their situation, strengths, goals, "
+        f"and constraints. Never read it back verbatim or mention that you were given "
+        f"it; weave it in naturally.\n\n"
+        f"{details.strip()}\n---"
+    )
+
 
 load_dotenv()
 
@@ -352,7 +395,8 @@ def _get_or_rebuild_history(session_uuid: str, user_id: str, user_name: str,
 
 
 def _generate_welcome(user_name: str, highlights: list, profile_context: dict = None,
-                      returning: bool = False, language: str = None):
+                      returning: bool = False, language: str = None,
+                      user_id: str = None):
     """Generate a personalised opening message for a new chat session.
 
     When the user has past coaching history, the message warmly references an
@@ -377,7 +421,8 @@ def _generate_welcome(user_name: str, highlights: list, profile_context: dict = 
         return fallback_msg, []
 
     system_content = _build_personalized_prompt(user_name, highlights, profile_context)
-    system_content += _language_directive(language)
+    details = _get_user_details_cached(user_id)
+    system_content += _user_details_directive(user_id) + _language_directive(language)
     if returning and highlights:
         instruction = (
             f"[SESSION START] Greet {user_name} to open a new coaching session. "
@@ -393,6 +438,20 @@ def _generate_welcome(user_name: str, highlights: list, profile_context: dict = 
             "Briefly introduce yourself as Nexa and what you help with, in 2-3 warm, concise "
             "sentences. Then include 2-3 tappable starter nudges in the [[SUGGESTIONS]] block, "
             "phrased from the user's point of view, to help them begin."
+        )
+
+    # When an admin has recorded background on this user, the opening line should
+    # land as "this coach already knows me" rather than a generic hello.
+    if details and details.strip():
+        instruction += (
+            " You have detailed background on this person under ADDITIONAL DETAILS ABOUT "
+            "THIS USER — use it to make this opener land. Anchor on one specific, telling "
+            "thing from it (a current mandate, a recent move, a tension or ambition that "
+            "stands out) and speak to it directly, the way a coach who has done their "
+            "homework would. Show you understand where they are right now; do not recite "
+            "their background, list facts back at them, flatter them, or say you were "
+            "briefed or given any information. Make the suggested nudges specific to their "
+            "actual situation, not generic coaching topics."
         )
 
     try:
@@ -611,7 +670,7 @@ def create_session():
         else:
             t0 = time.perf_counter()
             welcome_message, welcome_suggestions = _generate_welcome(
-                user_name, highlights, profile_context, returning, language)
+                user_name, highlights, profile_context, returning, language, user_id)
             logger.info("[create_session] welcome generated in %s: chars=%s suggestions=%s",
                         _elapsed(t0), len(welcome_message or ''), len(welcome_suggestions or []))
 
@@ -883,7 +942,7 @@ def new_session():
 
         language = get_user_language(user_id) or DEFAULT_LANGUAGE
         welcome_message, welcome_suggestions = _generate_welcome(
-            user_name, highlights, profile_context, returning, language)
+            user_name, highlights, profile_context, returning, language, user_id)
 
         role = g.user.get('role', [])
         if _has_role(role, 'weace_super_admin', 'corporate_super_admin'):
@@ -1128,7 +1187,9 @@ def chat():
         system_content = next(
             (m["content"] for m in conversation_history if m["role"] == "system"),
             SYSTEM_INSTRUCTION,
-        ) + _org_content_directive(g.user.get('org_id')) + _language_directive(language)
+        ) + _user_details_directive(user_id) \
+          + _org_content_directive(g.user.get('org_id')) \
+          + _language_directive(language)
 
         if AI_PROVIDER == "claude":
             api_messages = [m for m in conversation_history if m["role"] != "system"]
@@ -1343,6 +1404,48 @@ def admin_users():
         return jsonify({'users': users, 'total': len(users)})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/admin/user-details', methods=['GET', 'POST'])
+@require_weace_token
+def admin_user_details():
+    """Read or update the free-text 'additional details' notes for one user.
+
+    Admin-only: the notes are fed into Nexa's system prompt, so users never write
+    their own. Corporate super admins are limited to users in their organisation.
+    """
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    if not _has_role(g.user.get('role'), 'corporate_super_admin', 'weace_super_admin'):
+        return jsonify({'error': 'Forbidden'}), 403
+
+    if request.method == 'GET':
+        target_id = (request.args.get('user_id') or '').strip()
+    else:
+        target_id = ((request.json or {}).get('user_id') or '').strip()
+    if not target_id:
+        return jsonify({'error': 'user_id is required'}), 400
+
+    identity = get_user_identity(target_id)
+    if not identity:
+        return jsonify({'error': 'User not found'}), 404
+    if not _has_role(g.user.get('role'), 'weace_super_admin'):
+        admin_org = (g.user.get('org_id') or '').strip()
+        if not admin_org or (identity.get('org_id') or '').strip() != admin_org:
+            return jsonify({'error': 'Forbidden'}), 403
+
+    if request.method == 'GET':
+        return jsonify({'user_id': target_id,
+                        'additional_details': get_user_additional_details(target_id) or ''})
+
+    details = ((request.json or {}).get('additional_details') or '').strip()
+    if len(details) > 20000:
+        return jsonify({'error': 'Details are too long (20,000 character limit)'}), 400
+    set_user_additional_details(target_id, details)
+    _user_details_cache.pop(target_id, None)  # reflect the change on the next message
+    logger.info("[user_details] user_id=%s updated by admin user_id=%s (%d chars)",
+                target_id, g.user.get('user_id'), len(details))
+    return jsonify({'ok': True, 'user_id': target_id, 'additional_details': details})
 
 
 @app.route('/api/admin/orgs')

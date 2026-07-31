@@ -293,6 +293,54 @@
         .trend-modal-divider { height: 1px; background: rgba(0,0,0,0.07); margin: 20px 0; }
         .trend-modal-bands-label { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 10px; }
         .trend-modal-insight { font-size: 0.82rem; color: var(--text-muted); line-height: 1.6; }
+        /* ── Additional details (per-user notes fed into Nexa's prompt) ── */
+        .details-btn {
+            background: none;
+            border: 1px solid rgba(0,0,0,0.12);
+            border-radius: 8px;
+            padding: 4px 10px;
+            font-size: 0.75rem;
+            font-family: inherit;
+            color: var(--text-muted);
+            cursor: pointer;
+            white-space: nowrap;
+            transition: color 0.15s, border-color 0.15s, background 0.15s;
+        }
+        .details-btn:hover { color: var(--text-main); border-color: rgba(0,0,0,0.28); background: rgba(0,0,0,0.03); }
+        .details-btn.has-details { color: #059669; border-color: rgba(5,150,105,0.35); background: rgba(5,150,105,0.06); }
+        .details-textarea {
+            width: 100%;
+            min-height: 240px;
+            resize: vertical;
+            border: 1px solid rgba(0,0,0,0.12);
+            border-radius: 12px;
+            padding: 14px 16px;
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.6;
+            color: var(--text-main);
+            background: #fff;
+            outline: none;
+            transition: border-color 0.15s;
+        }
+        .details-textarea:focus { border-color: rgba(15,23,42,0.35); }
+        .details-actions {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 16px;
+        }
+        .details-status { margin-right: auto; font-size: 0.78rem; color: var(--text-muted); }
+        .details-status.error { color: #dc2626; }
+        .details-save {
+            background: #0f172a; color: #fff; border: none; border-radius: 10px;
+            padding: 8px 18px; font-size: 0.82rem; font-family: inherit;
+            cursor: pointer; transition: opacity 0.15s;
+        }
+        .details-save:hover { opacity: 0.88; }
+        .details-save:disabled { opacity: 0.5; cursor: default; }
+
         .sentiment-card { cursor: pointer; transition: box-shadow 0.18s, transform 0.18s; }
         .sentiment-card:hover { box-shadow: 0 4px 24px rgba(0,0,0,0.10); transform: translateY(-1px); }
         .sentiment-score-meaning { font-size: 0.80rem; color: var(--text-muted); line-height: 1.55; margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(0,0,0,0.06); }
@@ -523,12 +571,28 @@
                     <th>Sessions</th>
                     <th>Chats</th>
                     <th>Nexa Access</th>
+                    <th>Details</th>
                 </tr>
             </thead>
             <tbody id="user-table-body">
-                <tr><td colspan="7"><div class="skeleton" style="width:60%; margin:0 auto;"></div></td></tr>
+                <tr><td colspan="8"><div class="skeleton" style="width:60%; margin:0 auto;"></div></td></tr>
             </tbody>
         </table>
+    </div>
+</div>
+
+<!-- Additional details modal -->
+<div class="trend-modal-overlay" id="details-modal">
+    <div class="trend-modal-box">
+        <button class="trend-modal-close" id="details-modal-close" aria-label="Close">&times;</button>
+        <div class="trend-modal-title">Additional details</div>
+        <div class="trend-modal-meta" id="details-modal-meta"></div>
+        <textarea class="details-textarea" id="details-textarea" maxlength="20000"
+                  placeholder="Background about this user — their role and remit, goals, strengths, challenges, team context, anything Nexa should keep in mind while coaching them."></textarea>
+        <div class="details-actions">
+            <span class="details-status" id="details-status"></span>
+            <button class="details-save" id="details-save">Save</button>
+        </div>
     </div>
 </div>
 
@@ -589,10 +653,11 @@
         visibleUsers = users;
         const tbody = document.getElementById('user-table-body');
         if (!users.length) {
-            tbody.innerHTML = '<tr class="empty-row"><td colspan="7">No users found.</td></tr>';
+            tbody.innerHTML = '<tr class="empty-row"><td colspan="8">No users found.</td></tr>';
             return;
         }
         tbody.innerHTML = users.map(u => {
+            const hasDetails = !!(u.additional_details || '').trim();
             return `
             <tr>
                 <td class="cell-name">${escHtml(u.user_name)}</td>
@@ -607,16 +672,110 @@
                         ${u.nexa_access ? 'Enabled' : 'Disabled'}
                     </span>
                 </td>
+                <td>
+                    <button class="details-btn ${hasDetails ? 'has-details' : ''}"
+                            data-user-id="${escHtml(u.user_id)}"
+                            title="${hasDetails ? 'Edit the details Nexa uses for this user' : 'Add details Nexa should know about this user'}">
+                        ${hasDetails ? 'Edit' : 'Add'}
+                    </button>
+                </td>
             </tr>
         `}).join('');
     }
+
+    // ── Additional details: free-text notes an admin keeps about a user, which
+    //    Nexa folds into its system prompt when coaching them. ──
+    const detailsModal    = document.getElementById('details-modal');
+    const detailsTextarea = document.getElementById('details-textarea');
+    const detailsStatus   = document.getElementById('details-status');
+    const detailsSave     = document.getElementById('details-save');
+    let detailsUserId = null;
+
+    function setDetailsStatus(msg, isError) {
+        detailsStatus.textContent = msg || '';
+        detailsStatus.classList.toggle('error', !!isError);
+    }
+
+    function closeDetailsModal() {
+        detailsModal.classList.remove('open');
+        detailsUserId = null;
+    }
+
+    async function openDetailsModal(userId) {
+        const user = allUsers.find(u => u.user_id === userId) || {};
+        detailsUserId = userId;
+        document.getElementById('details-modal-meta').textContent =
+            [user.user_name, user.email].filter(Boolean).join(' · ') || userId;
+        detailsTextarea.value = user.additional_details || '';
+        detailsTextarea.disabled = true;
+        detailsSave.disabled = true;
+        setDetailsStatus('Loading…');
+        detailsModal.classList.add('open');
+
+        try {
+            const res = await fetch('/api/admin/user-details?user_id=' + encodeURIComponent(userId),
+                                    { headers: getAuthHeaders() });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to load');
+            if (detailsUserId !== userId) return;  // modal moved on while loading
+            detailsTextarea.value = data.additional_details || '';
+            setDetailsStatus('');
+        } catch (err) {
+            setDetailsStatus(err.message || 'Failed to load details', true);
+        } finally {
+            if (detailsUserId === userId) {
+                detailsTextarea.disabled = false;
+                detailsSave.disabled = false;
+                detailsTextarea.focus();
+            }
+        }
+    }
+
+    document.getElementById('user-table-body').addEventListener('click', (e) => {
+        const btn = e.target.closest('.details-btn');
+        if (btn) openDetailsModal(btn.dataset.userId);
+    });
+
+    detailsSave.addEventListener('click', async () => {
+        if (!detailsUserId) return;
+        const userId = detailsUserId;
+        const details = detailsTextarea.value.trim();
+        detailsSave.disabled = true;
+        setDetailsStatus('Saving…');
+        try {
+            const res = await fetch('/api/admin/user-details', {
+                method: 'POST',
+                headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+                body: JSON.stringify({ user_id: userId, additional_details: details }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to save');
+            const user = allUsers.find(u => u.user_id === userId);
+            if (user) user.additional_details = details;
+            renderTable(visibleUsers);
+            setDetailsStatus('Saved');
+            setTimeout(() => { if (detailsUserId === userId) closeDetailsModal(); }, 600);
+        } catch (err) {
+            setDetailsStatus(err.message || 'Failed to save details', true);
+        } finally {
+            detailsSave.disabled = false;
+        }
+    });
+
+    document.getElementById('details-modal-close').addEventListener('click', closeDetailsModal);
+    detailsModal.addEventListener('click', (e) => {
+        if (e.target === detailsModal) closeDetailsModal();
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && detailsModal.classList.contains('open')) closeDetailsModal();
+    });
 
     async function loadUsers() {
         const qs = currentOrgSlug !== ALL_ORGS
             ? ('?org_slug=' + encodeURIComponent(currentOrgSlug)) : '';
         document.querySelectorAll('.stat-card:not(.nexa-stat) .stat-value').forEach(el => el.classList.add('loading'));
         document.getElementById('user-table-body').innerHTML =
-            '<tr><td colspan="7"><div class="skeleton" style="width:60%; margin:0 auto;"></div></td></tr>';
+            '<tr><td colspan="8"><div class="skeleton" style="width:60%; margin:0 auto;"></div></td></tr>';
         try {
             const res = await fetch('/api/admin/users' + qs, { headers: getAuthHeaders() });
             if (res.status === 401 || res.status === 403) { window.location.href = '/'; return; }
@@ -679,7 +838,7 @@
         if (!visibleUsers.length) { alert('No users to export.'); return; }
 
         const headers = ['Name', 'Email', 'Organisation', 'Active Since', 'First Login',
-                         'Last Login', 'Sessions', 'Chats', 'Nexa Access'];
+                         'Last Login', 'Sessions', 'Chats', 'Nexa Access', 'Additional Details'];
         const rows = visibleUsers.map(u => [
             u.user_name || '',
             u.email || '',
@@ -690,6 +849,7 @@
             u.session_count,
             u.chat_count,
             u.nexa_access ? 'Enabled' : 'Disabled',
+            u.additional_details || '',
         ]);
 
         const csv = [headers, ...rows].map(r => r.map(csvCell).join(',')).join('\r\n');
