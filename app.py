@@ -8,6 +8,7 @@ from functools import wraps
 from flask import Flask, request, jsonify, render_template, session, redirect, g
 from dotenv import load_dotenv
 from ai_coach import SYSTEM_INSTRUCTION
+from prompt import COACHING_MODE, MENTORING_MODE
 from database import (
     init_db,
     create_chat_session,
@@ -25,6 +26,9 @@ from database import (
     get_org_filter_options,
     upsert_org_sentiment,
     get_org_sentiment_data,
+    get_user_sentiment,
+    get_user_sentiment_data,
+    get_user_stats,
     upsert_user_login,
     get_user_access_settings,
     get_user_profile_context,
@@ -33,6 +37,8 @@ from database import (
     get_all_orgs,
     get_user_language,
     set_user_language,
+    get_user_mode,
+    set_user_mode,
     get_user_additional_details,
     set_user_additional_details,
 )
@@ -58,6 +64,15 @@ SUPPORTED_LANGUAGES = {
     'Japanese': ('日本語 (Japanese)', 'Japanese'),
 }
 DEFAULT_LANGUAGE = 'English'
+
+# How Nexa shows up: 'coaching' draws the answer out of the user, 'mentoring'
+# gives direct advice from experience. Toggled from the chat window; the prompt
+# text for each lives in prompt.py. Keep in sync with the toggle in index.html.
+MODES = {
+    'coaching': {'label': 'Coaching', 'directive': COACHING_MODE},
+    'mentoring': {'label': 'Mentoring', 'directive': MENTORING_MODE},
+}
+DEFAULT_MODE = 'coaching'
 
 
 def _elapsed(since: float) -> str:
@@ -97,6 +112,17 @@ def _language_directive(language: str | None) -> str:
         f"If the user writes in another language, still reply in {label} unless they ask "
         f"you to switch.\n---"
     )
+
+
+def _normalize_mode(mode: str | None) -> str:
+    """Coerce whatever the client sent into a supported mode."""
+    mode = (mode or '').strip().lower()
+    return mode if mode in MODES else DEFAULT_MODE
+
+
+def _mode_directive(mode: str | None) -> str:
+    """System-prompt addendum setting Nexa to coach or mentor."""
+    return f"\n\n---{MODES[_normalize_mode(mode)]['directive'].rstrip()}\n---"
 
 
 # Short-lived cache of per-org custom content so /chat doesn't hit the DB on every
@@ -331,37 +357,81 @@ def _fetch_nexa_access(token: str) -> bool:
         return False
 
 
-def _build_personalized_prompt(user_name: str, highlights: list, profile_context: dict = None) -> str:
-    prompt = SYSTEM_INSTRUCTION
+# Heading the profile block is written under — also how /chat tells whether the
+# cached system prompt already carries the profile.
+_PROFILE_HEADER = 'USER PROFILE FOR'
 
-    if profile_context:
-        parts = []
-        role = (profile_context.get('current_role') or '').strip()
-        company = (profile_context.get('current_company') or '').strip()
-        if role and company:
-            parts.append(f"- Current Role: {role} at {company}")
-        elif role:
-            parts.append(f"- Current Role: {role}")
-        if profile_context.get('level_name'):
-            parts.append(f"- Experience Level: {profile_context['level_name']}")
-        if profile_context.get('gender'):
-            parts.append(f"- Gender: {profile_context['gender']}")
-        if profile_context.get('country'):
-            parts.append(f"- Country: {profile_context['country']}")
-        functional_areas = profile_context.get('functional_areas') or []
-        if isinstance(functional_areas, list) and functional_areas:
-            parts.append(f"- Functional Background: {', '.join(functional_areas)}")
-        industry_types = profile_context.get('industry_types') or []
-        if isinstance(industry_types, list) and industry_types:
-            parts.append(f"- Industry Context: {', '.join(industry_types)}")
-        if parts:
-            prompt += (
-                f"\n\n---\nUSER PROFILE FOR {user_name.upper()}:\n"
-                + "\n".join(parts)
-                + "\n---\n"
-                "Use this profile to personalise your coaching — tailor advice to their role, "
-                "industry, and background. Do not read out this profile to the user unless asked."
-            )
+
+def _profile_block(user_name: str, profile_context: dict = None) -> str:
+    """Who this person is — role, level, background — as a system-prompt block.
+
+    Empty string when the profile carries nothing worth telling the model.
+    """
+    if not profile_context:
+        return ''
+    parts = []
+    role = (profile_context.get('current_role') or '').strip()
+    company = (profile_context.get('current_company') or '').strip()
+    if role and company:
+        parts.append(f"- Current Role: {role} at {company}")
+    elif role:
+        parts.append(f"- Current Role: {role}")
+    if profile_context.get('level_name'):
+        parts.append(f"- Experience Level: {profile_context['level_name']}")
+    if profile_context.get('gender'):
+        parts.append(f"- Gender: {profile_context['gender']}")
+    if profile_context.get('country'):
+        parts.append(f"- Country: {profile_context['country']}")
+    functional_areas = profile_context.get('functional_areas') or []
+    if isinstance(functional_areas, list) and functional_areas:
+        parts.append(f"- Functional Background: {', '.join(functional_areas)}")
+    industry_types = profile_context.get('industry_types') or []
+    if isinstance(industry_types, list) and industry_types:
+        parts.append(f"- Industry Context: {', '.join(industry_types)}")
+    if not parts:
+        return ''
+    return (
+        f"\n\n---\n{_PROFILE_HEADER} {user_name.upper()}:\n"
+        + "\n".join(parts)
+        + "\n---\n"
+        "Use this profile to personalise your coaching — tailor advice to their role, "
+        "industry, and background. Do not read out this profile to the user unless asked."
+    )
+
+
+# The profile changes rarely and /chat needs it on every message, so cache it the
+# same way as the org content and admin notes rather than hitting the DB per turn.
+_PROFILE_TTL = 300  # seconds
+_profile_cache: dict = {}  # user_id -> (expires_at, profile_context)
+
+
+def _get_profile_context_cached(user_id: str | None) -> dict:
+    if not user_id:
+        return {}
+    now = time.time()
+    cached = _profile_cache.get(user_id)
+    if cached and cached[0] > now:
+        return cached[1]
+    try:
+        ctx = get_user_profile_context(user_id) or {}
+    except Exception as e:
+        logger.error("[profile] fetch failed for user_id=%s: %s", user_id, e)
+        return cached[1] if cached else {}
+    _profile_cache[user_id] = (now + _PROFILE_TTL, ctx)
+    return ctx
+
+
+def _profile_directive(user_id: str | None, user_name: str, profile_context: dict = None) -> str:
+    """Profile block for a single request, from whatever context is at hand.
+
+    Falls back to the stored profile when the caller has none, so the model knows
+    who it's talking to even if the client sent nothing.
+    """
+    return _profile_block(user_name, profile_context or _get_profile_context_cached(user_id))
+
+
+def _build_personalized_prompt(user_name: str, highlights: list, profile_context: dict = None) -> str:
+    prompt = SYSTEM_INSTRUCTION + _profile_block(user_name, profile_context)
 
     if not highlights:
         return prompt
@@ -387,7 +457,7 @@ def _get_or_rebuild_history(session_uuid: str, user_id: str, user_name: str,
     if session_uuid in sessions_cache:
         return sessions_cache[session_uuid]
     highlights = get_session_highlights(user_id)
-    ctx = profile_context or get_user_profile_context(user_id)
+    ctx = profile_context or _get_profile_context_cached(user_id)
     prompt = _build_personalized_prompt(user_name, highlights, ctx)
     history = [{"role": "system", "content": prompt}]
     sessions_cache[session_uuid] = history
@@ -396,7 +466,7 @@ def _get_or_rebuild_history(session_uuid: str, user_id: str, user_name: str,
 
 def _generate_welcome(user_name: str, highlights: list, profile_context: dict = None,
                       returning: bool = False, language: str = None,
-                      user_id: str = None):
+                      user_id: str = None, mode: str = None):
     """Generate a personalised opening message for a new chat session.
 
     When the user has past coaching history, the message warmly references an
@@ -422,7 +492,8 @@ def _generate_welcome(user_name: str, highlights: list, profile_context: dict = 
 
     system_content = _build_personalized_prompt(user_name, highlights, profile_context)
     details = _get_user_details_cached(user_id)
-    system_content += _user_details_directive(user_id) + _language_directive(language)
+    system_content += _user_details_directive(user_id) + _mode_directive(mode) \
+        + _language_directive(language)
     if returning and highlights:
         instruction = (
             f"[SESSION START] Greet {user_name} to open a new coaching session. "
@@ -527,26 +598,14 @@ def create_session():
                 client_user_id or 'none', (data.get('sessionUuid') or 'none'),
                 len(data.get('roles') or []))
 
-    # Fetch full user details from profile API
-    logger.info("[create_session] fetching profile from we-ace API: %s/api/v1/users/profile", WEACE_API_URL)
-    try:
-        t0 = time.perf_counter()
-        user_resp = http_requests.get(
-            f'{WEACE_API_URL}/api/v1/users/profile',
-            headers={'Authorization': f'Bearer {access_token}'},
-            timeout=10,
-        )
-        logger.info("[create_session] profile API responded with status=%s in %s",
-                    user_resp.status_code, _elapsed(t0))
-        if not user_resp.ok:
-            logger.warning("[create_session] profile API error: status=%s ip=%s body=%r",
-                           user_resp.status_code, ip, user_resp.text[:300])
-            return jsonify({'error': 'Failed to fetch user profile'}), user_resp.status_code
-        client_user_id = (user_resp.json().get('data', {}).get('_id') or '').strip()
-        logger.info("[create_session] profile API resolved user_id=%s", client_user_id or 'MISSING')
-    except Exception as e:
-        logger.error("[create_session] profile API request failed after %s: %s", _elapsed(t0), e)
-        return jsonify({'error': f'Profile fetch failed: {e}'}), 502
+    # @require_weace_token already fetched /api/v1/users/profile to verify the
+    # token — reuse that response instead of asking for it a second time.
+    client_user_id = (client_user_id or '').strip()
+    logger.info("[create_session] profile resolved from verified token: user_id=%s",
+                client_user_id or 'MISSING')
+    if not client_user_id:
+        logger.warning("[create_session] verified token carried no user id ip=%s", ip)
+        return jsonify({'error': 'Failed to fetch user profile'}), 401
     try:
         t0 = time.perf_counter()
         profile_resp = http_requests.get(
@@ -663,14 +722,16 @@ def create_session():
                         session_uuid, len(sessions_cache[session_uuid]))
 
         language = get_user_language(user_id) or DEFAULT_LANGUAGE
-        logger.info("[create_session] language for user_id=%s: %s", user_id, language)
+        mode = get_user_mode(user_id) or DEFAULT_MODE
+        logger.info("[create_session] language for user_id=%s: %s (mode=%s)",
+                    user_id, language, mode)
         if resumed:
             welcome_message, welcome_suggestions = '', []
             logger.info("[create_session] resumed session — skipping welcome generation")
         else:
             t0 = time.perf_counter()
             welcome_message, welcome_suggestions = _generate_welcome(
-                user_name, highlights, profile_context, returning, language, user_id)
+                user_name, highlights, profile_context, returning, language, user_id, mode)
             logger.info("[create_session] welcome generated in %s: chars=%s suggestions=%s",
                         _elapsed(t0), len(welcome_message or ''), len(welcome_suggestions or []))
 
@@ -763,6 +824,7 @@ def create_session():
             'welcome_message': welcome_message,
             'welcome_suggestions': welcome_suggestions,
             'language': language,
+            'mode': mode,
             'profile_context': profile_context,
             'org_name': org_name,
             'org_id': org_slug,
@@ -847,6 +909,7 @@ def resume_session():
             access_last_date = settings['access_last_date']
 
         language = get_user_language(user_id) or DEFAULT_LANGUAGE
+        mode = get_user_mode(user_id) or DEFAULT_MODE
 
         # Keep Flask session (server-rendered pages) and the token cache (/chat)
         # pointing at this same conversation.
@@ -899,6 +962,7 @@ def resume_session():
             'welcome_message': '',
             'welcome_suggestions': [],
             'language': language,
+            'mode': mode,
             'profile_context': profile_context,
             'org_name': org_name,
             'org_id': org_slug,
@@ -941,8 +1005,9 @@ def new_session():
         sessions_cache[session_uuid] = [{"role": "system", "content": prompt}]
 
         language = get_user_language(user_id) or DEFAULT_LANGUAGE
+        mode = get_user_mode(user_id) or DEFAULT_MODE
         welcome_message, welcome_suggestions = _generate_welcome(
-            user_name, highlights, profile_context, returning, language, user_id)
+            user_name, highlights, profile_context, returning, language, user_id, mode)
 
         role = g.user.get('role', [])
         if _has_role(role, 'weace_super_admin', 'corporate_super_admin'):
@@ -973,6 +1038,7 @@ def new_session():
             'welcome_message': welcome_message,
             'welcome_suggestions': welcome_suggestions,
             'language': language,
+            'mode': mode,
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -1115,6 +1181,28 @@ def user_language():
     return jsonify({'ok': True, 'language': language})
 
 
+@app.route('/mode', methods=['GET', 'POST'])
+@require_weace_token
+def user_mode():
+    """Read or update whether Nexa coaches or mentors the logged-in user."""
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+
+    user_id = g.user['user_id']
+    if request.method == 'GET':
+        return jsonify({
+            'mode': get_user_mode(user_id) or DEFAULT_MODE,
+            'modes': [{'code': code, 'label': m['label']} for code, m in MODES.items()],
+        })
+
+    mode = ((request.json or {}).get('mode') or '').strip().lower()
+    if mode not in MODES:
+        return jsonify({'error': 'Unsupported mode'}), 400
+    set_user_mode(user_id, mode)
+    logger.info("[mode] user_id=%s set mode=%s", user_id, mode)
+    return jsonify({'ok': True, 'mode': mode})
+
+
 @app.route('/logout', methods=['POST'])
 def logout():
     token = _get_bearer_token()
@@ -1168,8 +1256,9 @@ def chat():
     user_id = g.user['user_id']
     user_name = g.user['user_name']
     session_uuid = data.get('session_uuid') or ''
-    profile_context = data.get('profile_context') or {}
-    
+    # Client-supplied profile first, then whatever /session resolved at login.
+    profile_context = data.get('profile_context') or g.user.get('profile_context') or {}
+
     conversation_history = _get_or_rebuild_history(
         session_uuid, user_id, user_name, profile_context
     )
@@ -1180,6 +1269,12 @@ def chat():
     if language not in SUPPORTED_LANGUAGES:
         language = get_user_language(user_id) or DEFAULT_LANGUAGE
 
+    # Same for the coaching/mentoring toggle — read per request so flipping it
+    # mid-conversation changes the very next reply.
+    mode = (data.get('mode') or '').strip().lower()
+    if mode not in MODES:
+        mode = get_user_mode(user_id) or DEFAULT_MODE
+
     try:
         conversation_history.append({"role": "user", "content": user_message})
         save_message(session_uuid, user_id, 'user', user_message)
@@ -1187,8 +1282,17 @@ def chat():
         system_content = next(
             (m["content"] for m in conversation_history if m["role"] == "system"),
             SYSTEM_INSTRUCTION,
-        ) + _user_details_directive(user_id) \
+        )
+        # The welcome message is always generated with the user's profile in
+        # context; every reply should be too. The cached prompt normally carries
+        # it from session setup — add it here when it doesn't (prompt seeded
+        # before the profile resolved, or an older cached session).
+        if _PROFILE_HEADER not in system_content:
+            system_content += _profile_directive(user_id, user_name, profile_context)
+
+        system_content += _user_details_directive(user_id) \
           + _org_content_directive(g.user.get('org_id')) \
+          + _mode_directive(mode) \
           + _language_directive(language)
 
         if AI_PROVIDER == "claude":
@@ -1368,6 +1472,79 @@ def sentiment_refresh():
             data = get_org_sentiment_data(org_slug)
             return jsonify({'ok': True, 'data': data or result})
         return jsonify({'ok': False, 'error': 'No new messages to analyse or analysis failed'}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/my-insights')
+def my_insights():
+    """Personal insights dashboard — every Nexa user sees their own sentiment."""
+    if 'user_id' not in session:
+        return redirect('/')
+    name = session['user_name']
+    initials = ''.join(w[0].upper() for w in name.split()[:2])
+    return render_template('my_insights.html',
+        user_name=name,
+        initials=initials,
+        profile_image=session.get('profile_image', ''),
+        org_name=session.get('org_name', 'Organisation'),
+        refresh_token=session.get('refresh_token', ''),
+        # shared header (_header.html)
+        active_tab='my-insights',
+        show_org_tabs=_has_role(session.get('role'), 'corporate_super_admin'),
+        show_admin=_has_role(session.get('role'), 'weace_super_admin'),
+    )
+
+
+@app.route('/api/my-analytics')
+@require_weace_token
+def my_analytics():
+    """The signed-in user's own session/message counts."""
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    try:
+        return jsonify(get_user_stats(g.user['user_id']))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/my-sentiment')
+@require_weace_token
+def my_sentiment():
+    """The signed-in user's own sentiment scores, trend, and insights.
+
+    Generates the first report on demand so a user who has chatted enough sees
+    something on their first visit rather than an empty dashboard.
+    """
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    user_id = g.user['user_id']
+    date_from = request.args.get('date_from', '').strip() or None
+    date_to   = request.args.get('date_to',   '').strip() or None
+    try:
+        if get_user_sentiment(user_id) is None:
+            from sentiment_job import analyze_user_sentiment
+            analyze_user_sentiment(user_id)
+        data = get_user_sentiment_data(user_id, date_from=date_from, date_to=date_to)
+        return jsonify(data or {})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/my-sentiment/refresh', methods=['POST'])
+@require_weace_token
+def my_sentiment_refresh():
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    user_id = g.user['user_id']
+    try:
+        from sentiment_job import analyze_user_sentiment
+        result = analyze_user_sentiment(user_id)
+        if result:
+            data = get_user_sentiment_data(user_id)
+            return jsonify({'ok': True, 'data': data or result})
+        return jsonify({'ok': False,
+                        'error': 'Not enough conversation to analyse yet — keep chatting with Nexa.'}), 400
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

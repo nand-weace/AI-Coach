@@ -155,6 +155,18 @@ def init_db():
                     INDEX idx_sentiment_user (sentiment_id, user_id)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """)
+            # Per-user LLM-written insight sentences behind the personal
+            # insights dashboard. Scores themselves live in sentiment_score;
+            # this only carries the narrative the user reads.
+            _execute(cur,"""
+                CREATE TABLE IF NOT EXISTS user_sentiment (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id VARCHAR(36) NOT NULL UNIQUE,
+                    sentiment_data JSON NOT NULL,
+                    calculated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    INDEX idx_user_id (user_id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """)
             _execute(cur,"""
                 CREATE TABLE IF NOT EXISTS sentiment_analysis_cursor (
                     org_slug VARCHAR(255) PRIMARY KEY,
@@ -184,6 +196,7 @@ def init_db():
                     functional_areas TEXT DEFAULT NULL,
                     industry_types TEXT DEFAULT NULL,
                     language VARCHAR(50) DEFAULT NULL,
+                    coaching_mode VARCHAR(20) DEFAULT NULL,
                     additional_details TEXT DEFAULT NULL,
                     first_login DATETIME DEFAULT CURRENT_TIMESTAMP,
                     last_login DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -207,6 +220,9 @@ def init_db():
                 ('functional_areas',  'TEXT DEFAULT NULL AFTER gender'),
                 ('industry_types',    'TEXT DEFAULT NULL AFTER functional_areas'),
                 ('language',          'VARCHAR(50) DEFAULT NULL AFTER industry_types'),
+                # Whether Nexa coaches (draws answers out) or mentors (gives
+                # direct advice) for this user; toggled from the chat window.
+                ('coaching_mode',     'VARCHAR(20) DEFAULT NULL AFTER language'),
                 # Free-text background an admin maintains about the user; fed into
                 # Nexa's system prompt so coaching is grounded in their situation.
                 ('additional_details', 'TEXT DEFAULT NULL AFTER language'),
@@ -930,6 +946,36 @@ def set_user_language(user_id: str, language: str):
         conn.close()
 
 
+def get_user_mode(user_id: str) -> str | None:
+    """Returns the user's preferred mode ('coaching'/'mentoring'), or None if never set."""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur, "SELECT coaching_mode FROM user_settings WHERE user_id = %s", (user_id,))
+            row = cur.fetchone()
+        return (row['coaching_mode'] or None) if row else None
+    finally:
+        conn.close()
+
+
+def set_user_mode(user_id: str, mode: str):
+    """Store whether Nexa should coach or mentor this user."""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur,
+                """
+                INSERT INTO user_settings (user_id, coaching_mode)
+                VALUES (%s, %s)
+                ON DUPLICATE KEY UPDATE coaching_mode = VALUES(coaching_mode)
+                """,
+                (user_id, mode),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def get_sentiment_cursor(org_slug: str) -> int:
     """Returns the last analyzed message_id for the org (0 if never analyzed)."""
     conn = get_connection()
@@ -1239,6 +1285,201 @@ def get_org_sentiment_data(org_slug, trend_limit: int = 12, date_from=None, date
 
         result['messages_analyzed'] = insight_data.get('messages_analyzed', 0)
         result['users_analyzed'] = len(set(row['user_id'] for row in latest_rows))
+        result['calculated_at'] = insight_data.get('calculated_at', '')
+        return result
+    finally:
+        conn.close()
+
+
+def get_user_sentiment(user_id: str) -> dict | None:
+    """LLM-written per-dimension insights for one user (personal insights tab)."""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur,
+                "SELECT sentiment_data, calculated_at FROM user_sentiment WHERE user_id = %s",
+                (user_id,),
+            )
+            row = cur.fetchone()
+            if not row:
+                return None
+            data = row['sentiment_data']
+            if isinstance(data, str):
+                data = json.loads(data)
+            data['calculated_at'] = str(row['calculated_at'])
+            return data
+    finally:
+        conn.close()
+
+
+def upsert_user_sentiment(user_id: str, sentiment_data: dict):
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur,
+                """
+                INSERT INTO user_sentiment (user_id, sentiment_data, calculated_at)
+                VALUES (%s, %s, NOW())
+                ON DUPLICATE KEY UPDATE
+                    sentiment_data = VALUES(sentiment_data),
+                    calculated_at  = VALUES(calculated_at)
+                """,
+                (user_id, json.dumps(sentiment_data)),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_user_messages(user_id: str, limit: int = 300) -> list:
+    """The user's own messages, newest first — input for personal sentiment analysis."""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur,
+                """
+                SELECT content FROM ai_coach_messages
+                WHERE user_id = %s AND role = 'user'
+                ORDER BY id DESC
+                LIMIT %s
+                """,
+                (user_id, limit),
+            )
+            return [row['content'] for row in cur.fetchall()]
+    finally:
+        conn.close()
+
+
+def get_user_stats(user_id: str) -> dict:
+    """Session/message counts and first session date for one user."""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur,
+                """
+                SELECT COUNT(*) AS total_sessions, MIN(DATE(started_at)) AS first_session_date
+                FROM ai_coach_sessions WHERE user_id = %s
+                """,
+                (user_id,),
+            )
+            row = cur.fetchone() or {}
+            _execute(cur,
+                "SELECT COUNT(*) AS total_messages FROM ai_coach_messages "
+                "WHERE user_id = %s AND role = 'user'",
+                (user_id,),
+            )
+            msg_row = cur.fetchone() or {}
+            _execute(cur,
+                "SELECT MAX(created_at) AS last_message_at FROM ai_coach_messages "
+                "WHERE user_id = %s AND role = 'user'",
+                (user_id,),
+            )
+            last_row = cur.fetchone() or {}
+        return {
+            'total_sessions': int(row.get('total_sessions') or 0),
+            'total_messages': int(msg_row.get('total_messages') or 0),
+            'first_session_date': str(row['first_session_date']) if row.get('first_session_date') else '',
+            'last_message_at': str(last_row['last_message_at']) if last_row.get('last_message_at') else '',
+        }
+    finally:
+        conn.close()
+
+
+def get_user_sentiment_data(user_id: str, trend_limit: int = 12,
+                            date_from=None, date_to=None) -> dict | None:
+    """
+    Personal sentiment data for one user, keyed by dimension name.
+    Scores are that user's own latest sentiment_score rows; the trend is their
+    score per run date. Insights come from user_sentiment (LLM-generated).
+    Mirrors get_org_sentiment_data minus the cross-user bands, which have no
+    meaning for a single person.
+    """
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            date_clause = ""
+            date_params: list = []
+            if date_from:
+                date_clause += " AND DATE(calculated_at) >= %s"
+                date_params.append(date_from)
+            if date_to:
+                date_clause += " AND DATE(calculated_at) <= %s"
+                date_params.append(date_to)
+
+            # Latest score per dimension for this user, within the date range
+            _execute(cur,
+                f"""
+                SELECT s.name AS dim_name, ss.score
+                FROM sentiment_score ss
+                JOIN sentiment s ON ss.sentiment_id = s.id
+                INNER JOIN (
+                    SELECT sentiment_id, MAX(calculated_at) AS latest_at
+                    FROM sentiment_score
+                    WHERE user_id = %s{date_clause}
+                    GROUP BY sentiment_id
+                ) latest ON ss.sentiment_id = latest.sentiment_id
+                        AND ss.calculated_at = latest.latest_at
+                WHERE ss.user_id = %s
+                """,
+                [user_id] + date_params + [user_id],
+            )
+            latest_rows = cur.fetchall()
+
+            if not latest_rows:
+                return None
+
+            trend_clause = ""
+            trend_params: list = []
+            if date_from:
+                trend_clause += " AND DATE(ss.calculated_at) >= %s"
+                trend_params.append(date_from)
+            if date_to:
+                trend_clause += " AND DATE(ss.calculated_at) <= %s"
+                trend_params.append(date_to)
+
+            _execute(cur,
+                f"""
+                SELECT DATE(ss.calculated_at) AS run_date,
+                       s.name AS dim_name,
+                       ROUND(AVG(ss.score)) AS avg_score
+                FROM sentiment_score ss
+                JOIN sentiment s ON ss.sentiment_id = s.id
+                WHERE ss.user_id = %s{trend_clause}
+                GROUP BY DATE(ss.calculated_at), s.name
+                ORDER BY run_date ASC
+                """,
+                [user_id] + trend_params,
+            )
+            trend_rows = cur.fetchall()
+
+        from collections import defaultdict
+        dim_scores: dict[str, int] = {}
+        for row in latest_rows:
+            dim_scores[row['dim_name']] = int(row['score'])
+
+        dim_trends: dict[str, list] = defaultdict(list)
+        for row in trend_rows:
+            dim_trends[row['dim_name']].append({
+                'date': str(row['run_date']),
+                'score': int(row['avg_score']),
+            })
+        for dim in dim_trends:
+            dim_trends[dim] = dim_trends[dim][-trend_limit:]
+
+        insight_data = get_user_sentiment(user_id) or {}
+
+        result: dict = {}
+        for dim in _SENTIMENT_DIMS:
+            if dim not in dim_scores:
+                continue
+            old_entry = insight_data.get(dim)
+            result[dim] = {
+                'score': dim_scores[dim],
+                'insight': old_entry.get('insight', '') if isinstance(old_entry, dict) else '',
+                'trend': dim_trends.get(dim, []),
+            }
+
+        result['messages_analyzed'] = insight_data.get('messages_analyzed', 0)
         result['calculated_at'] = insight_data.get('calculated_at', '')
         return result
     finally:

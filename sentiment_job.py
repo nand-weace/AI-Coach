@@ -5,6 +5,8 @@ from datetime import datetime, timezone
 
 from database import (
     get_all_org_slugs,
+    get_user_messages,
+    upsert_user_sentiment,
     get_org_user_messages_after,
     get_org_messages_by_user,
     get_org_users_with_new_messages,
@@ -23,6 +25,8 @@ _DIMS = [
 ]
 _MAX_CHARS = 40_000   # org-level prompt cap (~10k tokens)
 _USER_MAX_CHARS = 6_000  # per-user cap (keeps per-user calls cheap)
+_SELF_MAX_CHARS = 24_000  # personal insights prompt cap (one user, richer output)
+_MIN_SELF_MESSAGES = 5    # below this there is nothing meaningful to read
 _MAX_USERS = 30       # cap to avoid excessive API calls on large orgs
 
 # ── Prompts ──────────────────────────────────────────────────────────────────
@@ -69,6 +73,43 @@ empathy(0=none,100=high), frustration_disengagement(0=none,100=high), \
 growth_mindset(0=fixed,100=growth), psychological_safety(0=closed,100=open)
 
 Messages:
+---
+{messages}
+---"""
+
+# Personal insights prompt — same dimensions as the org prompt, but the insight
+# is written back to the person themselves, so it is second-person and coaching
+# in tone rather than an observation about a population.
+_SELF_PROMPT = """You are a professional psycholinguistic analyst supporting an executive coaching programme. \
+Analyse the following messages written by ONE leader during their AI coaching sessions.
+
+Score each dimension 0–100 based purely on the language patterns present:
+
+- work_life_balance: 0=severe imbalance/always-on language, 100=healthy boundaries and balance
+- job_satisfaction: 0=very dissatisfied/disengaged, 100=highly fulfilled and motivated
+- stress_anxiety: 0=no stress signals, 100=extreme stress/anxiety/urgency language
+- self_confidence: 0=very uncertain/self-doubting, 100=very assertive/confident
+- empathy: 0=no empathy shown, 100=very high empathy toward others
+- frustration_disengagement: 0=no frustration, 100=extreme frustration/cynicism/dismissiveness
+- growth_mindset: 0=fixed-mindset language, 100=strong growth/learning/effort framing
+- psychological_safety: 0=no vulnerability shared, 100=high openness about failures and fears
+
+Write each insight in the second person ("you"), one concise sentence, describing what \
+their own language suggests. Be specific and constructive, never clinical or diagnostic.
+
+Return ONLY a valid JSON object with no markdown fences:
+{
+  "work_life_balance": {"score": <0-100 int>, "insight": "<one concise sentence>"},
+  "job_satisfaction": {"score": <0-100 int>, "insight": "<one concise sentence>"},
+  "stress_anxiety": {"score": <0-100 int>, "insight": "<one concise sentence>"},
+  "self_confidence": {"score": <0-100 int>, "insight": "<one concise sentence>"},
+  "empathy": {"score": <0-100 int>, "insight": "<one concise sentence>"},
+  "frustration_disengagement": {"score": <0-100 int>, "insight": "<one concise sentence>"},
+  "growth_mindset": {"score": <0-100 int>, "insight": "<one concise sentence>"},
+  "psychological_safety": {"score": <0-100 int>, "insight": "<one concise sentence>"}
+}
+
+Messages to analyse:
 ---
 {messages}
 ---"""
@@ -127,6 +168,60 @@ def _score_user(messages: list, client, ai_provider: str, ai_model: str) -> dict
         return {d: max(0, min(100, int(data.get(d, 0)))) for d in _DIMS}
     except Exception:
         return None
+
+
+# ── Personal (single-user) analysis ──────────────────────────────────────────
+
+def analyze_user_sentiment(user_id: str) -> dict | None:
+    """
+    Scores one user's own messages and writes second-person insights for their
+    personal insights dashboard. Saves scores to sentiment_score (so the trend
+    builds up run by run) and insights to user_sentiment. Returns the result,
+    or None if there is too little to read or the LLM call fails.
+    """
+    ai_provider = os.environ.get('AI_PROVIDER', 'openai').lower()
+    api_key = os.environ.get('CLAUDE_API_KEY' if ai_provider == 'claude' else 'OPENAI_API_KEY')
+    if not api_key:
+        print("Personal sentiment: no API key configured.")
+        return None
+    ai_model = os.environ.get('AI_MODEL', 'claude-sonnet-4-5' if ai_provider == 'claude' else 'gpt-4o')
+
+    messages = get_user_messages(user_id)
+    if len(messages) < _MIN_SELF_MESSAGES:
+        return None
+
+    combined = '\n'.join(f'- {m}' for m in messages)
+    if len(combined) > _SELF_MAX_CHARS:
+        combined = combined[:_SELF_MAX_CHARS] + '\n[...truncated]'
+
+    client = _build_client(ai_provider, api_key)
+    raw = None
+    try:
+        raw = _call_llm(_SELF_PROMPT.replace('{messages}', combined), client, ai_provider, ai_model)
+        result = _extract_json(raw)
+    except Exception as e:
+        print(f"Personal sentiment analysis failed for {user_id}: {e}")
+        if raw:
+            print(f"  Raw snippet: {raw[:300]}")
+        return None
+
+    scores = {}
+    for dim in _DIMS:
+        entry = result.get(dim)
+        if isinstance(entry, dict) and entry.get('score') is not None:
+            try:
+                scores[dim] = max(0, min(100, int(entry['score'])))
+            except (TypeError, ValueError):
+                continue
+    if not scores:
+        return None
+
+    run_ts = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+    insert_user_sentiment_scores(user_id, scores, run_ts)
+
+    result['messages_analyzed'] = len(messages)
+    upsert_user_sentiment(user_id, result)
+    return result
 
 
 # ── Main analysis ────────────────────────────────────────────────────────────

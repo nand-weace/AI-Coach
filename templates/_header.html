@@ -3,7 +3,7 @@
   same bar with the current tab marked.
 
   Params:
-    active_tab     'talk' | 'sentiment'
+    active_tab     'talk' | 'sentiment' | 'my-insights'
     show_org_tabs  true to render Sentiment Analysis / Corporate Knowledge as
                    visible (the dashboard, which is role-gated server-side).
                    The chat page leaves them hidden and lets script.js reveal
@@ -29,6 +29,10 @@
             </button>
             <div class="tab-popover" id="language-submenu"></div>
         </div>
+
+        <a id="my-insights-link" href="/my-insights"
+           class="app-tab{% if active_tab == 'my-insights' %} active{% endif %}"
+           {% if active_tab == 'my-insights' %}aria-current="page"{% endif %}>My Insights</a>
 
         <a id="dashboard-link" href="/dashboard"
            class="app-tab{% if active_tab == 'sentiment' %} active{% endif %}"

@@ -37,6 +37,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         localStorage.removeItem('we_ace_org_name');
         localStorage.removeItem('we_ace_cohort_id');
         localStorage.removeItem('we_ace_language');
+        localStorage.removeItem('we_ace_mode');
     }
     function storeProfileRoles(roles) {
         if (roles && Array.isArray(roles) && roles.length > 0)
@@ -154,6 +155,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (data.org_name) localStorage.setItem('we_ace_org_name', data.org_name);
         if (data.cohort_id) localStorage.setItem('we_ace_cohort_id', data.cohort_id);
         if (data.language) localStorage.setItem('we_ace_language', data.language);
+        if (data.mode) localStorage.setItem('we_ace_mode', data.mode);
         if (data.role) storeProfileRoles(data.role);
     }
 
@@ -205,7 +207,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // ── Build session — server verifies tokens and fetches profile ────
+    // /session is expensive (profile API, history, LLM welcome) and opens a new
+    // conversation, so a page load gets exactly one attempt. The steps below
+    // fall through to each other; without this flag a failed attempt in Step 2
+    // would be retried by Step 3 with an older token, hitting /session twice.
+    let _sessionAttempted = false;
     async function buildSession(accessToken, refreshToken, profileRoles) {
+        if (_sessionAttempted) return null;
+        _sessionAttempted = true;
         const userId = localStorage.getItem('we_ace_user_id') || '';
         const payload = { refreshToken };
         if (userId) payload.userId = userId;
@@ -228,6 +237,80 @@ document.addEventListener('DOMContentLoaded', async () => {
         const data = await res.json();
         persistSessionData(data);
         return data;
+    }
+
+    // ── Coaching / mentoring toggle ─────────────────────────────────────────
+    // Coaching is non-directive — Nexa draws the answer out of the user.
+    // Mentoring is directive — Nexa gives advice from experience. The choice is
+    // stored per user and sent with every message, so flipping it mid-session
+    // changes the very next reply rather than waiting for a new conversation.
+    const COACH_MODES = {
+        coaching: {
+            hint: 'Nexa asks questions so you reach your own answer',
+            note: 'Switched to Coaching — Nexa will draw the answer out of you.',
+        },
+        mentoring: {
+            hint: 'Nexa shares experience and gives direct advice',
+            note: 'Switched to Mentoring — Nexa will advise you from experience.',
+        },
+    };
+    const modeToggle = document.getElementById('mode-toggle');
+    const modeHint = document.getElementById('mode-hint');
+
+    function currentMode() {
+        const stored = localStorage.getItem('we_ace_mode');
+        return COACH_MODES[stored] ? stored : 'coaching';
+    }
+
+    function renderMode(mode) {
+        if (!modeToggle) return;
+        modeToggle.dataset.mode = mode;
+        modeToggle.querySelectorAll('.mode-option').forEach(btn => {
+            const on = btn.dataset.mode === mode;
+            btn.classList.toggle('is-active', on);
+            btn.setAttribute('aria-checked', on ? 'true' : 'false');
+        });
+        if (modeHint) modeHint.textContent = COACH_MODES[mode].hint;
+    }
+
+    // Marks the point in the transcript where the user changed their mind, so
+    // the shift in Nexa's tone doesn't read as the AI going off the rails.
+    function addModeSwitchNote(mode) {
+        const note = document.createElement('div');
+        note.className = 'mode-switch-note';
+        note.textContent = COACH_MODES[mode].note;
+        chatContainer.appendChild(note);
+        scrollToBottom();
+    }
+
+    async function setMode(mode) {
+        if (!COACH_MODES[mode] || mode === currentMode()) return;
+        localStorage.setItem('we_ace_mode', mode);
+        renderMode(mode);
+        addModeSwitchNote(mode);
+        try {
+            const accessToken = localStorage.getItem('we_ace_access_token') || '';
+            await fetch('/mode', {
+                method: 'POST',
+                credentials: 'omit',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
+                },
+                body: JSON.stringify({ mode }),
+            });
+        } catch (_) {
+            // Saving the preference failed, but the mode still rides along with
+            // every /chat call — this session behaves as chosen regardless.
+        }
+    }
+
+    if (modeToggle) {
+        modeToggle.addEventListener('click', (e) => {
+            const btn = e.target.closest('.mode-option');
+            if (btn) setMode(btn.dataset.mode);
+        });
+        renderMode(currentMode());
     }
 
     // ── Auth Step 1a: ?refresh_token= in URL — exchange → store → profile → session
@@ -429,6 +512,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         storeProfileRoles(authData.profileDetails?.roles);
 
         // Step 2: establish our backend session — server fetches and verifies the profile
+        // A manual sign-in is a fresh start: it gets its own attempt even if the
+        // page-load chain already spent one and fell through to the login form.
+        _sessionAttempted = false;
         try {
             const data = await buildSession(authData.accessToken, authData.refreshToken, authData.profileDetails?.roles);
             if (!data) {
@@ -617,6 +703,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     session_uuid: localStorage.getItem('we_ace_session_uuid') || '',
                     profile_context: JSON.parse(localStorage.getItem('we_ace_profile_context') || 'null'),
                     language: localStorage.getItem('we_ace_language') || 'English',
+                    mode: currentMode(),
                 }),
             });
             const data = await res.json();
@@ -662,6 +749,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         appEl.style.opacity = '1';
         document.getElementById('user-display').textContent = userName;
         NexaHeader.renderLanguageMenu();   // reflect the preference restored by /session
+        renderMode(currentMode());         // ditto for the coaching/mentoring toggle
         window._userInitials = initials;
         window._profileImage = profileImage || '';
 
@@ -752,6 +840,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('send-button').disabled = true;
         const mic = document.getElementById('mic-button');
         if (mic) mic.disabled = true;
+        const modeRow = document.querySelector('.mode-row');
+        if (modeRow) modeRow.style.display = 'none';
     }
 
     function makeInitialsSpan(initials) {

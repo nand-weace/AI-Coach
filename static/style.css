@@ -344,6 +344,101 @@ body {
     border-top: 1px solid var(--glass-border);
 }
 
+/* Coaching / mentoring toggle above the composer */
+.mode-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 4px 10px;
+}
+
+.mode-toggle {
+    position: relative;
+    display: inline-flex;
+    flex: 0 0 auto;
+    padding: 3px;
+    border: 1px solid var(--glass-border);
+    border-radius: 999px;
+    background: rgba(248, 250, 252, 0.9);
+}
+
+/* Sliding pill behind the selected option */
+.mode-toggle-thumb {
+    position: absolute;
+    top: 3px;
+    bottom: 3px;
+    left: 3px;
+    width: calc(50% - 3px);
+    border-radius: 999px;
+    background: var(--accent-gradient);
+    box-shadow: 0 1px 4px rgba(37, 99, 235, 0.28);
+    transition: transform 0.22s ease;
+}
+
+.mode-toggle[data-mode="mentoring"] .mode-toggle-thumb {
+    transform: translateX(100%);
+}
+
+.mode-option {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1 1 0;
+    justify-content: center;
+    min-width: 118px;
+    padding: 6px 14px;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 0.82rem;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+
+.mode-option:hover:not(.is-active) {
+    color: var(--primary-color);
+}
+
+.mode-option.is-active {
+    color: #fff;
+}
+
+.mode-option svg {
+    flex: 0 0 auto;
+}
+
+.mode-hint {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    line-height: 1.3;
+}
+
+/* Inline note in the transcript marking where the mode changed */
+.mode-switch-note {
+    align-self: center;
+    max-width: 85%;
+    margin: 4px 0;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    text-align: center;
+    animation: fadeIn 0.4s ease-out forwards;
+}
+
+@media (max-width: 640px) {
+    .mode-hint { display: none; }
+    .mode-toggle { width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .mode-toggle-thumb { transition: none; }
+}
+
 #chat-form {
     display: flex;
     gap: 12px;

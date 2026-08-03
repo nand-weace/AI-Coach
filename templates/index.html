@@ -70,6 +70,27 @@
                 <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2" fill="none" style="vertical-align:-1px; margin-right:5px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                 <span id="access-expiry-text"></span>
             </div>
+            <!-- Coaching draws the answer out of the user; mentoring gives direct
+                 advice from experience. Applied to Nexa's very next reply. -->
+            <div class="mode-row">
+                <div class="mode-toggle" id="mode-toggle" data-mode="coaching" role="radiogroup" aria-label="Conversation mode">
+                    <span class="mode-toggle-thumb" aria-hidden="true"></span>
+                    <button type="button" class="mode-option is-active" data-mode="coaching"
+                            role="radio" aria-checked="true"
+                            title="Nexa asks the questions that help you reach your own answer">
+                        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                        Coaching
+                    </button>
+                    <button type="button" class="mode-option" data-mode="mentoring"
+                            role="radio" aria-checked="false"
+                            title="Nexa shares experience and tells you what they'd do">
+                        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l7 4v6c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6l7-4z"/><polyline points="9 12 11 14 15 10"/></svg>
+                        Mentoring
+                    </button>
+                </div>
+                <span class="mode-hint" id="mode-hint">Nexa asks questions so you reach your own answer</span>
+            </div>
+
             <form id="chat-form">
                 <textarea id="user-input" rows="1" placeholder="Type your message here..." autocomplete="off"></textarea>
                 <button type="button" id="mic-button" title="Speak your message" aria-label="Speak your message" aria-pressed="false" style="display:none;">

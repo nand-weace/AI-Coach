@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexa - My Insights</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/header.css">
+    <style>
+        :root {
+            --bg-color: #f8fafc;
+            --glass-bg: rgba(255, 255, 255, 0.7);
+            --glass-border: rgba(0, 0, 0, 0.08);
+            --primary-color: #2563eb;
+            --primary-hover: #1d4ed8;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --accent-gradient: linear-gradient(135deg, #2563eb 0%, #8b5cf6 100%);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            background-image:
+                radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.07), transparent 25%),
+                radial-gradient(circle at 85% 30%, rgba(139, 92, 246, 0.07), transparent 25%);
+        }
+
+        /* ── Page body ── */
+        .page { max-width: 1100px; margin: 0 auto; padding: 32px 24px 64px; }
+        .page-title { margin-bottom: 8px; }
+        .page-title h2 { font-size: 1.4rem; font-weight: 600; letter-spacing: -0.02em; }
+        .page-title .org-badge {
+            display: inline-block;
+            margin-top: 4px;
+            font-size: 0.8rem;
+            color: var(--primary-color);
+            background: rgba(37, 99, 235, 0.08);
+            border-radius: 999px;
+            padding: 2px 10px;
+            font-weight: 500;
+        }
+
+        /* ── Privacy note ── */
+        .privacy-note {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 14px;
+            background: rgba(37,99,235,0.06);
+            border: 1px solid rgba(37,99,235,0.14);
+            border-radius: 12px;
+            padding: 9px 16px;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+        .privacy-note svg { color: var(--primary-color); flex-shrink: 0; }
+
+        /* ── Stat cards ── */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin: 24px 0 32px;
+        }
+        .stat-card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 20px 24px;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+        .stat-label { font-size: 0.78rem; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 8px; }
+        .stat-value { font-size: 2rem; font-weight: 600; letter-spacing: -0.03em; color: var(--text-main); }
+        .stat-value.loading { color: var(--glass-border); }
+
+        .table-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .date-range-wrap { display: flex; align-items: center; gap: 6px; }
+        .date-range-sep { font-size: 0.78rem; color: var(--text-muted); }
+        .date-input {
+            padding: 6px 10px;
+            border: 1px solid var(--glass-border);
+            border-radius: 999px;
+            background: rgba(248, 250, 252, 0.9);
+            font-family: inherit;
+            font-size: 0.82rem;
+            color: var(--text-main);
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+        }
+        .date-input:focus { border-color: rgba(59, 130, 246, 0.4); box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15); }
+        .date-input::-webkit-calendar-picker-indicator { opacity: 0.5; cursor: pointer; }
+        .clear-dates-btn {
+            background: none; border: 1px solid var(--glass-border);
+            border-radius: 999px; padding: 5px 12px;
+            font-family: inherit; font-size: 0.78rem; color: var(--text-muted);
+            cursor: pointer; transition: all 0.2s; display: none;
+        }
+        .clear-dates-btn.visible { display: inline-block; }
+        .clear-dates-btn:hover { color: var(--primary-color); border-color: rgba(59, 130, 246, 0.3); }
+        .skeleton { background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 4px; height: 14px; }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+        /* ── Refresh button ── */
+        .refresh-btn {
+            background: none; border: 1px solid var(--glass-border);
+            border-radius: 999px; padding: 6px 14px;
+            font-family: inherit; font-size: 0.8rem; color: var(--text-muted);
+            cursor: pointer; transition: all 0.2s;
+        }
+        .refresh-btn:hover { color: var(--primary-color); border-color: rgba(59, 130, 246, 0.3); }
+        .refresh-btn:disabled { opacity: 0.6; cursor: default; }
+
+        /* ── Sentiment section ── */
+        .section-row {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            margin: 36px 0 16px;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .section-row h3 { font-size: 1rem; font-weight: 600; margin-bottom: 3px; }
+        .section-row p { font-size: 0.8rem; color: var(--text-muted); }
+        .section-meta { font-size: 0.78rem; color: var(--text-muted); white-space: nowrap; }
+
+        .sentiment-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 20px;
+            margin-bottom: 32px;
+        }
+        .sentiment-card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 18px;
+            padding: 24px 26px;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            cursor: pointer;
+            transition: box-shadow 0.18s, transform 0.18s;
+        }
+        .sentiment-card:hover { box-shadow: 0 4px 24px rgba(0,0,0,0.10); transform: translateY(-1px); }
+        .card-green { border-color: rgba(16,185,129,0.5); background: rgba(16,185,129,0.05); }
+        .card-amber { border-color: rgba(245,158,11,0.5); background: rgba(245,158,11,0.05); }
+        .card-red   { border-color: rgba(239,68,68,0.5);  background: rgba(239,68,68,0.05);  }
+        .sentiment-card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+        .sentiment-label { font-size: 0.95rem; font-weight: 600; color: var(--text-main); line-height: 1.3; }
+        .sentiment-desc { font-size: 0.80rem; color: var(--text-muted); margin-top: 4px; }
+        .sentiment-score-block { flex-shrink: 0; }
+        .sentiment-insight { font-size: 0.82rem; color: var(--text-muted); line-height: 1.55; padding-top: 2px; }
+        .sentiment-score-meaning { font-size: 0.80rem; color: var(--text-muted); line-height: 1.55; margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(0,0,0,0.06); }
+        .sentiment-no-data {
+            grid-column: 1 / -1;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.88rem;
+            padding: 32px 0;
+        }
+        .sentiment-group-label {
+            grid-column: 1 / -1;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            letter-spacing: 0.09em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: -4px;
+        }
+        .sentiment-group-label .group-line { flex: 1; height: 1px; background: rgba(0,0,0,0.08); }
+        /* score-based colour helpers applied via JS */
+        .score-green  { color: #059669; }
+        .score-amber  { color: #d97706; }
+        .score-red    { color: #dc2626; }
+        .fill-green   { background: #10b981; }
+        .fill-amber   { background: #f59e0b; }
+        .fill-red     { background: #ef4444; }
+
+        /* ── Trend modal ── */
+        .trend-modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 100;
+            background: rgba(15, 23, 42, 0.5);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+        .trend-modal-overlay.open { display: flex; }
+        .trend-modal-box {
+            background: #fff;
+            border-radius: 20px;
+            padding: 32px 32px 28px;
+            max-width: 660px;
+            width: 100%;
+            box-shadow: 0 24px 64px rgba(0,0,0,0.18);
+            position: relative;
+            animation: modalIn 0.18s ease;
+        }
+        @keyframes modalIn {
+            from { opacity: 0; transform: translateY(12px) scale(0.97); }
+            to   { opacity: 1; transform: translateY(0)    scale(1); }
+        }
+        .trend-modal-close {
+            position: absolute; top: 16px; right: 18px;
+            background: none; border: none; cursor: pointer;
+            font-size: 1.4rem; color: #94a3b8; line-height: 1;
+            padding: 2px 6px; border-radius: 6px; transition: color 0.15s, background 0.15s;
+        }
+        .trend-modal-close:hover { color: #1e293b; background: rgba(0,0,0,0.06); }
+        .trend-modal-title { font-size: 1.1rem; font-weight: 600; color: var(--text-main); margin-bottom: 3px; }
+        .trend-modal-meta  { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 24px; }
+        .trend-modal-score-row { display: flex; align-items: baseline; gap: 8px; margin-bottom: 20px; }
+        .trend-modal-score-num { font-size: 2.4rem; font-weight: 700; letter-spacing: -0.04em; line-height: 1; }
+        .trend-modal-score-sub { font-size: 0.78rem; color: var(--text-muted); }
+        .trend-chart-wrap { width: 100%; overflow: hidden; }
+        .trend-modal-divider { height: 1px; background: rgba(0,0,0,0.07); margin: 20px 0; }
+        .trend-modal-insight { font-size: 0.82rem; color: var(--text-muted); line-height: 1.6; }
+
+        /* ── Theme Heat Analysis ── */
+        .heat-card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 18px;
+            padding: 22px 26px 18px;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            margin-bottom: 24px;
+        }
+        .heat-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+        .heat-title-wrap { display: flex; align-items: center; gap: 10px; }
+        .heat-num {
+            width: 26px; height: 26px; border-radius: 50%;
+            border: 1.5px solid var(--glass-border);
+            font-size: 0.72rem; font-weight: 600; color: var(--text-muted);
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+        .heat-title-wrap h3 { font-size: 0.95rem; font-weight: 600; }
+        .heat-col-label { font-size: 0.78rem; color: var(--text-muted); padding-right: 2px; }
+        .heat-rows { display: flex; flex-direction: column; gap: 4px; }
+        .heat-row {
+            display: grid;
+            grid-template-columns: 18px minmax(160px, 1.2fr) 3fr 32px 80px;
+            align-items: center;
+            gap: 14px;
+            padding: 6px 0;
+            border-bottom: 1px solid rgba(0,0,0,0.04);
+        }
+        .heat-rows .heat-row:last-child { border-bottom: none; }
+        .heat-row-icon { display: flex; align-items: center; color: var(--text-muted); }
+        .heat-row-label { font-size: 0.85rem; font-weight: 500; color: var(--text-main); }
+        .heat-row-track { height: 10px; border-radius: 99px; background: rgba(0,0,0,0.07); overflow: hidden; }
+        .heat-row-fill { height: 100%; border-radius: 99px; transition: width 0.7s ease; }
+        .heat-row-score { font-size: 0.78rem; font-weight: 600; color: var(--text-muted); text-align: center; font-variant-numeric: tabular-nums; }
+        .heat-row-signal { font-size: 0.83rem; font-weight: 600; text-align: right; white-space: nowrap; }
+
+        /* ── Combined Trend Chart ── */
+        .combo-chart-card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 18px;
+            padding: 22px 26px 18px;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            margin-bottom: 24px;
+        }
+        .combo-chart-header { display: flex; align-items: center; margin-bottom: 14px; }
+        .combo-chart-body { margin-bottom: 14px; position: relative; }
+        .combo-tooltip {
+            display: none;
+            position: absolute;
+            background: #fff;
+            border: 1px solid rgba(0,0,0,0.08);
+            border-radius: 10px;
+            padding: 10px 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+            pointer-events: none;
+            min-width: 190px;
+            z-index: 10;
+            font-family: inherit;
+        }
+        .combo-tooltip-date { font-size: 0.72rem; font-weight: 600; color: var(--text-muted); margin-bottom: 7px; }
+        .combo-tooltip-row { display: flex; align-items: center; gap: 6px; font-size: 0.75rem; padding: 1px 0; }
+        .combo-tooltip-swatch { width: 10px; height: 3px; border-radius: 99px; flex-shrink: 0; }
+        .combo-tooltip-label { color: #374151; flex: 1; }
+        .combo-tooltip-val { font-weight: 600; color: var(--text-main); font-variant-numeric: tabular-nums; }
+        .combo-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 18px;
+            border-top: 1px solid rgba(0,0,0,0.06);
+            padding-top: 12px;
+        }
+        .combo-legend-item { display: flex; align-items: center; gap: 7px; font-size: 0.78rem; cursor: pointer; }
+        .combo-legend-line { width: 16px; height: 3px; border-radius: 99px; flex-shrink: 0; }
+        .combo-legend-name { color: var(--text-main); }
+        .combo-legend-score { font-weight: 600; font-variant-numeric: tabular-nums; }
+
+        /* ── Page transitions ── */
+        body { animation: pageIn 0.22s ease both; }
+        @keyframes pageIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* ── Not-enough-data screen ── */
+        #no-data-screen {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 80px 24px;
+            min-height: 60vh;
+        }
+        .no-data-icon {
+            width: 120px;
+            height: 120px;
+            margin: 0 auto 28px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, rgba(37,99,235,0.08), rgba(139,92,246,0.08));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px dashed rgba(100,116,139,0.2);
+        }
+        .no-data-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            color: var(--text-main);
+            margin-bottom: 12px;
+        }
+        .no-data-sub {
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            max-width: 420px;
+            line-height: 1.65;
+            margin-bottom: 32px;
+        }
+        .no-data-progress-wrap {
+            background: rgba(0,0,0,0.06);
+            border-radius: 999px;
+            height: 8px;
+            width: 260px;
+            overflow: hidden;
+            margin: 0 auto 10px;
+        }
+        .no-data-progress-fill {
+            height: 100%;
+            border-radius: 999px;
+            background: var(--accent-gradient);
+            transition: width 0.7s ease;
+        }
+        .no-data-progress-label { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 32px; }
+        .no-data-tip {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(37,99,235,0.07);
+            border: 1px solid rgba(37,99,235,0.15);
+            border-radius: 12px;
+            padding: 12px 20px;
+            font-size: 0.85rem;
+            color: var(--primary-color);
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+
+{% include '_header.html' %}
+
+<div class="page">
+    <div class="page-title" style="display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+        <div>
+            <h2>My Nexa Insights</h2>
+            <span class="org-badge" id="user-badge">{{ user_name or 'Your coaching journey' }}</span>
+        </div>
+        <div class="table-controls" style="padding-top:4px;">
+            <div class="date-range-wrap">
+                <input type="date" class="date-input" id="filter-date-from" title="From date">
+                <span class="date-range-sep">–</span>
+                <input type="date" class="date-input" id="filter-date-to" title="To date">
+            </div>
+            <button class="clear-dates-btn" id="clear-dates-btn">Clear</button>
+        </div>
+    </div>
+
+    <!-- Not-enough-data state -->
+    <div id="no-data-screen">
+        <div class="no-data-icon">
+            <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 21l-4.35-4.35"/>
+                <circle cx="11" cy="11" r="8"/>
+                <path d="M8.5 11h5M11 8.5v5" stroke-width="1.8" stroke="#c4b5fd"/>
+            </svg>
+        </div>
+        <div class="no-data-title">Not enough data… yet!</div>
+        <div class="no-data-sub">
+            Your personal insights need at least
+            <strong>2 sessions</strong> and <strong>10 messages</strong> before they can say
+            anything meaningful about your coaching conversations.
+            <br><br>
+            The more you talk to Nexa, the sharper your insights get.
+        </div>
+        <div class="no-data-progress-wrap">
+            <div class="no-data-progress-fill" id="no-data-progress-fill" style="width:0%"></div>
+        </div>
+        <div class="no-data-progress-label" id="no-data-progress-label">Gathering data…</div>
+        <div class="no-data-tip">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+            Head back to Chat and keep the conversation going
+        </div>
+    </div>
+
+    <div id="main-dashboard-content">
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-label">My Sessions</div>
+            <div class="stat-value loading" id="stat-sessions">—</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">My Messages</div>
+            <div class="stat-value loading" id="stat-messages">—</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Coaching Since</div>
+            <div class="stat-value loading" id="stat-since" style="font-size:1.3rem;">—</div>
+        </div>
+    </div>
+
+    <div class="privacy-note">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+        These insights are drawn from the language in your own coaching conversations, and are shown only to you.
+    </div>
+
+    <!-- ── Sentiment Intelligence ── -->
+    <div class="section-row">
+        <div>
+            <h3>My Sentiment Intelligence</h3>
+            <p>Language pattern analysis across your coaching sessions</p>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px; flex-shrink:0;">
+            <span class="section-meta" id="sentiment-updated"></span>
+            <button class="refresh-btn" id="sentiment-refresh-btn">Recalculate</button>
+        </div>
+    </div>
+    <div id="heat-wrap"></div>
+    <div id="trends-wrap"></div>
+    <div class="sentiment-grid" id="sentiment-grid">
+        <!-- populated by JS -->
+        <div class="sentiment-no-data"><div class="skeleton" style="width:200px; margin:0 auto;"></div></div>
+    </div>
+    </div><!-- /#main-dashboard-content -->
+</div>
+
+<!-- Sentiment trend modal -->
+<div class="trend-modal-overlay" id="trend-modal">
+    <div class="trend-modal-box">
+        <button class="trend-modal-close" id="trend-modal-close" aria-label="Close">&times;</button>
+        <div class="trend-modal-title" id="trend-modal-title"></div>
+        <div class="trend-modal-meta"  id="trend-modal-meta"></div>
+        <div class="trend-modal-score-row">
+            <span class="trend-modal-score-num" id="trend-modal-score"></span>
+            <span class="trend-modal-score-sub">your score</span>
+        </div>
+        <div class="trend-chart-wrap" id="trend-modal-chart"></div>
+        <div class="trend-modal-divider"></div>
+        <div class="trend-modal-insight" id="trend-modal-insight"></div>
+    </div>
+</div>
+
+<script src="/static/header.js"></script>
+<script>
+    // Personal thresholds — a single person needs far less than a whole org
+    // before their own language patterns say anything.
+    const MIN_SESSIONS = 2;
+    const MIN_MESSAGES = 10;
+
+    let defaultsApplied = false;
+
+    function getAuthHeaders(extra) {
+        const token = localStorage.getItem('we_ace_access_token') || '';
+        return Object.assign({ 'Authorization': `Bearer ${token}` }, extra || {});
+    }
+
+    function escHtml(str) {
+        return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function formatDate(dateStr) {
+        if (!dateStr) return '—';
+        const d = new Date(dateStr);
+        return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    }
+
+    function getFilterParams() {
+        const from = document.getElementById('filter-date-from').value;
+        const to   = document.getElementById('filter-date-to').value;
+        const params = new URLSearchParams();
+        if (from) params.set('date_from', from);
+        if (to)   params.set('date_to',   to);
+        return params;
+    }
+
+    function updateClearBtn() {
+        const from = document.getElementById('filter-date-from').value;
+        const to   = document.getElementById('filter-date-to').value;
+        document.getElementById('clear-dates-btn').classList.toggle('visible', !!(from || to));
+    }
+
+    async function loadStats() {
+        try {
+            const res = await fetch('/api/my-analytics', { headers: getAuthHeaders(), credentials: 'omit' });
+            if (res.status === 401 || res.status === 403) { window.location.href = '/'; return; }
+            const data = await res.json();
+
+            const sessions = data.total_sessions || 0;
+            const messages = data.total_messages || 0;
+            document.getElementById('stat-sessions').textContent = sessions;
+            document.getElementById('stat-messages').textContent = messages;
+            document.getElementById('stat-since').textContent = formatDate(data.first_session_date);
+            document.querySelectorAll('.stat-value').forEach(el => el.classList.remove('loading'));
+
+            const hasEnoughData = sessions >= MIN_SESSIONS && messages >= MIN_MESSAGES;
+            const noDataScreen = document.getElementById('no-data-screen');
+            const mainContent  = document.getElementById('main-dashboard-content');
+            if (hasEnoughData) {
+                noDataScreen.style.display = 'none';
+                mainContent.style.display  = 'block';
+            } else {
+                noDataScreen.style.display = 'flex';
+                mainContent.style.display  = 'none';
+                const sessionPct = Math.min(100, Math.round((sessions / MIN_SESSIONS) * 100));
+                const messagePct = Math.min(100, Math.round((messages / MIN_MESSAGES) * 100));
+                document.getElementById('no-data-progress-fill').style.width =
+                    Math.min(sessionPct, messagePct) + '%';
+                document.getElementById('no-data-progress-label').textContent =
+                    `${sessions} session${sessions !== 1 ? 's' : ''} · ${messages} message${messages !== 1 ? 's' : ''} so far — need ${MIN_SESSIONS} sessions & ${MIN_MESSAGES} messages`;
+            }
+
+            // Default date range on first load: first session → today
+            if (!defaultsApplied && data.first_session_date) {
+                defaultsApplied = true;
+                document.getElementById('filter-date-from').value = data.first_session_date;
+                document.getElementById('filter-date-to').value   = new Date().toISOString().slice(0, 10);
+                updateClearBtn();
+            }
+        } catch (_) {}
+    }
+
+    // ── Sentiment Intelligence ────────────────────────────────────────────────
+
+    const SENTIMENT_DIMS = [
+        { key: 'growth_mindset', label: 'Growth Mindset', desc: 'How you frame effort and setbacks', inverse: false, theme: 'growth',
+          interp: { high: 'You consistently treat challenges as chances to learn and keep improving.', mid: 'Growth framing shows up often, alongside moments where setbacks read as fixed limits.', low: 'Setbacks tend to be framed as limitations — reframing them as data to learn from could shift a lot.' } },
+        { key: 'job_satisfaction', label: 'Job Satisfaction', desc: 'Your sense of meaning and engagement at work', inverse: false, theme: 'growth',
+          interp: { high: 'Your language carries clear purpose, motivation, and fulfilment in your role.', mid: 'Engagement is there, but so are moments of questioning — worth exploring what drives each.', low: 'Your language suggests low engagement or doubts about role fit; a good topic to bring to Nexa.' } },
+        { key: 'self_confidence', label: 'Self-Confidence', desc: 'Belief in your ability to handle challenges', inverse: false, theme: 'interpersonal',
+          interp: { high: 'You write assertively and decisively — you trust your own judgement.', mid: 'Mostly steady self-belief, with occasional hedging or self-doubt.', low: 'Frequent hedging and self-doubt show up; naming specific wins can help rebuild the picture.' } },
+        { key: 'work_life_balance', label: 'Work-Life Balance', desc: 'How well you separate work from personal life', inverse: false, theme: 'wellbeing',
+          interp: { high: 'You describe clear boundaries and a healthy separation between work and life.', mid: 'Some boundaries are in place, though switching off seems difficult at times.', low: 'Your language points to consistent overextension — boundaries may be worth working on.' } },
+        { key: 'stress_anxiety', label: 'Stress & Anxiety', desc: 'Pressure, urgency, and overwhelm in your words', inverse: true, theme: 'wellbeing',
+          interp: { high: 'Your language reads calm and composed, with few urgency or pressure signals.', mid: 'Moderate stress signals — urgency and pressure surface across several conversations.', low: 'Strong stress signals: pressure and overwhelm run through much of your language.' } },
+        { key: 'frustration_disengagement', label: 'Frustration', desc: 'Cynicism, dismissiveness, or detachment', inverse: true, theme: 'wellbeing',
+          interp: { high: 'You stay engaged and constructive, with little cynicism in your language.', mid: 'Some frustration comes through — occasional cynicism or disconnection.', low: 'Marked frustration or withdrawal shows up; worth unpacking what sits underneath it.' } },
+        { key: 'psychological_safety', label: 'Openness', desc: 'How openly you discuss mistakes and doubts', inverse: false, theme: 'trust',
+          interp: { high: 'You share failures, fears, and uncertainties freely — that openness makes coaching work harder for you.', mid: 'You open up selectively; some vulnerability, some guardedness.', low: 'Your language stays guarded around failures and doubts — there is more to gain by going deeper.' } },
+        { key: 'empathy', label: 'Empathy', desc: "Attention to others' perspectives and emotions", inverse: false, theme: 'interpersonal',
+          interp: { high: 'You regularly take others\' perspectives and name their experience explicitly.', mid: 'Awareness of others is present, with room to deepen how you read the room.', low: 'Conversations centre mostly on you or the task; others\' feelings rarely feature.' } },
+    ];
+
+    const SENTIMENT_THEMES = [
+        { key: 'growth',        label: 'Growth & Development' },
+        { key: 'wellbeing',     label: 'Emotional Wellbeing' },
+        { key: 'trust',         label: 'Openness & Trust' },
+        { key: 'interpersonal', label: 'Interpersonal Awareness' },
+    ];
+
+    const BAND_COLORS = { 'score-green': '#10b981', 'score-amber': '#f59e0b', 'score-red': '#ef4444' };
+
+    const HEAT_META = {
+        growth_mindset:            { signal: { high: 'Strong',   mid: 'Developing', low: 'Limited'  }, icon: '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>' },
+        job_satisfaction:          { signal: { high: 'Strong',   mid: 'Moderate',   low: 'Low'      }, icon: '<rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>' },
+        self_confidence:           { signal: { high: 'Strong',   mid: 'Moderate',   low: 'Low'      }, icon: '<circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/>' },
+        work_life_balance:         { signal: { high: 'Healthy',  mid: 'Moderate',   low: 'Strained' }, icon: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>' },
+        stress_anxiety:            { signal: { high: 'Low',      mid: 'Moderate',   low: 'High'     }, icon: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>' },
+        frustration_disengagement: { signal: { high: 'Low',      mid: 'Moderate',   low: 'Elevated' }, icon: '<circle cx="12" cy="12" r="10"/><path d="M16 16s-1.5-2-4-2-4 2-4 2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/>' },
+        psychological_safety:      { signal: { high: 'Strong',   mid: 'Moderate',   low: 'Low'      }, icon: '<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>' },
+        empathy:                   { signal: { high: 'Strong',   mid: 'Moderate',   low: 'Low'      }, icon: '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>' },
+    };
+
+    const DIM_COLORS = {
+        growth_mindset:            '#6366f1',
+        job_satisfaction:          '#10b981',
+        self_confidence:           '#f59e0b',
+        work_life_balance:         '#3b82f6',
+        stress_anxiety:            '#ef4444',
+        frustration_disengagement: '#f97316',
+        psychological_safety:      '#8b5cf6',
+        empathy:                   '#ec4899',
+    };
+
+    function scoreClasses(score, inverse) {
+        const effective = inverse ? (100 - score) : score;
+        if (effective >= 65) return { num: 'score-green', fill: 'fill-green', card: 'card-green' };
+        if (effective >= 35) return { num: 'score-amber', fill: 'fill-amber', card: 'card-amber' };
+        return { num: 'score-red', fill: 'fill-red', card: 'card-red' };
+    }
+
+    // ── Trend modal ───────────────────────────────────────────────────────────
+    let currentSentimentData = null;
+
+    function renderTrendChart(trendData, color) {
+        if (!trendData || trendData.length < 2) {
+            return '<div style="text-align:center;color:#94a3b8;padding:32px 0;font-size:0.85rem;">Not enough history to show a trend yet.</div>';
+        }
+        const values = trendData.map(t => t.score);
+        const dates  = trendData.map(t => t.date);
+
+        const W = 580, H = 200, padL = 40, padR = 16, padT = 20, padB = 36;
+        const iW = W - padL - padR, iH = H - padT - padB;
+
+        const toX = i => padL + (i / (values.length - 1)) * iW;
+        const toY = v => padT + iH - (Math.max(0, Math.min(100, v)) / 100) * iH;
+
+        const gridLines = [0, 25, 50, 75, 100].map(v => {
+            const y = toY(v).toFixed(1);
+            return `<line x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}" stroke="rgba(0,0,0,0.07)" stroke-width="1"/>
+                    <text x="${padL - 6}" y="${y}" text-anchor="end" dominant-baseline="middle" font-size="10" fill="#94a3b8">${v}</text>`;
+        }).join('');
+
+        const step = Math.max(1, Math.ceil(dates.length / 6));
+        const dateLabels = dates.map((d, i) => {
+            if (i % step !== 0 && i !== dates.length - 1) return '';
+            const label = new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+            return `<text x="${toX(i).toFixed(1)}" y="${H - 8}" text-anchor="middle" font-size="10" fill="#94a3b8">${label}</text>`;
+        }).join('');
+
+        const pts  = values.map((v, i) => `${toX(i).toFixed(1)},${toY(v).toFixed(1)}`).join(' ');
+        const area = `M${toX(0).toFixed(1)},${padT + iH} ` +
+            values.map((v, i) => `L${toX(i).toFixed(1)},${toY(v).toFixed(1)}`).join(' ') +
+            ` L${toX(values.length - 1).toFixed(1)},${padT + iH} Z`;
+
+        const dots = values.map((v, i) => {
+            const isLast = i === values.length - 1;
+            const cx = toX(i).toFixed(1), cy = toY(v).toFixed(1);
+            const tip = isLast
+                ? `<text x="${cx}" y="${(+cy - 9).toFixed(1)}" text-anchor="middle" font-size="11" font-weight="600" fill="${color}">${v}</text>`
+                : '';
+            return `<circle cx="${cx}" cy="${cy}" r="${isLast ? 5 : 3.5}" fill="${color}" ${!isLast ? 'opacity="0.6"' : ''}/>` + tip;
+        }).join('');
+
+        return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;">
+            ${gridLines}
+            <path d="${area}" fill="${color}" opacity="0.08"/>
+            <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+            ${dots}
+            ${dateLabels}
+        </svg>`;
+    }
+
+    function openTrendModal(dimKey) {
+        if (!currentSentimentData) return;
+        const dim   = SENTIMENT_DIMS.find(d => d.key === dimKey);
+        const entry = currentSentimentData[dimKey];
+        if (!dim || !entry) return;
+
+        const score = Math.max(0, Math.min(100, entry.score || 0));
+        const cls   = scoreClasses(score, dim.inverse);
+        const color = BAND_COLORS[cls.num] || '#6366f1';
+
+        document.getElementById('trend-modal-title').textContent = dim.label;
+        document.getElementById('trend-modal-score').textContent = score;
+        document.getElementById('trend-modal-score').className = 'trend-modal-score-num ' + cls.num;
+
+        const trend = entry.trend || [];
+        const metaParts = [dim.desc];
+        if (trend.length >= 2) metaParts.push(`${trend[0].date} → ${trend[trend.length - 1].date}`);
+        document.getElementById('trend-modal-meta').textContent = metaParts.join('  ·  ');
+        document.getElementById('trend-modal-chart').innerHTML  = renderTrendChart(trend, color);
+        document.getElementById('trend-modal-insight').textContent = entry.insight || '';
+        document.getElementById('trend-modal').classList.add('open');
+    }
+
+    function closeTrendModal() {
+        document.getElementById('trend-modal').classList.remove('open');
+    }
+
+    document.getElementById('trend-modal-close').addEventListener('click', closeTrendModal);
+    document.getElementById('trend-modal').addEventListener('click', e => {
+        if (e.target === e.currentTarget) closeTrendModal();
+    });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeTrendModal(); });
+
+    let _comboMeta = null;
+
+    function renderTrendsSection(data) {
+        const wrap = document.getElementById('trends-wrap');
+        if (!wrap) return;
+
+        const dateSet = new Set();
+        SENTIMENT_DIMS.forEach(dim => {
+            const entry = data[dim.key];
+            if (entry && entry.trend) entry.trend.forEach(t => dateSet.add(t.date));
+        });
+        const sortedDates = [...dateSet].sort();
+        if (sortedDates.length < 2) { wrap.innerHTML = ''; return; }
+
+        const n = sortedDates.length;
+        const dateIdx = new Map(sortedDates.map((d, i) => [d, i]));
+
+        const W = 660, H = 260, padL = 36, padR = 12, padT = 16, padB = 32;
+        const iW = W - padL - padR, iH = H - padT - padB;
+        const toX = i => padL + (i / (n - 1)) * iW;
+        const toY = v => padT + iH - (Math.max(0, Math.min(100, v)) / 100) * iH;
+
+        const gridLines = [0, 25, 50, 75, 100].map(v => {
+            const y = toY(v).toFixed(1);
+            return `<line x1="${padL}" y1="${y}" x2="${padL + iW}" y2="${y}" stroke="rgba(0,0,0,0.06)" stroke-width="1"/>
+                    <text x="${padL - 6}" y="${y}" text-anchor="end" dominant-baseline="middle" font-size="10" fill="#94a3b8">${v}</text>`;
+        }).join('');
+
+        const step = Math.max(1, Math.ceil(n / 6));
+        const xLabels = sortedDates.map((d, i) => {
+            if (i % step !== 0 && i !== n - 1) return '';
+            const lbl = new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+            return `<text x="${toX(i).toFixed(1)}" y="${H - 8}" text-anchor="middle" font-size="10" fill="#94a3b8">${lbl}</text>`;
+        }).join('');
+
+        const lines = SENTIMENT_DIMS.map(dim => {
+            const entry = data[dim.key];
+            if (!entry || !entry.trend || entry.trend.length < 2) return '';
+            const color = DIM_COLORS[dim.key] || '#94a3b8';
+            const pts = entry.trend
+                .map(t => { const xi = dateIdx.get(t.date); return xi !== undefined ? `${toX(xi).toFixed(1)},${toY(t.score).toFixed(1)}` : null; })
+                .filter(Boolean).join(' ');
+            if (!pts) return '';
+            const last = entry.trend[entry.trend.length - 1];
+            const lxi  = dateIdx.get(last.date);
+            const dot  = lxi !== undefined ? `<circle cx="${toX(lxi).toFixed(1)}" cy="${toY(last.score).toFixed(1)}" r="4" fill="${color}"/>` : '';
+            return `<polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" opacity="0.85"/>${dot}`;
+        }).join('');
+
+        const svg = `<svg id="combo-svg" viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;cursor:crosshair;">
+            ${gridLines}${lines}${xLabels}
+            <g id="combo-hover-g" style="pointer-events:none;"></g>
+            <rect id="combo-hit" x="${padL}" y="${padT}" width="${iW}" height="${iH}" fill="transparent"/>
+        </svg>`;
+
+        const legendItems = SENTIMENT_DIMS.map(dim => {
+            const entry = data[dim.key];
+            if (!entry) return '';
+            const color = DIM_COLORS[dim.key] || '#94a3b8';
+            const score = Math.max(0, Math.min(100, entry.score || 0));
+            const cls = scoreClasses(score, dim.inverse);
+            return `<div class="combo-legend-item" data-dim-key="${dim.key}">
+                <span class="combo-legend-line" style="background:${color}"></span>
+                <span class="combo-legend-name">${dim.label}</span>
+                <span class="combo-legend-score ${cls.num}">${score}</span>
+            </div>`;
+        }).join('');
+
+        wrap.innerHTML = `<div class="combo-chart-card">
+            <div class="combo-chart-header">
+                <div class="heat-title-wrap">
+                    <span class="heat-num"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
+                    <h3>My Trend Over Time</h3>
+                </div>
+            </div>
+            <div class="combo-chart-body">
+                ${svg}
+                <div class="combo-tooltip" id="combo-tooltip"></div>
+            </div>
+            <div class="combo-legend">${legendItems}</div>
+        </div>`;
+
+        _comboMeta = {
+            dates: sortedDates, dateIdx, n,
+            W, H, padL, padR, padT, padB, iW, iH,
+            dims: SENTIMENT_DIMS.map(dim => {
+                const entry = data[dim.key];
+                if (!entry || !entry.trend) return null;
+                return { key: dim.key, label: dim.label, color: DIM_COLORS[dim.key] || '#94a3b8',
+                         scoreMap: new Map(entry.trend.map(t => [t.date, t.score])) };
+            }).filter(Boolean),
+        };
+
+        const hitRect = document.getElementById('combo-hit');
+        const svgEl   = document.getElementById('combo-svg');
+        const hoverG  = document.getElementById('combo-hover-g');
+        const tooltip = document.getElementById('combo-tooltip');
+        const body    = svgEl.closest('.combo-chart-body');
+
+        hitRect.addEventListener('mousemove', e => {
+            const m = _comboMeta;
+            const svgRect = svgEl.getBoundingClientRect();
+            const svgX = (e.clientX - svgRect.left) * (m.W / svgRect.width);
+            const xi = Math.round(Math.max(0, Math.min(m.n - 1, (svgX - m.padL) / m.iW * (m.n - 1))));
+            const date = m.dates[xi];
+            const cx = (m.padL + (xi / (m.n - 1)) * m.iW).toFixed(1);
+            const toYv = v => m.padT + m.iH - (Math.max(0, Math.min(100, v)) / 100) * m.iH;
+
+            const dots = m.dims.map(d => {
+                const s = d.scoreMap.get(date);
+                if (s === undefined) return '';
+                return `<circle cx="${cx}" cy="${toYv(s).toFixed(1)}" r="5" fill="${d.color}" stroke="white" stroke-width="2"/>`;
+            }).join('');
+
+            hoverG.innerHTML = `<line x1="${cx}" y1="${m.padT}" x2="${cx}" y2="${m.padT + m.iH}"
+                stroke="rgba(0,0,0,0.18)" stroke-width="1" stroke-dasharray="4,3"/>${dots}`;
+
+            const dateLabel = new Date(date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+            const rows = m.dims.map(d => {
+                const s = d.scoreMap.get(date);
+                if (s === undefined) return '';
+                return `<div class="combo-tooltip-row">
+                    <span class="combo-tooltip-swatch" style="background:${d.color}"></span>
+                    <span class="combo-tooltip-label">${d.label}</span>
+                    <span class="combo-tooltip-val">${s}</span>
+                </div>`;
+            }).filter(Boolean).join('');
+
+            tooltip.innerHTML = `<div class="combo-tooltip-date">${dateLabel}</div>${rows}`;
+
+            const bodyRect = body.getBoundingClientRect();
+            let tx = e.clientX - bodyRect.left + 14;
+            let ty = e.clientY - bodyRect.top  - 10;
+            if (tx + 210 > bodyRect.width) tx = e.clientX - bodyRect.left - 210;
+            tooltip.style.left = tx + 'px';
+            tooltip.style.top  = ty + 'px';
+            tooltip.style.display = 'block';
+        });
+
+        hitRect.addEventListener('mouseleave', () => {
+            hoverG.innerHTML = '';
+            tooltip.style.display = 'none';
+        });
+
+        wrap.querySelectorAll('.combo-legend-item[data-dim-key]').forEach(item => {
+            item.addEventListener('click', () => openTrendModal(item.dataset.dimKey));
+        });
+    }
+
+    function renderHeatAnalysis(data) {
+        const wrap = document.getElementById('heat-wrap');
+        if (!wrap || !data) return;
+
+        const rows = SENTIMENT_DIMS.map(dim => {
+            const entry = data[dim.key];
+            if (!entry) return '';
+            const score = Math.max(0, Math.min(100, entry.score || 0));
+            const cls = scoreClasses(score, dim.inverse);
+            const effective = dim.inverse ? (100 - score) : score;
+            const tier = effective >= 65 ? 'high' : effective >= 35 ? 'mid' : 'low';
+            const meta = HEAT_META[dim.key] || {};
+            const signalLabel = (meta.signal || {})[tier] || tier;
+            const svg = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${meta.icon || ''}</svg>`;
+            return `<div class="heat-row">
+                <div class="heat-row-icon">${svg}</div>
+                <div class="heat-row-label">${dim.label}</div>
+                <div class="heat-row-track"><div class="heat-row-fill ${cls.fill}" style="width:${score}%"></div></div>
+                <div class="heat-row-score">${score}</div>
+                <div class="heat-row-signal ${cls.num}">${signalLabel}</div>
+            </div>`;
+        }).join('');
+
+        wrap.innerHTML = `<div class="heat-card">
+            <div class="heat-card-header">
+                <div class="heat-title-wrap">
+                    <span class="heat-num"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="18" y="3" width="4" height="18"/><rect x="10" y="8" width="4" height="13"/><rect x="2" y="13" width="4" height="8"/></svg></span>
+                    <h3>My Sentiment Heat Analysis</h3>
+                </div>
+                <span class="heat-col-label">Signal</span>
+            </div>
+            <div class="heat-rows">${rows}</div>
+        </div>`;
+    }
+
+    function renderSentiment(data) {
+        currentSentimentData = data;
+        const grid = document.getElementById('sentiment-grid');
+        const hasDims = data && SENTIMENT_DIMS.some(d => data[d.key]);
+        if (!hasDims) {
+            grid.innerHTML = '<div class="sentiment-no-data">No insights yet — click Recalculate to analyse your conversations so far.</div>';
+            document.getElementById('heat-wrap').innerHTML = '';
+            document.getElementById('trends-wrap').innerHTML = '';
+            return;
+        }
+
+        const analyzed = data.messages_analyzed || 0;
+        const updatedEl = document.getElementById('sentiment-updated');
+        if (data.calculated_at) {
+            const d = new Date(data.calculated_at);
+            let meta = `Last calculated ${d.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' })}`;
+            if (analyzed) meta += ` · ${analyzed} of your messages`;
+            updatedEl.textContent = meta;
+        }
+
+        renderHeatAnalysis(data);
+        renderTrendsSection(data);
+
+        const GAUGE_COLORS = { 'score-green': '#10b981', 'score-amber': '#f59e0b', 'score-red': '#ef4444' };
+
+        function buildGauge(score, gc, inverse) {
+            const cx = 60, cy = 56, r = 46;
+            const arc = `M ${cx-r} ${cy} A ${r} ${r} 0 0 1 ${cx} ${cy-r} A ${r} ${r} 0 0 1 ${cx+r} ${cy}`;
+            const arcLen = Math.PI * r;
+            const rL   = (0.35 * arcLen).toFixed(2);
+            const aL   = (0.30 * arcLen).toFixed(2);
+            const gL   = (0.35 * arcLen).toFixed(2);
+            const aOff = (-0.35 * arcLen).toFixed(2);
+            const gOff = (-0.65 * arcLen).toFixed(2);
+            const na   = (score / 100) * 180;
+            const anV  = `0 ${cx} ${cy};${(na*1.13).toFixed(2)} ${cx} ${cy};${(na*0.92).toFixed(2)} ${cx} ${cy};${(na*1.04).toFixed(2)} ${cx} ${cy};${na.toFixed(2)} ${cx} ${cy}`;
+            const displayScore = (score / 10).toFixed(1);
+            const nLen = r - 10;
+            const uid  = Math.random().toString(36).slice(2, 7);
+
+            let ticks = '';
+            for (let i = 0; i <= 10; i++) {
+                const θ   = Math.PI * (1 - i / 10);
+                const cos = Math.cos(θ), sin = Math.sin(θ);
+                const major = i % 5 === 0;
+                const r1 = r + 7, r2 = major ? r - 9 : r - 3;
+                ticks += `<line x1="${(cx+r1*cos).toFixed(1)}" y1="${(cy-r1*sin).toFixed(1)}" x2="${(cx+r2*cos).toFixed(1)}" y2="${(cy-r2*sin).toFixed(1)}" stroke="rgba(255,255,255,${major ? 0.92 : 0.5})" stroke-width="${major ? 2.4 : 1}" stroke-linecap="round"/>`;
+            }
+
+            const ndl  = `M ${cx} ${cy-2.5} L ${(cx-nLen).toFixed(1)} ${cy} L ${cx} ${cy+2.5} L ${cx+5} ${cy+1.5} L ${cx+5} ${cy-1.5} Z`;
+            const anim = `<animateTransform attributeName="transform" type="rotate"
+                values="${anV}" keyTimes="0;0.55;0.73;0.88;1" calcMode="spline"
+                keySplines="0.25 0.1 0.25 1;0.4 0 0.6 1;0.4 0 0.6 1;0.4 0 0.6 1"
+                dur="1.9s" fill="freeze"/>`;
+
+            return `<svg viewBox="0 0 120 86" width="114" height="82" style="display:block;margin-left:auto;overflow:visible;">
+              <defs>
+                <filter id="ns${uid}" x="-200%" y="-200%" width="500%" height="500%">
+                  <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="rgba(0,0,0,0.45)"/>
+                </filter>
+                <filter id="gz${uid}" x="-25%" y="-25%" width="150%" height="150%">
+                  <feGaussianBlur stdDeviation="3" result="b"/>
+                  <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+                </filter>
+                <linearGradient id="ndg${uid}" x1="1" y1="0" x2="0" y2="0">
+                  <stop offset="0%"   stop-color="#64748b"/>
+                  <stop offset="55%"  stop-color="#1e293b"/>
+                  <stop offset="100%" stop-color="#cbd5e1"/>
+                </linearGradient>
+                <radialGradient id="cap${uid}" cx="38%" cy="32%" r="60%">
+                  <stop offset="0%"   stop-color="#475569"/>
+                  <stop offset="100%" stop-color="#0f172a"/>
+                </radialGradient>
+              </defs>
+
+              <path d="${arc}" fill="none" stroke="rgba(0,0,0,0.07)" stroke-width="22" stroke-linecap="round"/>
+              <path d="${arc}" fill="none" stroke="rgba(10,18,35,0.22)" stroke-width="14" stroke-linecap="round"/>
+
+              <path d="${arc}" fill="none" stroke="${inverse ? '#10b981' : '#ef4444'}" stroke-width="12" stroke-linecap="butt" stroke-dasharray="${rL} 1000" stroke-dashoffset="0"/>
+              <path d="${arc}" fill="none" stroke="#f59e0b" stroke-width="12" stroke-linecap="butt" stroke-dasharray="${aL} 1000" stroke-dashoffset="${aOff}"/>
+              <path d="${arc}" fill="none" stroke="${inverse ? '#ef4444' : '#10b981'}" stroke-width="12" stroke-linecap="butt" stroke-dasharray="${gL} 1000" stroke-dashoffset="${gOff}"/>
+
+              <path d="${arc}" fill="none" stroke="${inverse ? '#34d399' : '#ff6b6b'}" stroke-width="7" stroke-linecap="butt" stroke-dasharray="${rL} 1000" stroke-dashoffset="0"    opacity="0.45" filter="url(#gz${uid})"/>
+              <path d="${arc}" fill="none" stroke="#fbbf24" stroke-width="7" stroke-linecap="butt" stroke-dasharray="${aL} 1000" stroke-dashoffset="${aOff}" opacity="0.45" filter="url(#gz${uid})"/>
+              <path d="${arc}" fill="none" stroke="${inverse ? '#ff6b6b' : '#34d399'}" stroke-width="7" stroke-linecap="butt" stroke-dasharray="${gL} 1000" stroke-dashoffset="${gOff}" opacity="0.45" filter="url(#gz${uid})"/>
+
+              <path d="${arc}" fill="none" stroke="rgba(255,255,255,0.11)" stroke-width="5" stroke-linecap="round"/>
+
+              ${ticks}
+
+              <text x="${cx-r-10}" y="${cy+5}" text-anchor="middle" font-size="8.5" font-weight="600" fill="rgba(0,0,0,0.4)" font-family="system-ui,sans-serif">0</text>
+              <text x="${cx+r+10}" y="${cy+5}" text-anchor="middle" font-size="8.5" font-weight="600" fill="rgba(0,0,0,0.4)" font-family="system-ui,sans-serif">10</text>
+
+              <path d="${ndl}" fill="rgba(0,0,0,0.3)" filter="url(#ns${uid})">${anim}</path>
+              <path d="${ndl}" fill="url(#ndg${uid})">${anim}</path>
+
+              <circle cx="${cx}" cy="${cy}" r="10"  fill="url(#cap${uid})"/>
+              <circle cx="${cx}" cy="${cy}" r="7.5" fill="#1e293b"/>
+              <circle cx="${cx}" cy="${cy}" r="5.5" fill="#334155"/>
+              <circle cx="${cx}" cy="${cy}" r="3"   fill="#475569"/>
+              <circle cx="${cx-2}" cy="${cy-2.5}" r="1.8" fill="rgba(255,255,255,0.5)"/>
+
+              <text x="${cx}" y="${cy+22}" text-anchor="middle" font-size="15" font-weight="800"
+                    letter-spacing="-0.5" fill="${gc}" font-family="system-ui,sans-serif" opacity="0">
+                ${displayScore}
+                <animate attributeName="opacity" from="0" to="1" begin="1.3s" dur="0.55s" fill="freeze"/>
+              </text>
+            </svg>`;
+        }
+
+        function buildCard(dim, entry) {
+            const score = Math.max(0, Math.min(100, entry.score || 0));
+            const cls = scoreClasses(score, dim.inverse);
+            const effective = dim.inverse ? (100 - score) : score;
+            const tier = effective >= 70 ? 'high' : effective >= 40 ? 'mid' : 'low';
+            const interp = dim.interp ? dim.interp[tier] : '';
+            const gaugeColor = GAUGE_COLORS[cls.num];
+            return `<div class="sentiment-card ${cls.card}" data-dim-key="${dim.key}">
+                <div class="sentiment-card-header">
+                    <div>
+                        <div class="sentiment-label">${dim.label}</div>
+                        <div class="sentiment-desc">${dim.desc}</div>
+                    </div>
+                    <div class="sentiment-score-block">${buildGauge(score, gaugeColor, dim.inverse)}</div>
+                </div>
+                <div class="sentiment-insight">${escHtml(entry.insight || '')}</div>
+                ${interp ? `<div class="sentiment-score-meaning">${escHtml(interp)}</div>` : ''}
+            </div>`;
+        }
+
+        const groupHeader = label =>
+            `<div class="sentiment-group-label">
+                <span>${label}</span>
+                <span class="group-line"></span>
+            </div>`;
+
+        grid.innerHTML = SENTIMENT_THEMES.map(theme => {
+            const cards = SENTIMENT_DIMS
+                .filter(d => d.theme === theme.key)
+                .map(dim => { const entry = data[dim.key]; return entry ? buildCard(dim, entry) : ''; })
+                .join('');
+            return cards ? groupHeader(theme.label) + cards : '';
+        }).join('');
+
+        grid.onclick = e => {
+            const card = e.target.closest('.sentiment-card[data-dim-key]');
+            if (card) openTrendModal(card.dataset.dimKey);
+        };
+    }
+
+    async function loadSentiment() {
+        const params = getFilterParams();
+        const qs = params.toString() ? '?' + params.toString() : '';
+        try {
+            const res = await fetch('/api/my-sentiment' + qs, { headers: getAuthHeaders(), credentials: 'omit' });
+            if (res.status === 401 || res.status === 403) { window.location.href = '/'; return; }
+            if (!res.ok) return;
+            renderSentiment(await res.json());
+        } catch (_) {
+            document.getElementById('sentiment-grid').innerHTML =
+                '<div class="sentiment-no-data">Failed to load your insights. Please refresh.</div>';
+        }
+    }
+
+    function reloadAll() {
+        document.querySelectorAll('.stat-value').forEach(el => el.classList.add('loading'));
+        document.getElementById('sentiment-grid').innerHTML =
+            '<div class="sentiment-no-data"><div class="skeleton" style="width:200px; margin:0 auto;"></div></div>';
+        document.getElementById('heat-wrap').innerHTML = '';
+        document.getElementById('trends-wrap').innerHTML = '';
+        loadStats();
+        loadSentiment();
+    }
+
+    document.getElementById('filter-date-from').addEventListener('change', () => { updateClearBtn(); loadSentiment(); });
+    document.getElementById('filter-date-to').addEventListener('change',   () => { updateClearBtn(); loadSentiment(); });
+    document.getElementById('clear-dates-btn').addEventListener('click', () => {
+        document.getElementById('filter-date-from').value = '';
+        document.getElementById('filter-date-to').value = '';
+        updateClearBtn();
+        loadSentiment();
+    });
+
+    document.getElementById('sentiment-refresh-btn').addEventListener('click', async () => {
+        const btn = document.getElementById('sentiment-refresh-btn');
+        btn.disabled = true;
+        btn.textContent = 'Calculating…';
+        document.getElementById('sentiment-grid').innerHTML =
+            '<div class="sentiment-no-data"><div class="skeleton" style="width:220px; margin:0 auto;"></div></div>';
+        try {
+            const res = await fetch('/api/my-sentiment/refresh', { method: 'POST', headers: getAuthHeaders(), credentials: 'omit' });
+            const payload = await res.json();
+            if (payload.ok && payload.data) {
+                renderSentiment(payload.data);
+            } else {
+                document.getElementById('sentiment-grid').innerHTML =
+                    `<div class="sentiment-no-data">${escHtml(payload.error || 'Calculation failed. Try again later.')}</div>`;
+            }
+        } catch (_) {
+            document.getElementById('sentiment-grid').innerHTML =
+                '<div class="sentiment-no-data">Request failed. Please try again.</div>';
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Recalculate';
+        }
+    });
+
+    // Shared header — tabs, language picker, chip dropdown
+    NexaHeader.init();
+
+    // Smooth exit navigation — fade out then follow the link
+    function smoothNavTo(url) {
+        document.body.style.transition = 'opacity 0.18s ease';
+        document.body.style.opacity = '0';
+        setTimeout(() => { window.location.href = url; }, 190);
+    }
+    document.querySelectorAll('a[href="/"]').forEach(link => {
+        link.addEventListener('click', e => { e.preventDefault(); smoothNavTo('/'); });
+    });
+
+    loadStats();
+    loadSentiment();
+</script>
+</body>
+</html>
