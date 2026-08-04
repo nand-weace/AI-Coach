@@ -3,6 +3,7 @@ import re
 import time
 import uuid
 import logging
+import threading
 import requests as http_requests
 from functools import wraps
 from flask import Flask, request, jsonify, render_template, session, redirect, g
@@ -41,7 +42,11 @@ from database import (
     set_user_mode,
     get_user_additional_details,
     set_user_additional_details,
+    get_user_linkedin,
+    set_user_linkedin_url,
+    save_user_linkedin_profile,
 )
+import linkedin
 
 # Languages Nexa can coach in, as code -> (display label, name used in the prompt).
 # Keep in sync with the picker in static/script.js.
@@ -364,10 +369,31 @@ def _start_scheduler():
     from sentiment_job import run_sentiment_job
     scheduler = BackgroundScheduler(daemon=True)
     scheduler.add_job(run_sentiment_job, 'cron', hour=2, minute=0, id='sentiment_daily')
+    # Sweeps up users who have a LinkedIn URL but no scraped profile — see
+    # linkedin_job.py. Offset off the hour so it never starts alongside the
+    # sentiment run.
+    scheduler.add_job(_run_linkedin_backfill, 'cron', hour='*/4', minute=15,
+                      id='linkedin_backfill', max_instances=1, coalesce=True)
     scheduler.start()
     atexit.register(lambda: scheduler.shutdown())
-    print("Scheduler started: sentiment at 02:00 UTC.")
+    print("Scheduler started: sentiment at 02:00 UTC, LinkedIn backfill every 4h.")
     return scheduler
+
+
+def _run_linkedin_backfill(trigger: str = 'scheduled'):
+    """Run the backfill, telling it which users the app is already scraping.
+
+    Skipping `_linkedin_inflight` keeps the job from paying Mindcase a second
+    time for a scrape a login or an admin refresh already kicked off.
+    """
+    from linkedin_job import run_linkedin_backfill_job
+    result = run_linkedin_backfill_job(
+        skip_user_ids=set(_linkedin_inflight),
+        trigger=trigger,
+    )
+    # Enriched users must not keep serving the pre-scrape (empty) cache entry.
+    _linkedin_cache.clear()
+    return result
 
 
 if os.environ.get('ENABLE_SCHEDULER', 'true').lower() == 'true':
@@ -475,8 +501,162 @@ def _profile_directive(user_id: str | None, user_name: str, profile_context: dic
     return _profile_block(user_name, profile_context or _get_profile_context_cached(user_id))
 
 
-def _build_personalized_prompt(user_name: str, highlights: list, profile_context: dict = None) -> str:
-    prompt = SYSTEM_INSTRUCTION + _profile_block(user_name, profile_context)
+# --- LinkedIn enrichment -------------------------------------------------------
+#
+# The WeAce profile tells us who someone is on paper; their LinkedIn tells us the
+# arc — how they got here, what they've built, what they're publicly wrestling
+# with. Scraped once per user via Mindcase (see linkedin.py), stored in
+# user_settings, and folded into both the welcome message and every chat turn.
+
+# Heading the LinkedIn block is written under — also how /chat tells whether the
+# cached system prompt already carries it.
+_LINKEDIN_HEADER = 'LINKEDIN BACKGROUND FOR'
+
+_LINKEDIN_URL_RE = re.compile(r'https?://[^\s"\'<>]*linkedin\.com/in/[^\s"\'<>,]+', re.I)
+
+# A brand-new user's first welcome message is generated seconds after login,
+# normally before their first scrape has finished — so that one opener goes out
+# without LinkedIn context, and every session after it has it. Set this to a
+# number of seconds to hold session creation until the scrape lands and make even
+# the first opener LinkedIn-aware. 0 (the default) never delays login.
+LINKEDIN_WELCOME_WAIT = int(os.getenv('LINKEDIN_WELCOME_WAIT', '0'))
+
+
+def _extract_linkedin_url(profile: dict) -> str | None:
+    """Find the user's LinkedIn URL anywhere in the WeAce personal-info payload.
+
+    The field name isn't guaranteed across profile shapes, so rather than pinning
+    to one key this walks the payload for the first personal LinkedIn URL it
+    finds. Company pages (/company/...) are ignored by the pattern.
+    """
+    found = []
+
+    def walk(node, depth=0):
+        if found or depth > 6:
+            return
+        if isinstance(node, str):
+            match = _LINKEDIN_URL_RE.search(node)
+            if match:
+                found.append(match.group(0).rstrip('/'))
+        elif isinstance(node, dict):
+            for value in node.values():
+                walk(value, depth + 1)
+        elif isinstance(node, list):
+            for value in node[:50]:
+                walk(value, depth + 1)
+
+    walk(profile or {})
+    return found[0] if found else None
+
+
+def _scrape_linkedin(user_id: str, url: str):
+    """Scrape a profile and store it. Blocking — always call this on a
+    background thread."""
+    logger.info("[linkedin] scrape starting for user_id=%s url=%s", user_id, url)
+    t0 = time.perf_counter()
+    try:
+        profile = linkedin.fetch_profile(url)
+        saved = save_user_linkedin_profile(user_id, profile)
+        logger.info("[linkedin] scrape %s for user_id=%s in %s",
+                    'ok' if saved else 'empty', user_id, _elapsed(t0))
+    except Exception as e:
+        logger.error("[linkedin] scrape failed for user_id=%s: %s", user_id, e)
+    finally:
+        _linkedin_cache.pop(user_id, None)
+        _linkedin_inflight.discard(user_id)
+
+
+# Guards against two concurrent logins both paying for the same scrape.
+_linkedin_inflight: set = set()
+_linkedin_inflight_lock = threading.Lock()
+
+
+def _kickoff_linkedin_scrape(user_id: str, url: str, force: bool = False):
+    """Start a background scrape when this user has no LinkedIn data yet.
+
+    Data is fetched once and then reused — an admin can force a re-scrape from
+    the admin panel. Returns the running thread, or None if nothing was started.
+
+    A stored profile is the only record that a scrape ever ran, so a URL that
+    never resolves is retried on each login rather than being given up on.
+    """
+    if not user_id or not url or not linkedin.is_configured():
+        return None
+    try:
+        stored = get_user_linkedin(user_id)
+    except Exception as e:
+        logger.error("[linkedin] could not read stored data for user_id=%s: %s", user_id, e)
+        return None
+    if not force and stored.get('profile'):
+        return None
+
+    with _linkedin_inflight_lock:
+        if user_id in _linkedin_inflight:
+            return None
+        _linkedin_inflight.add(user_id)
+    thread = threading.Thread(target=_scrape_linkedin, args=(user_id, url),
+                              name=f'linkedin-{user_id[:8]}', daemon=True)
+    thread.start()
+    return thread
+
+
+# Scraped once and rarely changing, but /chat needs it every turn — cache it the
+# same way as the profile and admin notes.
+_LINKEDIN_TTL = 300  # seconds
+_linkedin_cache: dict = {}  # user_id -> (expires_at, data)
+
+
+def _get_linkedin_cached(user_id: str | None) -> dict:
+    if not user_id:
+        return {}
+    now = time.time()
+    cached = _linkedin_cache.get(user_id)
+    if cached and cached[0] > now:
+        return cached[1]
+    try:
+        data = get_user_linkedin(user_id) or {}
+    except Exception as e:
+        logger.error("[linkedin] fetch failed for user_id=%s: %s", user_id, e)
+        return cached[1] if cached else {}
+    _linkedin_cache[user_id] = (now + _LINKEDIN_TTL, data)
+    return data
+
+
+def _linkedin_block(user_name: str, data: dict) -> str:
+    """Scraped LinkedIn profile as a system-prompt block.
+
+    Empty string until a scrape has actually landed something.
+    """
+    if not data:
+        return ''
+    summary = linkedin.profile_summary(data.get('profile') or {})
+    if not summary:
+        return ''
+
+    block = f"\n\n---\n{_LINKEDIN_HEADER} {user_name.upper()}:\n"
+    block += "Public LinkedIn data for this person.\n"
+    block += f"\n{summary}\n"
+    block += (
+        "---\n"
+        "Use this to coach them as someone whose career you already understand — "
+        "their trajectory, the scale they operate at, the transitions they've made, "
+        "and what they're publicly focused on right now. Ground your advice in it. "
+        "Never recite it back, list it out, flatter them about it, or say you looked "
+        "them up; it's public information you simply know. If they contradict it, "
+        "believe them over this — it may be out of date."
+    )
+    return block
+
+
+def _linkedin_directive(user_id: str | None, user_name: str) -> str:
+    """LinkedIn block for a single request, read from storage."""
+    return _linkedin_block(user_name, _get_linkedin_cached(user_id))
+
+
+def _build_personalized_prompt(user_name: str, highlights: list, profile_context: dict = None,
+                               user_id: str = None) -> str:
+    prompt = SYSTEM_INSTRUCTION + _profile_block(user_name, profile_context) \
+        + _linkedin_directive(user_id, user_name)
 
     if not highlights:
         return prompt
@@ -503,7 +683,7 @@ def _get_or_rebuild_history(session_uuid: str, user_id: str, user_name: str,
         return sessions_cache[session_uuid]
     highlights = get_session_highlights(user_id)
     ctx = profile_context or _get_profile_context_cached(user_id)
-    prompt = _build_personalized_prompt(user_name, highlights, ctx)
+    prompt = _build_personalized_prompt(user_name, highlights, ctx, user_id)
     history = [{"role": "system", "content": prompt}]
     sessions_cache[session_uuid] = history
     return history
@@ -535,8 +715,9 @@ def _generate_welcome(user_name: str, highlights: list, profile_context: dict = 
     if client is None:
         return fallback_msg, []
 
-    system_content = _build_personalized_prompt(user_name, highlights, profile_context)
+    system_content = _build_personalized_prompt(user_name, highlights, profile_context, user_id)
     details = _get_user_details_cached(user_id)
+    has_linkedin = bool(_linkedin_directive(user_id, user_name))
     system_content += _user_details_directive(user_id) + _mode_directive(mode) \
         + _language_directive(language)
     if returning and highlights:
@@ -554,6 +735,20 @@ def _generate_welcome(user_name: str, highlights: list, profile_context: dict = 
             "Briefly introduce yourself as Nexa and what you help with, in 2-3 warm, concise "
             "sentences. Then include 2-3 tappable starter nudges in the [[SUGGESTIONS]] block, "
             "phrased from the user's point of view, to help them begin."
+        )
+
+    # Their LinkedIn is usually the richest thing we have on a first-time user —
+    # it's what turns a generic hello into an opener that lands.
+    if has_linkedin:
+        instruction += (
+            " You have this person's public LinkedIn background in context. Use it to make "
+            "this opener specific to them. Anchor on one concrete thing from their career — "
+            "the scale of what they run now, a transition they've made, the shift between "
+            "their last role and this one, or something they've recently posted about — and "
+            "open on that. Do not summarise their career, list their roles or achievements "
+            "back at them, compliment their CV, or hint that you looked them up. Make the "
+            "suggested nudges specific to where they actually are in their career, not "
+            "generic coaching topics."
         )
 
     # When an admin has recorded background on this user, the opening line should
@@ -727,6 +922,21 @@ def create_session():
         'industry_types': industry_types,
     }
 
+    # Public LinkedIn background, scraped once per user and then reused from the
+    # database. Kicked off here — as early as the user id is known — so it has the
+    # longest possible head start on the welcome message.
+    linkedin_thread = None
+    try:
+        linkedin_url = _extract_linkedin_url(profile)
+        logger.info("[linkedin] user_id=%s linkedin_url=%s", user_id, linkedin_url or 'none')
+        if linkedin_url and set_user_linkedin_url(user_id, linkedin_url):
+            _linkedin_cache.pop(user_id, None)  # URL changed — drop the stale block
+        linkedin_thread = _kickoff_linkedin_scrape(user_id, linkedin_url)
+        if linkedin_thread:
+            logger.info("[linkedin] background scrape started for user_id=%s", user_id)
+    except Exception as e:
+        logger.error("[linkedin] setup failed for user_id=%s: %s", user_id, e)
+
     try:
         t0 = time.perf_counter()
         returning = has_previous_sessions(user_id)
@@ -754,11 +964,19 @@ def create_session():
             logger.info("[create_session] chat session created: session_uuid=%s user_id=%s returning=%s",
                         session_uuid, user_id, returning)
 
+        # Optionally hold here so a first-ever session still opens with LinkedIn
+        # context, at the cost of a slower login. Off unless configured.
+        if linkedin_thread and LINKEDIN_WELCOME_WAIT > 0:
+            t0 = time.perf_counter()
+            linkedin_thread.join(timeout=LINKEDIN_WELCOME_WAIT)
+            logger.info("[linkedin] waited %s for the scrape (finished=%s)",
+                        _elapsed(t0), not linkedin_thread.is_alive())
+
         # A resumed session keeps whatever context is already cached; only seed
         # the prompt when there's nothing to carry over (new session, or the
         # cache was lost to a restart).
         if session_uuid not in sessions_cache:
-            prompt = _build_personalized_prompt(user_name, highlights, profile_context)
+            prompt = _build_personalized_prompt(user_name, highlights, profile_context, user_id)
             sessions_cache[session_uuid] = [{"role": "system", "content": prompt}]
             logger.info("[create_session] seeded system prompt: session_uuid=%s prompt_chars=%s "
                         "cached_sessions=%s", session_uuid, len(prompt), len(sessions_cache))
@@ -1335,6 +1553,12 @@ def chat():
         if _PROFILE_HEADER not in system_content:
             system_content += _profile_directive(user_id, user_name, profile_context)
 
+        # Same for LinkedIn. The scrape runs in the background after login, so on
+        # a user's first session it usually lands *after* the prompt was cached —
+        # this is what folds it in from the next message onward.
+        if _LINKEDIN_HEADER not in system_content:
+            system_content += _linkedin_directive(user_id, user_name)
+
         system_content += _user_details_directive(user_id) \
           + _org_content_directive(g.user.get('org_id')) \
           + _mode_directive(mode) \
@@ -1624,6 +1848,134 @@ def admin_users():
         return jsonify({'error': str(e)}), 500
 
 
+def _authorise_admin_target(target_id: str):
+    """Check the calling admin may act on `target_id`.
+
+    Returns (identity, None) when allowed, or (None, error_response) to return.
+    Corporate super admins are limited to users in their own organisation.
+    """
+    identity = get_user_identity(target_id)
+    if not identity:
+        return None, (jsonify({'error': 'User not found'}), 404)
+    if not _has_role(g.user.get('role'), 'weace_super_admin'):
+        admin_org = (g.user.get('org_id') or '').strip()
+        if not admin_org or (identity.get('org_id') or '').strip() != admin_org:
+            return None, (jsonify({'error': 'Forbidden'}), 403)
+    return identity, None
+
+
+def _linkedin_admin_state(user_id: str) -> dict:
+    """What the admin panel shows about a user's LinkedIn enrichment: the URL,
+    whether a profile has landed, and enough of it to confirm it's the right
+    person."""
+    data = _get_linkedin_cached(user_id)
+    profile = data.get('profile') or {}
+    if user_id in _linkedin_inflight:
+        status = 'pending'
+    else:
+        status = 'ok' if profile else None
+    return {
+        'configured': linkedin.is_configured(),
+        'url': data.get('url'),
+        'status': status,
+        'headline': (profile.get('headline') or '').strip() or None,
+        'name': ' '.join(p for p in [(profile.get('firstName') or '').strip(),
+                                     (profile.get('lastName') or '').strip()] if p) or None,
+    }
+
+
+@app.route('/api/admin/user-linkedin/refresh', methods=['POST'])
+@require_weace_token
+def admin_refresh_linkedin():
+    """Force a re-scrape of one user's LinkedIn data.
+
+    LinkedIn is otherwise scraped exactly once per user, so this is how an admin
+    picks up a job change or retries a scrape that came back empty.
+    """
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    if not _has_role(g.user.get('role'), 'corporate_super_admin', 'weace_super_admin'):
+        return jsonify({'error': 'Forbidden'}), 403
+
+    body = request.json or {}
+    target_id = (body.get('user_id') or '').strip()
+    if not target_id:
+        return jsonify({'error': 'user_id is required'}), 400
+
+    identity, error = _authorise_admin_target(target_id)
+    if error:
+        return error
+
+    if not linkedin.is_configured():
+        return jsonify({'error': 'LinkedIn enrichment is not configured (MINDCASE_API_KEY)'}), 503
+
+    # An admin can also correct the URL here, for users whose WeAce profile
+    # doesn't carry one or carries the wrong one.
+    url = (body.get('linkedin_url') or '').strip()
+    if url:
+        if not _LINKEDIN_URL_RE.match(url):
+            return jsonify({'error': 'Not a valid LinkedIn profile URL'}), 400
+        set_user_linkedin_url(target_id, url)
+        _linkedin_cache.pop(target_id, None)
+    else:
+        url = (_get_linkedin_cached(target_id) or {}).get('url')
+    if not url:
+        return jsonify({'error': 'No LinkedIn URL on file for this user'}), 400
+
+    started = _kickoff_linkedin_scrape(target_id, url, force=True)
+    logger.info("[linkedin] admin user_id=%s triggered a refresh for user_id=%s (started=%s)",
+                g.user.get('user_id'), target_id, bool(started))
+    if not started:
+        return jsonify({'error': 'A scrape is already running for this user'}), 409
+    return jsonify({'ok': True, 'user_id': target_id, 'linkedin_url': url, 'status': 'pending'})
+
+
+@app.route('/api/admin/linkedin-backfill', methods=['GET'])
+@require_weace_token
+def admin_linkedin_backfill_status():
+    """Backlog size and last-run result for the LinkedIn enrichment job."""
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    if not _has_role(g.user.get('role'), 'weace_super_admin'):
+        return jsonify({'error': 'Forbidden'}), 403
+    try:
+        from linkedin_job import job_status
+        return jsonify(job_status())
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/admin/linkedin-backfill/run', methods=['POST'])
+@require_weace_token
+def admin_linkedin_backfill_run():
+    """Run the LinkedIn backfill now, instead of waiting for the 4-hourly run.
+
+    weace_super_admin only — it works across every organisation. Runs on a
+    background thread and returns immediately; the panel polls the GET above for
+    the result.
+    """
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    if not _has_role(g.user.get('role'), 'weace_super_admin'):
+        return jsonify({'error': 'Forbidden'}), 403
+
+    from linkedin_job import is_running, job_status
+
+    if not linkedin.is_configured():
+        return jsonify({'error': 'LinkedIn enrichment is not configured (MINDCASE_API_KEY)'}), 503
+    if is_running():
+        return jsonify({'error': 'A backfill is already running'}), 409
+
+    threading.Thread(
+        target=_run_linkedin_backfill,
+        kwargs={'trigger': 'manual'},
+        name='linkedin-backfill', daemon=True,
+    ).start()
+
+    logger.info("[linkedin-job] manual run triggered by user_id=%s", g.user.get('user_id'))
+    return jsonify({'ok': True, 'started': True, **job_status(), 'running': True})
+
+
 @app.route('/api/admin/user-details', methods=['GET', 'POST'])
 @require_weace_token
 def admin_user_details():
@@ -1644,17 +1996,14 @@ def admin_user_details():
     if not target_id:
         return jsonify({'error': 'user_id is required'}), 400
 
-    identity = get_user_identity(target_id)
-    if not identity:
-        return jsonify({'error': 'User not found'}), 404
-    if not _has_role(g.user.get('role'), 'weace_super_admin'):
-        admin_org = (g.user.get('org_id') or '').strip()
-        if not admin_org or (identity.get('org_id') or '').strip() != admin_org:
-            return jsonify({'error': 'Forbidden'}), 403
+    identity, error = _authorise_admin_target(target_id)
+    if error:
+        return error
 
     if request.method == 'GET':
         return jsonify({'user_id': target_id,
-                        'additional_details': get_user_additional_details(target_id) or ''})
+                        'additional_details': get_user_additional_details(target_id) or '',
+                        'linkedin': _linkedin_admin_state(target_id)})
 
     details = ((request.json or {}).get('additional_details') or '').strip()
     if len(details) > 20000:

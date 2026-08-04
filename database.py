@@ -226,6 +226,12 @@ def init_db():
                 # Free-text background an admin maintains about the user; fed into
                 # Nexa's system prompt so coaching is grounded in their situation.
                 ('additional_details', 'TEXT DEFAULT NULL AFTER language'),
+                # Public LinkedIn data, scraped once via Mindcase and reused from
+                # here. linkedin_url comes off the WeAce profile; linkedin_profile
+                # is the raw scraped row. A row with a URL but no profile is the
+                # backlog the enrichment job works through.
+                ('linkedin_url',         'VARCHAR(512) DEFAULT NULL AFTER additional_details'),
+                ('linkedin_profile',     'LONGTEXT DEFAULT NULL AFTER linkedin_url'),
             ]:
                 _execute(cur,
                     "SELECT COUNT(*) AS cnt FROM information_schema.COLUMNS "
@@ -247,6 +253,17 @@ def init_db():
                               "CHANGE COLUMN nexa_access nexa_access_cached TINYINT(1) DEFAULT 0")
             elif 'nexa_access' in _nexa_cols:
                 _execute(cur, "ALTER TABLE user_settings DROP COLUMN nexa_access")
+
+            # LinkedIn enrichment is now just the URL and the scraped profile.
+            # Recent posts, the last attempt's status and its timestamp were
+            # dropped — presence of linkedin_profile is the only state kept.
+            _execute(cur,
+                "SELECT COLUMN_NAME FROM information_schema.COLUMNS "
+                "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'user_settings' "
+                "AND COLUMN_NAME IN ('linkedin_posts', 'linkedin_status', 'linkedin_fetched_at')"
+            )
+            for _col in {r['COLUMN_NAME'] for r in cur.fetchall()}:
+                _execute(cur, f"ALTER TABLE user_settings DROP COLUMN {_col}")
 
             # Backfill access_last_date for existing rows that predate this column
             _execute(cur,
@@ -894,6 +911,157 @@ def set_user_additional_details(user_id: str, details: str):
                 (user_id, details or None),
             )
         conn.commit()
+    finally:
+        conn.close()
+
+
+def get_user_linkedin(user_id: str) -> dict:
+    """Stored LinkedIn data for a user: the profile URL and the scraped profile
+    (decoded from JSON).
+
+    Returns {} when the user has no settings row yet.
+    """
+    if not user_id:
+        return {}
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur,
+                "SELECT linkedin_url, linkedin_profile "
+                "FROM user_settings WHERE user_id = %s",
+                (user_id,),
+            )
+            row = cur.fetchone()
+        if not row:
+            return {}
+        profile = {}
+        if row['linkedin_profile']:
+            try:
+                profile = json.loads(row['linkedin_profile']) or {}
+            except (json.JSONDecodeError, ValueError):
+                profile = {}
+        return {
+            'url': row['linkedin_url'] or None,
+            'profile': profile if isinstance(profile, dict) else {},
+        }
+    finally:
+        conn.close()
+
+
+def set_user_linkedin_url(user_id: str, url: str) -> bool:
+    """Record the user's LinkedIn URL. Returns True when it changed.
+
+    A changed URL clears the scraped data, since it now describes someone else.
+    """
+    if not user_id:
+        return False
+    url = (url or '').strip() or None
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur, "SELECT linkedin_url FROM user_settings WHERE user_id = %s", (user_id,))
+            row = cur.fetchone()
+            if row and (row['linkedin_url'] or None) == url:
+                return False
+            _execute(cur,
+                """
+                INSERT INTO user_settings (user_id, linkedin_url)
+                VALUES (%s, %s)
+                ON DUPLICATE KEY UPDATE
+                    linkedin_url = VALUES(linkedin_url),
+                    linkedin_profile = NULL
+                """,
+                (user_id, url),
+            )
+        conn.commit()
+        return True
+    finally:
+        conn.close()
+
+
+def save_user_linkedin_profile(user_id: str, profile: dict) -> bool:
+    """Store a scraped profile. Returns True when something was written.
+
+    A scrape that came back with nothing writes nothing, so a failed re-scrape
+    keeps whatever was already working. With no status column there is no record
+    of the attempt either — the user simply stays in the enrichment backlog.
+    """
+    if not user_id or not profile:
+        return False
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur,
+                """
+                INSERT INTO user_settings (user_id, linkedin_profile)
+                VALUES (%s, %s)
+                ON DUPLICATE KEY UPDATE linkedin_profile = VALUES(linkedin_profile)
+                """,
+                (user_id, json.dumps(profile)),
+            )
+        conn.commit()
+        return True
+    finally:
+        conn.close()
+
+
+def get_users_pending_linkedin(limit: int = 100) -> list:
+    """Users who have a LinkedIn URL on file but no scraped profile yet.
+
+    This is the backlog the enrichment job works through: a URL was recorded at
+    login (or by an admin) but the scrape never ran, came back empty, or failed.
+    Since no attempt is recorded anywhere, a profile that never resolves stays in
+    this list and is retried on every run.
+
+    Most recently active users first — they are the ones about to be coached.
+    """
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur,
+                "SELECT us.user_id, us.linkedin_url, us.first_name, us.last_name, us.email "
+                "FROM user_settings us "
+                "WHERE us.linkedin_url IS NOT NULL AND TRIM(us.linkedin_url) <> '' "
+                "AND (us.linkedin_profile IS NULL OR TRIM(us.linkedin_profile) IN ('', '{}', 'null')) "
+                "ORDER BY us.last_login DESC LIMIT %s",
+                (int(limit),),
+            )
+            rows = cur.fetchall() or []
+        return [{
+            'user_id': r['user_id'],
+            'linkedin_url': (r['linkedin_url'] or '').strip(),
+            'name': ' '.join(p for p in [(r['first_name'] or '').strip(),
+                                         (r['last_name'] or '').strip()] if p) or None,
+            'email': r['email'] or None,
+        } for r in rows]
+    finally:
+        conn.close()
+
+
+def count_users_pending_linkedin() -> dict:
+    """Counts for the admin panel: how many users have a URL, how many of those
+    are still missing a scraped profile, and how many are enriched."""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur,
+                """
+                SELECT
+                    SUM(linkedin_url IS NOT NULL AND TRIM(linkedin_url) <> '') AS with_url,
+                    SUM(linkedin_url IS NOT NULL AND TRIM(linkedin_url) <> ''
+                        AND (linkedin_profile IS NULL
+                             OR TRIM(linkedin_profile) IN ('', '{}', 'null'))) AS pending,
+                    SUM(linkedin_profile IS NOT NULL
+                        AND TRIM(linkedin_profile) NOT IN ('', '{}', 'null')) AS enriched
+                FROM user_settings
+                """,
+            )
+            row = cur.fetchone() or {}
+        return {
+            'with_url': int(row.get('with_url') or 0),
+            'pending': int(row.get('pending') or 0),
+            'enriched': int(row.get('enriched') or 0),
+        }
     finally:
         conn.close()
 

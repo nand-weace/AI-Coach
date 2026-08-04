@@ -341,6 +341,31 @@
         .details-save:hover { opacity: 0.88; }
         .details-save:disabled { opacity: 0.5; cursor: default; }
 
+        /* ── LinkedIn enrichment panel in the details modal ── */
+        .li-panel { margin-top: 20px; padding-top: 16px; border-top: 1px solid rgba(0,0,0,0.08); }
+        .li-panel-title { font-size: 0.82rem; font-weight: 600; color: var(--text-main); }
+        .li-panel-note { font-size: 0.78rem; color: var(--text-muted); line-height: 1.55; margin-top: 6px; }
+        .li-panel-row { display: flex; gap: 10px; align-items: center; margin-top: 10px; }
+        .li-url {
+            flex: 1; border: 1px solid rgba(0,0,0,0.12); border-radius: 10px;
+            padding: 8px 12px; font-family: inherit; font-size: 0.8rem;
+            color: var(--text-main); background: #fff; outline: none;
+        }
+        .li-url:focus { border-color: rgba(15,23,42,0.35); }
+        #li-status { margin-top: 8px; }
+
+        /* ── LinkedIn backfill job card ── */
+        .lij-card {
+            background: #fff; border-radius: 14px; padding: 16px 18px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06); margin-bottom: 22px;
+        }
+        .lij-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+        .lij-counts { display: flex; gap: 22px; flex-wrap: wrap; margin-right: auto; }
+        .lij-count-label { font-size: 0.7rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); }
+        .lij-count-value { font-size: 1.25rem; font-weight: 600; color: var(--text-main); margin-top: 2px; }
+        .lij-note { font-size: 0.78rem; color: var(--text-muted); line-height: 1.55; margin-top: 12px; }
+        .lij-note.error { color: #dc2626; }
+
         .sentiment-card { cursor: pointer; transition: box-shadow 0.18s, transform 0.18s; }
         .sentiment-card:hover { box-shadow: 0 4px 24px rgba(0,0,0,0.10); transform: translateY(-1px); }
         .sentiment-score-meaning { font-size: 0.80rem; color: var(--text-muted); line-height: 1.55; margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(0,0,0,0.06); }
@@ -536,6 +561,37 @@
         </div>
     </div>
 
+    <!-- ── LinkedIn enrichment job ── -->
+    <div class="section-row">
+        <div>
+            <h3>LinkedIn Enrichment</h3>
+            <p>Scrapes users who have a LinkedIn URL on file but no profile yet — runs automatically every 4 hours</p>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px; flex-shrink:0; flex-wrap:wrap;">
+            <span class="section-meta" id="lij-updated"></span>
+            <button class="refresh-btn" id="lij-run-btn">Run now</button>
+        </div>
+    </div>
+    <div class="lij-card">
+        <div class="lij-row">
+            <div class="lij-counts">
+                <div>
+                    <div class="lij-count-label">Pending</div>
+                    <div class="lij-count-value" id="lij-pending">—</div>
+                </div>
+                <div>
+                    <div class="lij-count-label">Enriched</div>
+                    <div class="lij-count-value" id="lij-enriched">—</div>
+                </div>
+                <div>
+                    <div class="lij-count-label">With URL</div>
+                    <div class="lij-count-value" id="lij-with-url">—</div>
+                </div>
+            </div>
+        </div>
+        <div class="lij-note" id="lij-note">Loading…</div>
+    </div>
+
     <!-- ── Sentiment Intelligence ── -->
     <div class="section-row">
         <div>
@@ -592,6 +648,16 @@
         <div class="details-actions">
             <span class="details-status" id="details-status"></span>
             <button class="details-save" id="details-save">Save</button>
+        </div>
+        <div class="li-panel">
+            <div class="li-panel-title">LinkedIn background</div>
+            <div class="li-panel-note" id="li-summary">Loading…</div>
+            <div class="li-panel-row">
+                <input type="text" class="li-url" id="li-url"
+                       placeholder="https://www.linkedin.com/in/…">
+                <button class="details-save" id="li-refresh">Refresh</button>
+            </div>
+            <div class="details-status" id="li-status"></div>
         </div>
     </div>
 </div>
@@ -701,9 +767,66 @@
         detailsUserId = null;
     }
 
+    // LinkedIn is scraped once per user off their WeAce profile URL. This panel
+    // shows what landed and lets an admin fix the URL or force a re-scrape.
+    const liSummary = document.getElementById('li-summary');
+    const liUrl     = document.getElementById('li-url');
+    const liRefresh = document.getElementById('li-refresh');
+    const liStatus  = document.getElementById('li-status');
+
+    function setLiStatus(msg, isError) {
+        liStatus.textContent = msg || '';
+        liStatus.classList.toggle('error', !!isError);
+    }
+
+    function renderLinkedIn(li) {
+        liUrl.value = li.url || '';
+        liRefresh.disabled = !li.configured;
+        if (!li.configured) {
+            liSummary.textContent = 'Not configured — set MINDCASE_API_KEY to enable LinkedIn enrichment.';
+            return;
+        }
+        if (li.status === 'ok') {
+            liSummary.textContent =
+                [li.name, li.headline].filter(Boolean).join(' — ') || 'Profile on file.';
+        } else if (li.status === 'pending') {
+            liSummary.textContent = 'Scrape in progress — reopen this in a minute to see the result.';
+        } else if (li.url) {
+            liSummary.textContent = 'No profile stored yet — it retries on their next login and on the 4-hourly job.';
+        } else {
+            liSummary.textContent = 'No LinkedIn URL found on their WeAce profile. Add one below to enrich them.';
+        }
+    }
+
+    liRefresh.addEventListener('click', async () => {
+        if (!detailsUserId) return;
+        const userId = detailsUserId;
+        liRefresh.disabled = true;
+        setLiStatus('Starting…');
+        try {
+            const res = await fetch('/api/admin/user-linkedin/refresh', {
+                method: 'POST',
+                headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+                body: JSON.stringify({ user_id: userId, linkedin_url: liUrl.value.trim() }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to start');
+            setLiStatus('Scraping — this takes up to a minute.');
+            liSummary.textContent = 'Scrape in progress — reopen this in a minute to see the result.';
+        } catch (err) {
+            setLiStatus(err.message || 'Failed to start scrape', true);
+        } finally {
+            if (detailsUserId === userId) liRefresh.disabled = false;
+        }
+    });
+
     async function openDetailsModal(userId) {
         const user = allUsers.find(u => u.user_id === userId) || {};
         detailsUserId = userId;
+        liUrl.value = '';
+        liSummary.textContent = 'Loading…';
+        liRefresh.disabled = true;
+        setLiStatus('');
         document.getElementById('details-modal-meta').textContent =
             [user.user_name, user.email].filter(Boolean).join(' · ') || userId;
         detailsTextarea.value = user.additional_details || '';
@@ -719,6 +842,7 @@
             if (!res.ok) throw new Error(data.error || 'Failed to load');
             if (detailsUserId !== userId) return;  // modal moved on while loading
             detailsTextarea.value = data.additional_details || '';
+            renderLinkedIn(data.linkedin || {});
             setDetailsStatus('');
         } catch (err) {
             setDetailsStatus(err.message || 'Failed to load details', true);
@@ -1524,9 +1648,88 @@
         }
     });
 
+    // ── LinkedIn enrichment job ──────────────────────────────────────────────
+    // The job runs itself every 4 hours; this is the manual control and the
+    // window onto the backlog. While a run is in flight we poll so the counts
+    // and the last-run line settle without a page refresh.
+    const lijRunBtn  = document.getElementById('lij-run-btn');
+    const lijNote    = document.getElementById('lij-note');
+    const lijUpdated = document.getElementById('lij-updated');
+    let lijPollTimer = null;
+
+    function lijSetNote(msg, isError) {
+        lijNote.textContent = msg || '';
+        lijNote.classList.toggle('error', !!isError);
+    }
+
+    function lijDescribeRun(run) {
+        if (!run) return 'No run recorded yet on this server.';
+        if (run.skipped) return run.reason || 'Run skipped.';
+        if (!run.ok) return `Last run (${run.trigger}) failed: ${run.reason || 'unknown error'}`;
+        return `Last run (${run.trigger}, ${run.finished_at}): ${run.attempted} attempted · `
+             + `${run.succeeded} enriched · ${run.empty} no data · ${run.failed} failed · `
+             + `${run.duration_s}s`;
+    }
+
+    function renderLinkedInJob(s) {
+        document.getElementById('lij-pending').textContent   = s.pending ?? '—';
+        document.getElementById('lij-enriched').textContent  = s.enriched ?? '—';
+        document.getElementById('lij-with-url').textContent  = s.with_url ?? '—';
+        lijUpdated.textContent = s.running ? 'Running…'
+            : (s.pending ? `${s.pending} waiting · up to ${s.limit} per run` : 'Backlog clear');
+        lijRunBtn.disabled = !s.configured || !!s.running;
+        lijRunBtn.textContent = s.running ? 'Running…' : 'Run now';
+
+        if (!s.configured) {
+            lijSetNote('Not configured — set MINDCASE_API_KEY to enable LinkedIn enrichment.');
+            return;
+        }
+        if (s.running) {
+            lijSetNote('Backfill in progress — scraping profiles via Mindcase. This can take a few minutes.');
+        } else {
+            lijSetNote(lijDescribeRun(s.last_run));
+        }
+
+        // Poll only while something is actually running.
+        clearTimeout(lijPollTimer);
+        if (s.running) lijPollTimer = setTimeout(loadLinkedInJob, 5000);
+    }
+
+    async function loadLinkedInJob() {
+        try {
+            const res = await fetch('/api/admin/linkedin-backfill', { headers: getAuthHeaders() });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to load');
+            renderLinkedInJob(data);
+        } catch (err) {
+            lijSetNote(err.message || 'Could not load enrichment status.', true);
+        }
+    }
+
+    lijRunBtn.addEventListener('click', async () => {
+        lijRunBtn.disabled = true;
+        lijRunBtn.textContent = 'Starting…';
+        lijSetNote('Starting backfill…');
+        try {
+            const res = await fetch('/api/admin/linkedin-backfill/run', {
+                method: 'POST',
+                headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+                body: JSON.stringify({}),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to start');
+            renderLinkedInJob(data);
+        } catch (err) {
+            lijSetNote(err.message || 'Failed to start backfill.', true);
+            lijRunBtn.disabled = false;
+            lijRunBtn.textContent = 'Run now';
+        }
+    });
+
     loadOrgs();
     updateRecalcState();
     loadSentiment();
+    loadLinkedInJob();
 
 </script>
 </body>
