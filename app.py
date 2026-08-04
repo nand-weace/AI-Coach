@@ -220,6 +220,22 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'dev-secret-change-in-prod')
 
+
+@app.template_global()
+def asset(filename: str) -> str:
+    """A /static URL stamped with the file's mtime.
+
+    Flask serves static files with a 12-hour max-age, so without this a deployed
+    JS or CSS fix keeps missing anyone whose browser already has the old copy —
+    a hard refresh is not something users know to do. The stamp changes when the
+    file does, which is exactly when the cache should be bypassed.
+    """
+    path = os.path.join(app.static_folder, filename)
+    try:
+        return f"/static/{filename}?v={int(os.path.getmtime(path))}"
+    except OSError:
+        return f"/static/{filename}"
+
 WEACE_API_URL = os.environ.get("WEACE_API_URL", "https://api.we-ace.com")
 
 AI_PROVIDER = os.environ.get("AI_PROVIDER", "openai").lower()

@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/header.css">
+    <link rel="stylesheet" href="{{ asset('header.css') }}">
     <style>
         :root {
             --bg-color: #f8fafc;
@@ -666,7 +666,7 @@
     </div>
 </div>
 
-<script src="/static/header.js"></script>
+<script src="{{ asset('header.js') }}"></script>
 <script>
     const MIN_SESSIONS  = 5;
     const MIN_MESSAGES  = 10;

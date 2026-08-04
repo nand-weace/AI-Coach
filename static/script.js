@@ -15,6 +15,69 @@ document.addEventListener('DOMContentLoaded', async () => {
     let loadingHistory = false;   // guards against overlapping fetches
     let historyAnchor = null;     // node above which older messages are inserted
 
+    // ── Voice state ──────────────────────────────────────────────────────────
+    // Declared up here, not down with the voice code, for the same reason as the
+    // thumb icons above: showApp() runs from inside the auth chain and speaks
+    // the welcome message, long before the bottom of this file has executed.
+    // Locales are shared — dictation listens in the coaching language, and Nexa
+    // replies in it.
+    const SPEECH_LOCALES = {
+        English: 'en-US', Hindi: 'hi-IN', Marathi: 'mr-IN', Bengali: 'bn-IN',
+        Tamil: 'ta-IN', Telugu: 'te-IN', Kannada: 'kn-IN', Malayalam: 'ml-IN',
+        Gujarati: 'gu-IN', Spanish: 'es-ES', French: 'fr-FR', German: 'de-DE',
+        Portuguese: 'pt-BR', Arabic: 'ar-SA', Chinese: 'zh-CN', Japanese: 'ja-JP',
+    };
+    const ttsSupported = 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
+    let autoSpeak = ttsSupported && localStorage.getItem('we_ace_autospeak') === '1';
+    let speakingButton = null;    // the play button currently lit up, if any
+    // Chrome fills the voice list asynchronously — read it now and refresh when
+    // it lands, so a reply that arrives early still gets the right accent.
+    let voices = ttsSupported ? window.speechSynthesis.getVoices() : [];
+    if (ttsSupported) {
+        window.speechSynthesis.addEventListener('voiceschanged', () => {
+            voices = window.speechSynthesis.getVoices();
+        });
+    }
+
+    // Nexa is voiced female. The Web Speech API exposes no gender field, so the
+    // only signal is the voice name: either an explicit label ("Google UK
+    // English Female") or a known female voice shipped by the platform. Names
+    // below cover macOS/iOS (Samantha, Karen…), Windows/Edge (Zira, Aria…),
+    // Android/Chrome OS and the common Indian-language voices.
+    const FEMALE_VOICE_NAMES = [
+        'samantha', 'karen', 'moira', 'tessa', 'fiona', 'victoria', 'allison',
+        'ava', 'susan', 'vicki', 'kathy', 'nicky', 'serena', 'veena',
+        'lekha', 'kanya', 'zira', 'aria', 'jenny', 'michelle', 'hazel',
+        'linda', 'heera', 'kalpana', 'swara', 'neerja', 'catherine', 'eva',
+        'amelie', 'anna', 'alice', 'monica', 'paulina', 'luciana', 'joana',
+        'ting-ting', 'sin-ji', 'kyoko', 'yuna', 'mariska', 'zuzana', 'milena',
+        // Chrome's unlabelled default for US English is a female voice; without
+        // it a US listener gets pushed onto "Google UK English Female" instead.
+        'google us english',
+    ];
+
+    // Voice quality varies enormously within one browser. The compact/legacy
+    // engines are the buzzy, robotic ones; the enhanced, neural and network
+    // voices sound close to a real person. Nothing in the API reports this
+    // either, so again it comes down to the name — plus `localService`, which
+    // is false for Google's (much better) network voices.
+    const GOOD_VOICE_HINTS = [
+        ['premium', 45], ['enhanced', 45], ['neural', 45], ['natural', 40],
+        ['siri', 35], ['online', 25], ['wavenet', 45], ['google', 15],
+    ];
+    // macOS ships a set of joke voices that are unusable for coaching.
+    const NOVELTY_VOICES = [
+        'albert', 'bad news', 'bahh', 'bells', 'boing', 'bubbles', 'cellos',
+        'deranged', 'good news', 'jester', 'organ', 'superstar', 'trinoids',
+        'whisper', 'wobble', 'zarvox', 'hysterical', 'pipe organ', 'ralph',
+    ];
+
+    const SPEAKER_ICON =
+        '<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" ' +
+        'stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
+        '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>' +
+        '<path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>';
+
     if (typeof marked !== 'undefined') {
         marked.setOptions({ breaks: true, gfm: true });
     }
@@ -246,12 +309,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     // changes the very next reply rather than waiting for a new conversation.
     const COACH_MODES = {
         coaching: {
-            hint: 'Nexa asks questions so you reach your own answer',
-            note: 'Switched to Coaching — Nexa will draw the answer out of you.',
+            hint: 'Nexa Coach probes, reflects, and helps you discover your own solution',
+            note: 'Switched to Coaching — Nexa will probe and reflect rather than giving direct advice',
         },
         mentoring: {
-            hint: 'Nexa shares experience and gives direct advice',
-            note: 'Switched to Mentoring — Nexa will advise you from experience.',
+            hint: 'Nexa Mentor brings lived experience and direct advice when you need it.',
+            note: 'Switched to Mentoring — Nexa brings lived experience and direct advice when you need it.',
         },
     };
     const modeToggle = document.getElementById('mode-toggle');
@@ -553,15 +616,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     // ── Voice input (browser-native speech recognition) ──────────────────────
-    // Dictation locale per coaching language, so speaking Hindi/Tamil/etc. is
-    // transcribed correctly instead of being forced through en-US.
-    const SPEECH_LOCALES = {
-        English: 'en-US', Hindi: 'hi-IN', Marathi: 'mr-IN', Bengali: 'bn-IN',
-        Tamil: 'ta-IN', Telugu: 'te-IN', Kannada: 'kn-IN', Malayalam: 'ml-IN',
-        Gujarati: 'gu-IN', Spanish: 'es-ES', French: 'fr-FR', German: 'de-DE',
-        Portuguese: 'pt-BR', Arabic: 'ar-SA', Chinese: 'zh-CN', Japanese: 'ja-JP',
-    };
-
+    // Dictation runs in the coaching language (SPEECH_LOCALES, declared at the
+    // top), so speaking Hindi/Tamil/etc. is transcribed correctly instead of
+    // being forced through en-US.
     const micButton = document.getElementById('mic-button');
     const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
     let recognition = null;      // active recogniser, null when idle
@@ -589,6 +646,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function startDictation() {
         if (userInput.disabled || recognition) return;
+        stopSpeaking();   // don't let Nexa talk over the mic she's opening
 
         const language = localStorage.getItem('we_ace_language') || 'English';
         const rec = new SpeechRecognitionCtor();
@@ -660,6 +718,212 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    // ── Voice output (browser-native speech synthesis) ───────────────────────
+    // Nexa reads her replies aloud through the browser's own TTS engine — no
+    // API, no cost. The toggle beside the mic turns it on for every reply and
+    // is remembered per browser; each reply also carries its own play button
+    // for listening to just that one. State and constants (ttsSupported,
+    // autoSpeak, voices, the voice-name tables, SPEAKER_ICON) live at the top of
+    // this file: showApp builds and speaks the welcome message from inside the
+    // auth chain, long before this point is reached, and a `const` read before
+    // its declaration throws rather than reading as undefined.
+    const speakToggle = document.getElementById('speak-toggle');
+
+    function speechLocale() {
+        const language = localStorage.getItem('we_ace_language') || 'English';
+        return SPEECH_LOCALES[language] || 'en-US';
+    }
+
+    function isFemaleVoice(voice) {
+        const name = (voice.name || '').toLowerCase();
+        if (/\bfemale\b/.test(name)) return true;
+        if (/\bmale\b/.test(name)) return false;   // "…Male" must never match below
+        return FEMALE_VOICE_NAMES.some(n => name.includes(n));
+    }
+
+    function isNoveltyVoice(voice) {
+        const name = (voice.name || '').toLowerCase();
+        return NOVELTY_VOICES.some(n => name.includes(n));
+    }
+
+    function voiceQuality(voice) {
+        const name = (voice.name || '').toLowerCase();
+        let score = 0;
+        GOOD_VOICE_HINTS.forEach(([hint, points]) => {
+            if (name.includes(hint)) score += points;
+        });
+        if (name.includes('compact')) score -= 40;   // macOS low-bitrate variants
+        if (name.includes('espeak')) score -= 60;    // the classic robot
+        if (name.includes('desktop')) score -= 25;   // legacy Microsoft SAPI voices
+        if (voice.localService === false) score += 20;
+        return score;
+    }
+
+    // Best voice for the coaching language, ranked on language match first,
+    // then female, then audio quality. Language outranks everything — a male or
+    // plainer voice in the right language reads far better than a polished one
+    // in the wrong one. Returns null when nothing matches, which leaves the
+    // browser to pick its own default.
+    function pickVoice(locale) {
+        if (!voices.length) return null;
+        const target = locale.toLowerCase();
+        const base = target.split('-')[0];
+        const langOf = v => (v.lang || '').replace('_', '-').toLowerCase();
+
+        const scored = voices.map(v => {
+            if (isNoveltyVoice(v)) return null;      // never, in any language
+            const lang = langOf(v);
+            let score;
+            if (lang === target) score = 1000;
+            else if (lang === base || lang.startsWith(base + '-')) score = 500;
+            else return null;                        // wrong language — never used
+            if (isFemaleVoice(v)) score += 100;
+            return { voice: v, score: score + voiceQuality(v) };
+        }).filter(Boolean);
+
+        if (!scored.length) return null;
+        scored.sort((a, b) => b.score - a.score);
+        return scored[0].voice;
+    }
+
+    // Replies are markdown, and markdown read literally sounds like punctuation
+    // soup — keep the words, drop the syntax.
+    function speakableText(text) {
+        return String(text || '')
+            .replace(/```[\s\S]*?```/g, ' ')
+            .replace(/`([^`]*)`/g, '$1')
+            .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
+            .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+            .replace(/^\s{0,3}#{1,6}\s+/gm, '')
+            .replace(/^\s{0,3}>\s?/gm, '')
+            .replace(/^\s*[-*+]\s+/gm, '')
+            .replace(/\*\*|__|~~/g, '')
+            .replace(/(^|\s)[*_]([^*_]+)[*_](?=\s|$|[.,!?])/g, '$1$2')
+            .replace(/\|/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    // Chrome cuts an utterance off after roughly 15 seconds, so anything long
+    // is queued as sentence-sized pieces rather than one blob. A single
+    // sentence over the limit is left whole — splitting mid-clause sounds worse.
+    //
+    // Every boundary is an audible seam: the engine re-primes, which is heard as
+    // a click or a beat of silence. So the limit is set as high as the 15-second
+    // ceiling allows (~320 characters at normal speaking pace) and short replies
+    // stay a single utterance with no seams at all.
+    function chunkForSpeech(text, limit = 320) {
+        const sentences = text.match(/[^.!?…]+[.!?…]*\s*/g) || [text];
+        const chunks = [];
+        let current = '';
+        sentences.forEach(sentence => {
+            if (current && (current + sentence).length > limit) {
+                chunks.push(current.trim());
+                current = '';
+            }
+            current += sentence;
+        });
+        if (current.trim()) chunks.push(current.trim());
+        return chunks;
+    }
+
+    function markSpeaking(button) {
+        speakingButton = button || null;
+        if (!button) return;
+        button.classList.add('speaking');
+        button.setAttribute('aria-pressed', 'true');
+        button.title = 'Stop reading';
+    }
+
+    function clearSpeaking() {
+        if (speakingButton) {
+            speakingButton.classList.remove('speaking');
+            speakingButton.setAttribute('aria-pressed', 'false');
+            speakingButton.title = 'Read this aloud';
+        }
+        speakingButton = null;
+    }
+
+    function stopSpeaking() {
+        if (!ttsSupported) return;
+        window.speechSynthesis.cancel();
+        clearSpeaking();
+    }
+
+    // Speak `text`, replacing anything already being read. `button` is the play
+    // button to light up while it runs (optional).
+    function speak(text, button) {
+        if (!ttsSupported) return;
+        const content = speakableText(text);
+        stopSpeaking();
+        if (!content) return;
+
+        const locale = speechLocale();
+        const voice = pickVoice(locale);
+        const chunks = chunkForSpeech(content);
+        markSpeaking(button);
+
+        chunks.forEach((chunk, i) => {
+            const utterance = new SpeechSynthesisUtterance(chunk);
+            utterance.lang = locale;
+            if (voice) utterance.voice = voice;
+            // Left at the engine's natural settings on purpose. Off-default rate
+            // and pitch are resampled by the local voices, and that resampling
+            // is where the buzzy, metallic edge comes from.
+            utterance.rate = 1;
+            utterance.pitch = 1;
+            utterance.volume = 1;
+            if (i === chunks.length - 1) utterance.onend = clearSpeaking;
+            utterance.onerror = clearSpeaking;
+            window.speechSynthesis.speak(utterance);
+        });
+    }
+
+    // Play button shown alongside the thumbs on a Nexa reply.
+    function makeSpeakButton(text) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'feedback-btn speak-btn';
+        btn.title = 'Read this aloud';
+        btn.setAttribute('aria-label', 'Read this aloud');
+        btn.setAttribute('aria-pressed', 'false');
+        btn.innerHTML = SPEAKER_ICON;
+        btn.addEventListener('click', () => {
+            if (speakingButton === btn) stopSpeaking();
+            else speak(text, btn);
+        });
+        return btn;
+    }
+
+    function renderSpeakToggle() {
+        if (!speakToggle) return;
+        speakToggle.classList.toggle('is-on', autoSpeak);
+        speakToggle.setAttribute('aria-pressed', autoSpeak ? 'true' : 'false');
+        const label = autoSpeak ? 'Nexa reads replies aloud — tap to mute'
+                                : 'Have Nexa read replies aloud';
+        speakToggle.title = label;
+        speakToggle.setAttribute('aria-label', label);
+        const on = speakToggle.querySelector('.speaker-on');
+        const off = speakToggle.querySelector('.speaker-off');
+        if (on) on.style.display = autoSpeak ? '' : 'none';
+        if (off) off.style.display = autoSpeak ? 'none' : '';
+    }
+
+    if (ttsSupported && speakToggle) {
+        speakToggle.style.display = 'flex';
+        renderSpeakToggle();
+        speakToggle.addEventListener('click', () => {
+            autoSpeak = !autoSpeak;
+            localStorage.setItem('we_ace_autospeak', autoSpeak ? '1' : '0');
+            renderSpeakToggle();
+            if (autoSpeak) showVoiceHint('Nexa will read her replies aloud.');
+            else stopSpeaking();
+        });
+    }
+
+    // Speech keeps playing after the tab is left behind in some browsers.
+    window.addEventListener('pagehide', stopSpeaking);
+
     // Retries only network-level failures (e.g. "Failed to fetch"), not HTTP error responses
     async function fetchWithRetry(url, options, retries = 4, delayMs = 800) {
         for (let attempt = 0; ; attempt++) {
@@ -676,6 +940,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     chatForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         stopDictation();  // sending ends the dictation turn
+        stopSpeaking();   // and cuts off whatever Nexa was still reading
         const message = userInput.value.trim();
         if (!message) return;
 
@@ -712,7 +977,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (res.status === 401) {
                 location.reload();
             } else if (res.ok) {
-                addMessage(data.response, 'assistant', null, { messageId: data.message_id });
+                const replyEl = addMessage(data.response, 'assistant', null,
+                    { messageId: data.message_id });
+                if (autoSpeak) speak(data.response, replyEl._speakButton);
                 renderSuggestions(data.suggestions);
             } else {
                 addMessage(`Error: ${data.error}`, 'assistant');
@@ -784,6 +1051,20 @@ document.addEventListener('DOMContentLoaded', async () => {
             welcomeEl.textContent = `Welcome back, ${userName}. Ready to continue your leadership journey? What's on your mind today?`;
         } else {
             welcomeEl.textContent = `Welcome to your Executive Leadership Coaching Session, ${userName}. I'm Nexa, here to help you navigate complex professional challenges, enhance your leadership skills, and drive strategic impact. What would you like to focus on today?`;
+        }
+
+        // The opener gets the same play button as any other reply, and is read
+        // aloud straight away when auto-speak is on. Browsers that require a
+        // user gesture before audio simply stay silent until the first reply.
+        const welcomeBody = welcomeEl.parentNode;
+        if (!resumed && ttsSupported && welcomeBody &&
+                welcomeBody.classList.contains('message-body')) {
+            const actions = document.createElement('div');
+            actions.className = 'message-feedback';
+            const speakBtn = makeSpeakButton(welcomeEl.textContent);
+            actions.appendChild(speakBtn);
+            welcomeBody.appendChild(actions);
+            if (autoSpeak) speak(welcomeEl.textContent, speakBtn);
         }
 
         if (recentMessages.length > 0) {
@@ -977,9 +1258,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         bubble.appendChild(messageDiv);
         bubble.appendChild(timeEl);
 
-        // Only stored replies can be rated — transient errors carry no id.
-        if (sender === 'assistant' && Number.isFinite(opts.messageId)) {
-            bubble.appendChild(buildFeedbackRow(opts.messageId, opts.feedback || 0));
+        // Only stored replies can be rated — transient errors carry no id, but
+        // they still get a play button, so the actions row may hold either.
+        if (sender === 'assistant') {
+            const rateable = Number.isFinite(opts.messageId);
+            let actions = null;
+            if (rateable) {
+                actions = buildFeedbackRow(opts.messageId, opts.feedback || 0);
+            } else if (ttsSupported) {
+                actions = document.createElement('div');
+                actions.className = 'message-feedback';
+            }
+            if (actions && ttsSupported) {
+                const speakBtn = makeSpeakButton(text);
+                actions.insertBefore(speakBtn, actions.firstChild);
+                wrapper._speakButton = speakBtn;
+            }
+            if (actions) bubble.appendChild(actions);
         }
 
         wrapper.appendChild(avatar);
@@ -988,8 +1283,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function addMessage(text, sender, timestamp, opts) {
-        chatContainer.appendChild(buildMessage(text, sender, timestamp, opts));
+        const el = buildMessage(text, sender, timestamp, opts);
+        chatContainer.appendChild(el);
         scrollToBottom();
+        return el;
     }
 
     // Insert an older message above `referenceNode` (for infinite scroll).

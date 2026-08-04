@@ -8,8 +8,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/header.css">
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="{{ asset('header.css') }}">
+    <link rel="stylesheet" href="{{ asset('style.css') }}">
     <link rel="icon" type="image/png" href="/static/favicon-wit.png">
 </head>
 <body>
@@ -55,8 +55,10 @@
         <main class="chat-container" id="chat-container">
             <div class="message-wrapper assistant">
                 <div class="avatar assistant-avatar">NX</div>
-                <div class="message assistant-message" id="welcome-text">
-                    Welcome to your Executive Leadership Coaching Session. I'm Nexa, here to help you navigate complex professional challenges, enhance your leadership skills, and drive strategic impact. What would you like to focus on today?
+                <div class="message-body">
+                    <div class="message assistant-message" id="welcome-text">
+                        Welcome to your Executive Leadership Coaching Session. I'm Nexa, here to help you navigate complex professional challenges, enhance your leadership skills, and drive strategic impact. What would you like to focus on today?
+                    </div>
                 </div>
             </div>
         </main>
@@ -93,6 +95,12 @@
 
             <form id="chat-form">
                 <textarea id="user-input" rows="1" placeholder="Type your message here..." autocomplete="off"></textarea>
+                <!-- Auto-speak toggle: when on, Nexa reads every reply aloud
+                     using the browser's own speech synthesis (no API cost). -->
+                <button type="button" id="speak-toggle" title="Have Nexa read replies aloud" aria-label="Have Nexa read replies aloud" aria-pressed="false" style="display:none;">
+                    <svg class="speaker-on" viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+                    <svg class="speaker-off" viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+                </button>
                 <button type="button" id="mic-button" title="Speak your message" aria-label="Speak your message" aria-pressed="false" style="display:none;">
                     <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" class="mic-icon"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
                 </button>
@@ -106,7 +114,7 @@
 
 <script>window.WEACE_API_URL = "{{ weace_api_url }}";</script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script src="/static/header.js"></script>
-    <script src="/static/script.js"></script>
+    <script src="{{ asset('header.js') }}"></script>
+    <script src="{{ asset('script.js') }}"></script>
 </body>
 </html>

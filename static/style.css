@@ -287,6 +287,27 @@ body {
     stroke: currentColor;
 }
 
+/* Play button on a Nexa reply — pulses gently while that reply is being read */
+.speak-btn.speaking {
+    color: var(--primary-color);
+    background: var(--user-msg-bg);
+    animation: speak-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes speak-pulse {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.5; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .speak-btn.speaking { animation: none; }
+}
+
+/* A reply being read stays visible even when the pointer moves away */
+.message-feedback:has(.speak-btn.speaking) {
+    opacity: 1;
+}
+
 .feedback-thanks {
     font-size: 0.68rem;
     color: var(--text-muted);
@@ -533,6 +554,36 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
     #mic-button.recording::after { animation: none; opacity: 0; }
+}
+
+/* Auto-speak toggle, sitting to the left of the mic */
+#speak-toggle {
+    background: transparent;
+    border: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s, transform 0.1s;
+}
+
+#speak-toggle:hover {
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--primary-color);
+}
+
+#speak-toggle:active {
+    transform: scale(0.95);
+}
+
+#speak-toggle.is-on {
+    color: var(--primary-color);
+    background: rgba(59, 130, 246, 0.12);
 }
 
 /* Live transcript that hasn't been finalised by the recogniser yet */
