@@ -238,6 +238,51 @@ if api_key:
 else:
     print(f"Warning: API key not set for provider '{AI_PROVIDER}'.")
 
+# Claude has no browsing of its own. Web access comes from these Anthropic-hosted
+# server tools — declaring them is what lets Nexa answer from current information
+# instead of stopping at its training cutoff. They execute on Anthropic's side, so
+# there's no tool loop to run here. Requires Sonnet 4.6+ / Opus 4.6+.
+WEB_TOOLS = [
+    {"type": "web_search_20260209", "name": "web_search"},
+    {"type": "web_fetch_20260209", "name": "web_fetch"},
+]
+
+# A search-heavy turn can exhaust the server-side tool loop and come back paused
+# rather than finished. Re-sending the conversation with the paused turn appended
+# picks it back up; the cap stops a pathological turn from looping forever.
+MAX_PAUSE_RESUMES = 3
+
+
+def _reply_text(response) -> str:
+    """Pull the assistant's prose out of a response.
+
+    With tools enabled, content interleaves server_tool_use and tool-result
+    blocks, so the first block is often not text — and the reply can arrive as
+    several text blocks either side of a search.
+    """
+    parts = [b.text.strip() for b in response.content
+             if b.type == "text" and b.text.strip()]
+    return "\n\n".join(parts)
+
+
+def _claude_reply(system_content: str, messages: list, max_tokens: int) -> str:
+    """Call Claude with web search available, resuming if the turn pauses."""
+    convo = list(messages)
+    response = None
+    for _ in range(MAX_PAUSE_RESUMES + 1):
+        response = client.messages.create(
+            model=AI_MODEL,
+            max_tokens=max_tokens,
+            system=system_content,
+            messages=convo,
+            tools=WEB_TOOLS,
+        )
+        if response.stop_reason != "pause_turn":
+            break
+        convo.append({"role": "assistant", "content": response.content})
+    return _reply_text(response)
+
+
 # In-memory conversation history keyed by session_uuid
 sessions_cache: dict[str, list] = {}
 
@@ -1297,13 +1342,9 @@ def chat():
 
         if AI_PROVIDER == "claude":
             api_messages = [m for m in conversation_history if m["role"] != "system"]
-            response = client.messages.create(
-                model=AI_MODEL,
-                max_tokens=1024,
-                system=system_content,
-                messages=api_messages,
-            )
-            reply = response.content[0].text
+            # Search results land in context before the reply is written, so this
+            # needs more headroom than a no-tools turn.
+            reply = _claude_reply(system_content, api_messages, max_tokens=2048)
         else:
             response = client.chat.completions.create(
                 model=AI_MODEL,
