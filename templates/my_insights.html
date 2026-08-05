@@ -744,11 +744,6 @@
         <div id="heat-wrap"></div>
         <div id="trends-wrap"></div>
     </div>
-    <div class="sentiment-grid" id="sentiment-grid">
-        <!-- populated by JS -->
-        <div class="sentiment-no-data"><div class="skeleton" style="width:200px; margin:0 auto;"></div></div>
-    </div>
-
     <!-- ── Recurring Theme Detection ── -->
     <div class="section-row">
         <div>
@@ -792,6 +787,20 @@
     </div>
     <div id="recs-wrap">
         <div class="panel-empty"><div class="skeleton" style="width:200px; margin:0 auto;"></div></div>
+    </div>
+
+    <!-- ── Dimension detail ──
+         The per-dimension gauges sit at the bottom: the heat bars and trend line
+         above already give the headline, and this is the drill-down. -->
+    <div class="section-row">
+        <div>
+            <h3>Dimension by Dimension</h3>
+            <p>The detail behind each score, and what it suggests</p>
+        </div>
+    </div>
+    <div class="sentiment-grid" id="sentiment-grid">
+        <!-- populated by JS -->
+        <div class="sentiment-no-data"><div class="skeleton" style="width:200px; margin:0 auto;"></div></div>
     </div>
     </div><!-- /#main-dashboard-content -->
 </div>

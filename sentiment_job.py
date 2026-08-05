@@ -32,9 +32,15 @@ _SELF_MAX_CHARS = 24_000  # personal insights prompt cap (one user, richer outpu
 _MIN_SELF_MESSAGES = 5    # below this there is nothing meaningful to read
 _MAX_USERS = 30       # cap to avoid excessive API calls on large orgs
 
-_THEMES_MAX_CHARS = 24_000  # recurring-theme prompt cap
+# Both reports read recent history, not all of it: a theme that only shows up in
+# messages older than this cap has stopped being current anyway.
+_THEMES_MAX_CHARS = 9_000   # recurring-theme prompt cap
+_THEMES_MSG_LIMIT = 150     # messages read per run
+_THEMES_MSG_CHARS = 240     # per-message truncation
+_THEMES_COUNT = 4           # themes returned per run
 _MIN_THEME_MESSAGES = 8     # a theme needs a few mentions before it recurs
-_DIGEST_MAX_CHARS = 20_000  # weekly digest prompt cap
+_DIGEST_MAX_CHARS = 8_000   # weekly digest prompt cap
+_DIGEST_MSG_CHARS = 240     # per-message truncation
 _DIGEST_DAYS = 7            # window the weekly digest reads
 _MIN_DIGEST_MESSAGES = 3    # below this the week has nothing to reflect on
 
@@ -159,30 +165,25 @@ Messages to analyse:
 _THEMES_PROMPT = """You are an executive coach reviewing one leader's own messages from their AI coaching sessions. \
 Each line is prefixed with the date it was written.
 
-Identify the topics this person KEEPS RETURNING TO across different dates — recurring themes, not one-off remarks. \
-A theme only counts if it appears on at least two separate dates. Return at most 6, most significant first. \
-Ignore pleasantries, greetings, and administrative chatter.
+Identify the topics this person KEEPS RETURNING TO across different dates — recurring themes, not one-off \
+remarks. A theme counts only if it appears on at least two separate dates. Return at most {count}, most \
+significant first. Ignore pleasantries and admin chatter.
 
-For each theme:
-- label: 2-4 words, plain language (e.g. "Delegating to the team")
-- summary: one second-person sentence on how this shows up in their words
-- mentions: how many messages touch this theme (integer)
-- first_seen / last_seen: the earliest and latest dates it appears, as YYYY-MM-DD
-- momentum: "rising" if it is showing up more lately, "steady" if evenly spread, "fading" if it has quietened down
-- sentiment: "positive", "mixed", or "challenging" — how they sound when writing about it
-- prompt: one short coaching question they could take into their next session
-
-Write to the person ("you"), constructive and specific. Never diagnose.
+Write to them ("you"), specific and constructive, never diagnostic. Keep every line short — one sentence \
+means one short sentence, no sub-clauses stacked on.
 
 Return ONLY a valid JSON object with no markdown fences:
 {
   "themes": [
-    {"label": "<2-4 words>", "summary": "<one sentence>", "mentions": <int>,
+    {"label": "<2-4 words, e.g. Delegating to the team>",
+     "summary": "<ONE short sentence, max 18 words, on how this shows up in your words>",
+     "mentions": <int, messages touching this theme>,
      "first_seen": "YYYY-MM-DD", "last_seen": "YYYY-MM-DD",
-     "momentum": "rising|steady|fading", "sentiment": "positive|mixed|challenging",
-     "prompt": "<one coaching question>"}
+     "momentum": "rising|steady|fading",
+     "sentiment": "positive|mixed|challenging",
+     "prompt": "<ONE short coaching question, max 15 words>"}
   ],
-  "overview": "<one sentence tying the themes together>"
+  "overview": "<ONE short sentence tying them together, max 20 words>"
 }
 
 If nothing genuinely recurs, return {"themes": [], "overview": "<one sentence saying so>"}.
@@ -197,21 +198,21 @@ _DIGEST_PROMPT = """You are an executive coach writing a short weekly reflection
 based only on the messages they wrote during their AI coaching sessions this week. \
 Each line is prefixed with the date it was written.
 
-Write everything in the second person ("you"), warm but direct, and grounded in what they actually said. \
-Never invent events they did not mention. Keep every sentence short.
+Write in the second person ("you"), warm but direct, grounded in what they actually said. Never invent \
+events they did not mention. Be brief — a bullet is a phrase, not a paragraph.
 
 Return ONLY a valid JSON object with no markdown fences:
 {
-  "headline": "<6-10 words capturing the week>",
-  "summary": "<2-3 sentences on what occupied you this week>",
-  "wins": ["<up to 3 short bullets on progress or good moments>"],
-  "challenges": ["<up to 3 short bullets on what weighed on you>"],
-  "patterns": ["<up to 3 short bullets on habits or language patterns worth noticing>"],
-  "questions": ["<2-3 reflection questions to sit with>"],
-  "focus": "<one sentence suggesting where to put attention next week>"
+  "headline": "<6-9 words capturing the week>",
+  "summary": "<TWO short sentences, max 40 words total, on what occupied you>",
+  "wins": ["<up to 2 bullets, max 12 words each>"],
+  "challenges": ["<up to 2 bullets, max 12 words each>"],
+  "patterns": ["<up to 2 bullets, max 12 words each>"],
+  "questions": ["<2 questions to sit with, max 15 words each>"],
+  "focus": "<ONE short sentence, max 20 words, on where to put attention next week>"
 }
 
-Use an empty array for any section the week gives you nothing for. Do not pad.
+Use an empty array for any section the week gives you nothing for. Never pad to fill a slot.
 
 This week's messages:
 ---
@@ -235,7 +236,7 @@ or pattern-guess a URL, and do not open or read the pages — the search result 
 "" for anything you did not find a link for; do not spend a search confirming something you already have.
 
 Per resource: title (real title), author (author, speaker, or publication), type, \
-description (ONE sentence written to them — "you" — on why it fits), topic (2-4 words), \
+description (ONE short sentence to them — "you" — on why it fits, max 20 words), topic (2-4 words), \
 length (e.g. "12 min read", "18 min", "288 pages", else ""), url (the link you found, or "").
 
 Return ONLY a valid JSON object with no markdown fences:
@@ -244,7 +245,7 @@ Return ONLY a valid JSON object with no markdown fences:
     {"title": "", "author": "", "type": "article|book|video|lecture",
      "description": "", "topic": "", "length": "", "url": ""}
   ],
-  "overview": "<one sentence on why this list, addressed to them>"
+  "overview": "<ONE short sentence on why this list, addressed to them, max 20 words>"
 }
 
 Their coaching topics:
@@ -263,7 +264,7 @@ Recommend ONLY works you are confident genuinely exist and are well known — a 
 Do NOT output any URL: leave "url" as "". Accuracy of title and author matters more than novelty.
 
 Per resource: title (real title), author (author, speaker, or publication), type, \
-description (ONE sentence written to them — "you" — on why it fits), topic (2-4 words), \
+description (ONE short sentence to them — "you" — on why it fits, max 20 words), topic (2-4 words), \
 length (e.g. "12 min read", "288 pages", else ""), url ("").
 
 Return ONLY a valid JSON object with no markdown fences:
@@ -272,7 +273,7 @@ Return ONLY a valid JSON object with no markdown fences:
     {"title": "", "author": "", "type": "article|book|video|lecture",
      "description": "", "topic": "", "length": "", "url": ""}
   ],
-  "overview": "<one sentence on why this list, addressed to them>"
+  "overview": "<ONE short sentence on why this list, addressed to them, max 20 words>"
 }
 
 Their coaching topics:
@@ -493,8 +494,11 @@ def _llm_config():
     return _build_client(ai_provider, api_key), ai_provider, ai_model
 
 
-def _dated_block(messages: list, max_chars: int) -> str:
-    combined = '\n'.join(f"[{m['date']}] {m['content']}" for m in messages)
+def _dated_block(messages: list, max_chars: int, per_msg: int = 0) -> str:
+    combined = '\n'.join(
+        f"[{m['date']}] {m['content'][:per_msg] if per_msg else m['content']}"
+        for m in messages
+    )
     if len(combined) > max_chars:
         # keep the most recent tail — recency matters more for both reports
         combined = '[...earlier messages truncated]\n' + combined[-max_chars:]
@@ -513,15 +517,17 @@ def detect_recurring_themes(user_id: str) -> dict | None:
         return None
     client, ai_provider, ai_model = cfg
 
-    messages = get_user_dated_messages(user_id, limit=300)
+    messages = get_user_dated_messages(user_id, limit=_THEMES_MSG_LIMIT)
     if len(messages) < _MIN_THEME_MESSAGES:
         return None
 
     raw = None
     try:
         raw = _call_llm(
-            _THEMES_PROMPT.replace('{messages}', _dated_block(messages, _THEMES_MAX_CHARS)),
-            client, ai_provider, ai_model, max_tokens=2048, system=_PERSONAL_SYSTEM,
+            _THEMES_PROMPT
+                .replace('{count}', str(_THEMES_COUNT))
+                .replace('{messages}', _dated_block(messages, _THEMES_MAX_CHARS, _THEMES_MSG_CHARS)),
+            client, ai_provider, ai_model, max_tokens=1024, system=_PERSONAL_SYSTEM,
         )
         result = _extract_json(raw)
     except ReportUnavailable:
@@ -538,7 +544,7 @@ def detect_recurring_themes(user_id: str) -> dict | None:
         return None
 
     cleaned = []
-    for t in themes[:6]:
+    for t in themes[:_THEMES_COUNT]:
         if not isinstance(t, dict) or not t.get('label'):
             continue
         try:
@@ -549,18 +555,18 @@ def detect_recurring_themes(user_id: str) -> dict | None:
         sentiment = str(t.get('sentiment', 'mixed')).lower()
         cleaned.append({
             'label':      str(t['label'])[:80],
-            'summary':    str(t.get('summary', ''))[:400],
+            'summary':    str(t.get('summary', ''))[:180],
             'mentions':   mentions,
             'first_seen': str(t.get('first_seen', ''))[:10],
             'last_seen':  str(t.get('last_seen', ''))[:10],
             'momentum':   momentum if momentum in ('rising', 'steady', 'fading') else 'steady',
             'sentiment':  sentiment if sentiment in ('positive', 'mixed', 'challenging') else 'mixed',
-            'prompt':     str(t.get('prompt', ''))[:300],
+            'prompt':     str(t.get('prompt', ''))[:140],
         })
 
     report = {
         'themes': cleaned,
-        'overview': str(result.get('overview', ''))[:500],
+        'overview': str(result.get('overview', ''))[:180],
         'messages_analyzed': len(messages),
     }
     upsert_user_insight_report(user_id, 'recurring_themes', report)
@@ -585,8 +591,9 @@ def generate_weekly_digest(user_id: str) -> dict | None:
     raw = None
     try:
         raw = _call_llm(
-            _DIGEST_PROMPT.replace('{messages}', _dated_block(messages, _DIGEST_MAX_CHARS)),
-            client, ai_provider, ai_model, max_tokens=2048, system=_PERSONAL_SYSTEM,
+            _DIGEST_PROMPT.replace('{messages}',
+                                   _dated_block(messages, _DIGEST_MAX_CHARS, _DIGEST_MSG_CHARS)),
+            client, ai_provider, ai_model, max_tokens=1024, system=_PERSONAL_SYSTEM,
         )
         result = _extract_json(raw)
     except ReportUnavailable:
@@ -598,20 +605,20 @@ def generate_weekly_digest(user_id: str) -> dict | None:
             print(f"  Raw snippet: {raw[:300]}")
         return None
 
-    def _bullets(key, cap=3):
+    def _bullets(key, cap=2):
         vals = result.get(key)
         if not isinstance(vals, list):
             return []
-        return [str(v)[:300] for v in vals if str(v).strip()][:cap]
+        return [str(v)[:120] for v in vals if str(v).strip()][:cap]
 
     report = {
         'headline':   str(result.get('headline', ''))[:160],
-        'summary':    str(result.get('summary', ''))[:800],
+        'summary':    str(result.get('summary', ''))[:320],
         'wins':       _bullets('wins'),
         'challenges': _bullets('challenges'),
         'patterns':   _bullets('patterns'),
         'questions':  _bullets('questions'),
-        'focus':      str(result.get('focus', ''))[:400],
+        'focus':      str(result.get('focus', ''))[:160],
         'messages_analyzed': len(messages),
         'period_from': messages[0]['date'],
         'period_to':   messages[-1]['date'],
@@ -650,7 +657,7 @@ def _recs_input(user_id: str) -> tuple[str, int]:
     themes = themes_report.get('themes') or []
     if themes:
         lines = [f"- {t.get('label', '')}: {t.get('summary', '')}".strip(' :')
-                 for t in themes[:6] if t.get('label')]
+                 for t in themes[:_THEMES_COUNT] if t.get('label')]
         if lines:
             return '\n'.join(lines)[:_RECS_MAX_CHARS], themes_report.get('messages_analyzed', 0)
 
@@ -720,7 +727,7 @@ def generate_recommendations(user_id: str) -> dict | None:
             'title':       str(it['title'])[:160],
             'author':      str(it.get('author', ''))[:120],
             'type':        rtype,
-            'description': str(it.get('description', ''))[:600],
+            'description': str(it.get('description', ''))[:240],
             'topic':       str(it.get('topic', ''))[:80],
             'length':      str(it.get('length', ''))[:40],
         }
@@ -737,7 +744,7 @@ def generate_recommendations(user_id: str) -> dict | None:
 
     report = {
         'recommendations': cleaned,
-        'overview': str(result.get('overview', ''))[:500],
+        'overview': str(result.get('overview', ''))[:180],
         'messages_analyzed': analyzed,
         'web_searched': can_search,
     }
