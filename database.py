@@ -393,7 +393,7 @@ def get_user_history(user_id: str, limit: int = 20) -> list:
         with conn.cursor() as cur:
             _execute(cur,
                 """
-                SELECT id, role, content, created_at
+                SELECT id, role, content, language, created_at
                 FROM ai_coach_messages
                 WHERE user_id = %s
                 ORDER BY created_at DESC
@@ -415,7 +415,7 @@ def get_user_history_before(user_id: str, before_id: int, limit: int = 20) -> li
         with conn.cursor() as cur:
             _execute(cur,
                 """
-                SELECT id, role, content, created_at
+                SELECT id, role, content, language, created_at
                 FROM ai_coach_messages
                 WHERE user_id = %s AND id < %s
                 ORDER BY id DESC

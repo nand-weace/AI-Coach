@@ -99,6 +99,7 @@ def _serialize_messages(user_id: str, rows: list) -> list[dict]:
     )
     return [
         {'id': r['id'], 'role': r['role'], 'content': r['content'],
+         'language': r.get('language') or DEFAULT_LANGUAGE,
          'created_at': r['created_at'].isoformat() if r.get('created_at') else None,
          'feedback': ratings.get(r['id'], 0)}
         for r in rows
