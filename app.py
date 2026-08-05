@@ -1557,7 +1557,7 @@ def chat():
 
     try:
         conversation_history.append({"role": "user", "content": user_message})
-        save_message(session_uuid, user_id, 'user', user_message)
+        save_message(session_uuid, user_id, 'user', user_message, language=language)
 
         system_content = next(
             (m["content"] for m in conversation_history if m["role"] == "system"),
@@ -1598,7 +1598,7 @@ def chat():
         reply, suggestions = _extract_suggestions(reply)
 
         conversation_history.append({"role": "assistant", "content": reply})
-        message_id = save_message(session_uuid, user_id, 'assistant', reply)
+        message_id = save_message(session_uuid, user_id, 'assistant', reply, language=language)
         return jsonify({'response': reply, 'suggestions': suggestions,
                         'message_id': message_id})
 

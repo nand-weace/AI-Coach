@@ -87,11 +87,22 @@ def init_db():
                     user_id VARCHAR(36) NOT NULL,
                     role ENUM('user', 'assistant') NOT NULL,
                     content TEXT NOT NULL,
+                    language VARCHAR(50) DEFAULT NULL,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     INDEX idx_user_id (user_id),
                     INDEX idx_session_id (session_id)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """)
+            # The language the message was written in — recorded per message
+            # rather than per session, because a user can switch language
+            # mid-conversation. Null on rows that predate this column.
+            _execute(cur,
+                "SELECT COUNT(*) AS cnt FROM information_schema.COLUMNS "
+                "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ai_coach_messages' "
+                "AND COLUMN_NAME = 'language'",
+            )
+            if cur.fetchone()['cnt'] == 0:
+                _execute(cur, "ALTER TABLE ai_coach_messages ADD COLUMN language VARCHAR(50) DEFAULT NULL")
             # Thumbs up/down a user leaves on a Nexa reply. One row per message —
             # re-rating overwrites, and clearing a rating deletes the row.
             _execute(cur,"""
@@ -303,14 +314,20 @@ def create_chat_session(session_id: str, user_id: str, user_name: str = None, em
         conn.close()
 
 
-def save_message(session_id: str, user_id: str, role: str, content: str) -> int | None:
-    """Persist a message and return its new id (used to attach feedback)."""
+def save_message(session_id: str, user_id: str, role: str, content: str,
+                 language: str = None) -> int | None:
+    """Persist a message and return its new id (used to attach feedback).
+
+    `language` is the language the conversation was in at the time — stored per
+    message so a mid-session switch is visible in the history.
+    """
     conn = get_connection()
     try:
         with conn.cursor() as cur:
             _execute(cur,
-                "INSERT INTO ai_coach_messages (session_id, user_id, role, content) VALUES (%s, %s, %s, %s)",
-                (session_id, user_id, role, content),
+                "INSERT INTO ai_coach_messages (session_id, user_id, role, content, language) "
+                "VALUES (%s, %s, %s, %s, %s)",
+                (session_id, user_id, role, content, language),
             )
             message_id = cur.lastrowid
         conn.commit()
