@@ -25,15 +25,15 @@ def main():
     parser.add_argument(
         "--provider",
         type=str,
-        default=os.environ.get("AI_PROVIDER", "openai").lower(),
+        default=os.environ.get("AI_PROVIDER", "claude").lower(),
         choices=["openai", "claude"],
-        help="AI provider to use: 'openai' (default) or 'claude'",
+        help="AI provider to use: 'claude' (default) or 'openai'",
     )
     parser.add_argument(
         "--model",
         type=str,
         default=None,
-        help="Model name to use (defaults: gpt-4o for OpenAI, claude-sonnet-4-6 for Claude)",
+        help="Model name to use (defaults: claude-sonnet-4-6 for Claude, gpt-4o for OpenAI)",
     )
     args = parser.parse_args()
 

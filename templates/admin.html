@@ -9,14 +9,14 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-color: #f8fafc;
+            --bg-color: #faf8fd;
             --glass-bg: rgba(255, 255, 255, 0.7);
             --glass-border: rgba(0, 0, 0, 0.08);
-            --primary-color: #2563eb;
-            --primary-hover: #1d4ed8;
-            --text-main: #1e293b;
-            --text-muted: #64748b;
-            --accent-gradient: linear-gradient(135deg, #2563eb 0%, #8b5cf6 100%);
+            --primary-color: #7c3aed;
+            --primary-hover: #6d28d9;
+            --text-main: #241f36;
+            --text-muted: #6b6484;
+            --accent-gradient: linear-gradient(135deg, #6d28d9 0%, #a855f7 100%);
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -25,8 +25,8 @@
             color: var(--text-main);
             min-height: 100vh;
             background-image:
-                radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.07), transparent 25%),
-                radial-gradient(circle at 85% 30%, rgba(139, 92, 246, 0.07), transparent 25%);
+                radial-gradient(circle at 15% 50%, rgba(139, 92, 246, 0.07), transparent 25%),
+                radial-gradient(circle at 85% 30%, rgba(168, 85, 247, 0.07), transparent 25%);
         }
 
         /* ── Header ── */
@@ -50,12 +50,12 @@
         .nav-link {
             font-size: 0.85rem; color: var(--text-muted); text-decoration: none;
             padding: 6px 14px; border-radius: 999px; border: 1px solid var(--glass-border);
-            background: rgba(248, 250, 252, 0.8); transition: color 0.2s, border-color 0.2s;
+            background: rgba(250, 248, 253, 0.8); transition: color 0.2s, border-color 0.2s;
         }
-        .nav-link:hover { color: var(--primary-color); border-color: rgba(59, 130, 246, 0.3); }
+        .nav-link:hover { color: var(--primary-color); border-color: rgba(139, 92, 246, 0.3); }
         .user-chip {
             display: flex; align-items: center; gap: 8px;
-            background: rgba(248, 250, 252, 0.8); border: 1px solid var(--glass-border);
+            background: rgba(250, 248, 253, 0.8); border: 1px solid var(--glass-border);
             border-radius: 999px; padding: 4px 12px 4px 4px;
         }
         .user-chip-avatar {
@@ -119,14 +119,14 @@
         .table-header h3 { font-size: 0.95rem; font-weight: 600; }
         .table-search {
             padding: 6px 14px; border: 1px solid var(--glass-border);
-            border-radius: 999px; background: rgba(248, 250, 252, 0.9);
+            border-radius: 999px; background: rgba(250, 248, 253, 0.9);
             font-family: inherit; font-size: 0.85rem; color: var(--text-main);
             outline: none; transition: border-color 0.2s, box-shadow 0.2s; width: 220px;
         }
-        .table-search:focus { border-color: rgba(59, 130, 246, 0.4); box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15); }
+        .table-search:focus { border-color: rgba(139, 92, 246, 0.4); box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.15); }
         .table-search::placeholder { color: var(--text-muted); }
         table { width: 100%; border-collapse: collapse; }
-        thead tr { background: rgba(248, 250, 252, 0.6); }
+        thead tr { background: rgba(250, 248, 253, 0.6); }
         th {
             padding: 12px 16px; text-align: left; font-size: 0.75rem;
             font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
@@ -138,11 +138,11 @@
             border-bottom: 1px solid rgba(0, 0, 0, 0.04); color: var(--text-main);
         }
         tbody tr:last-child td { border-bottom: none; }
-        tbody tr:hover { background: rgba(59, 130, 246, 0.03); }
+        tbody tr:hover { background: rgba(139, 92, 246, 0.03); }
         .cell-name { font-weight: 500; }
         .cell-muted { color: var(--text-muted); font-size: 0.82rem; }
         .empty-row td { text-align: center; color: var(--text-muted); padding: 40px; }
-        .skeleton { background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 4px; height: 14px; }
+        .skeleton { background: linear-gradient(90deg, #f3f0f8 25%, #e4dfec 50%, #f3f0f8 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 4px; height: 14px; }
         @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
         /* ── Nexa access badge (read-only — set by the WeAce user-config API at login) ── */
@@ -152,7 +152,7 @@
             font-size: 0.78rem; font-weight: 500;
         }
         .nexa-on  { background: rgba(16, 185, 129, 0.1); color: #059669; }
-        .nexa-off { background: rgba(100, 116, 139, 0.1); color: var(--text-muted); }
+        .nexa-off { background: rgba(107, 100, 132, 0.1); color: var(--text-muted); }
         @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
         /* ── Refresh button ── */
@@ -162,7 +162,7 @@
             font-family: inherit; font-size: 0.8rem; color: var(--text-muted);
             cursor: pointer; transition: all 0.2s;
         }
-        .refresh-btn:hover { color: var(--primary-color); border-color: rgba(59, 130, 246, 0.3); }
+        .refresh-btn:hover { color: var(--primary-color); border-color: rgba(139, 92, 246, 0.3); }
         .refresh-btn.spinning { animation: spin 1s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -196,9 +196,9 @@
             flex-direction: column;
             gap: 16px;
         }
-        .card-green { border-color: rgba(16,185,129,0.5); background: rgba(16,185,129,0.05); }
-        .card-amber { border-color: rgba(245,158,11,0.5); background: rgba(245,158,11,0.05); }
-        .card-red   { border-color: rgba(239,68,68,0.5);  background: rgba(239,68,68,0.05);  }
+        .card-green { border-color: rgba(109,40,217,0.5); background: rgba(109,40,217,0.05); }
+        .card-amber { border-color: rgba(168,85,247,0.5); background: rgba(168,85,247,0.05); }
+        .card-red   { border-color: rgba(192,132,252,0.5); background: rgba(192,132,252,0.05); }
         .sentiment-card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
         .sentiment-label { font-size: 0.95rem; font-weight: 600; color: var(--text-main); line-height: 1.3; }
         .sentiment-desc { font-size: 0.80rem; color: var(--text-muted); margin-top: 4px; }
@@ -209,10 +209,10 @@
         .sentiment-band-label { font-size: 0.78rem; color: var(--text-muted); width: 72px; flex-shrink: 0; }
         .sentiment-band-track { flex: 1; height: 7px; border-radius: 99px; background: rgba(0,0,0,0.07); overflow: hidden; }
         .sentiment-band-fill { height: 100%; border-radius: 99px; transition: width 0.6s ease; }
-        .band-very-high  { background: #6366f1; }
-        .band-moderate   { background: #818cf8; }
-        .band-low        { background: #a5b4fc; }
-        .band-negligible { background: #c7d2fe; }
+        .band-very-high  { background: #9333ea; }
+        .band-moderate   { background: #c084fc; }
+        .band-low        { background: #d8b4fe; }
+        .band-negligible { background: #e9d5ff; }
         .sentiment-band-pct { font-size: 0.78rem; color: var(--text-muted); width: 30px; text-align: right; font-variant-numeric: tabular-nums; flex-shrink: 0; }
         .sentiment-insight { font-size: 0.82rem; color: var(--text-muted); line-height: 1.55; padding-top: 2px; }
         .sentiment-trend-label { font-size: 0.70rem; color: var(--text-muted); margin-bottom: 4px; }
@@ -242,12 +242,12 @@
             background: rgba(0,0,0,0.08);
         }
         /* score-based colour helpers applied via JS */
-        .score-green  { color: #059669; }
-        .score-amber  { color: #d97706; }
-        .score-red    { color: #dc2626; }
-        .fill-green   { background: #10b981; }
-        .fill-amber   { background: #f59e0b; }
-        .fill-red     { background: #ef4444; }
+        .score-green  { color: #3b0764; }
+        .score-amber  { color: #6d28d9; }
+        .score-red    { color: #9333ea; }
+        .fill-green   { background: #6d28d9; }
+        .fill-amber   { background: #a855f7; }
+        .fill-red     { background: #d8b4fe; }
 
         /* ── Trend modal ── */
         .trend-modal-overlay {
@@ -255,7 +255,7 @@
             position: fixed;
             inset: 0;
             z-index: 100;
-            background: rgba(15, 23, 42, 0.5);
+            background: rgba(23, 16, 42, 0.5);
             backdrop-filter: blur(6px);
             -webkit-backdrop-filter: blur(6px);
             align-items: center;
@@ -280,10 +280,10 @@
         .trend-modal-close {
             position: absolute; top: 16px; right: 18px;
             background: none; border: none; cursor: pointer;
-            font-size: 1.4rem; color: #94a3b8; line-height: 1;
+            font-size: 1.4rem; color: #9d94ae; line-height: 1;
             padding: 2px 6px; border-radius: 6px; transition: color 0.15s, background 0.15s;
         }
-        .trend-modal-close:hover { color: #1e293b; background: rgba(0,0,0,0.06); }
+        .trend-modal-close:hover { color: #241f36; background: rgba(0,0,0,0.06); }
         .trend-modal-title { font-size: 1.1rem; font-weight: 600; color: var(--text-main); margin-bottom: 3px; }
         .trend-modal-meta  { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 24px; }
         .trend-modal-score-row { display: flex; align-items: baseline; gap: 8px; margin-bottom: 20px; }
@@ -323,7 +323,7 @@
             outline: none;
             transition: border-color 0.15s;
         }
-        .details-textarea:focus { border-color: rgba(15,23,42,0.35); }
+        .details-textarea:focus { border-color: rgba(23, 16, 42,0.35); }
         .details-actions {
             display: flex;
             align-items: center;
@@ -334,7 +334,7 @@
         .details-status { margin-right: auto; font-size: 0.78rem; color: var(--text-muted); }
         .details-status.error { color: #dc2626; }
         .details-save {
-            background: #0f172a; color: #fff; border: none; border-radius: 10px;
+            background: #17102a; color: #fff; border: none; border-radius: 10px;
             padding: 8px 18px; font-size: 0.82rem; font-family: inherit;
             cursor: pointer; transition: opacity 0.15s;
         }
@@ -351,7 +351,7 @@
             padding: 8px 12px; font-family: inherit; font-size: 0.8rem;
             color: var(--text-main); background: #fff; outline: none;
         }
-        .li-url:focus { border-color: rgba(15,23,42,0.35); }
+        .li-url:focus { border-color: rgba(23, 16, 42,0.35); }
         #li-status { margin-top: 8px; }
 
         /* ── LinkedIn backfill job card ── */
@@ -372,7 +372,7 @@
 
         /* ── Employee Distribution bar ── */
         .emp-dist {
-            background: rgba(248, 250, 252, 0.6);
+            background: rgba(250, 248, 253, 0.6);
             border-radius: 12px;
             padding: 12px 14px;
             display: flex;
@@ -400,9 +400,9 @@
             overflow: hidden;
         }
         .emp-dist-seg { height: 100%; }
-        .emp-dist-high { background: #10b981; }
-        .emp-dist-mod  { background: #f59e0b; }
-        .emp-dist-low  { background: #ef4444; }
+        .emp-dist-high { background: #6d28d9; }
+        .emp-dist-mod  { background: #a855f7; }
+        .emp-dist-low  { background: #d8b4fe; }
         .emp-dist-legend { display: flex; gap: 14px; flex-wrap: wrap; }
         .emp-dist-leg-item {
             display: flex;
@@ -484,7 +484,7 @@
         .combo-tooltip-date { font-size: 0.72rem; font-weight: 600; color: var(--text-muted); margin-bottom: 7px; }
         .combo-tooltip-row { display: flex; align-items: center; gap: 6px; font-size: 0.75rem; padding: 1px 0; }
         .combo-tooltip-swatch { width: 10px; height: 3px; border-radius: 99px; flex-shrink: 0; }
-        .combo-tooltip-label { color: #374151; flex: 1; }
+        .combo-tooltip-label { color: #3c3350; flex: 1; }
         .combo-tooltip-val { font-weight: 600; color: var(--text-main); font-variant-numeric: tabular-nums; }
         .combo-legend {
             display: flex;
@@ -1046,14 +1046,14 @@
         </svg>`;
     }
 
-    const BAND_COLORS = { 'score-green': '#10b981', 'score-amber': '#f59e0b', 'score-red': '#ef4444' };
+    const BAND_COLORS = { 'score-green': '#6d28d9', 'score-amber': '#a855f7', 'score-red': '#c084fc' };
 
     // ── Trend modal ───────────────────────────────────────────────────────────
     let currentSentimentData = null;
 
     function renderTrendChart(trendData, color) {
         if (!trendData || trendData.length < 2) {
-            return '<div style="text-align:center;color:#94a3b8;padding:32px 0;font-size:0.85rem;">Not enough history to show a trend yet.</div>';
+            return '<div style="text-align:center;color:#9d94ae;padding:32px 0;font-size:0.85rem;">Not enough history to show a trend yet.</div>';
         }
         const values = trendData.map(t => t.score);
         const dates  = trendData.map(t => t.date);
@@ -1067,14 +1067,14 @@
         const gridLines = [0, 25, 50, 75, 100].map(v => {
             const y = toY(v).toFixed(1);
             return `<line x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}" stroke="rgba(0,0,0,0.07)" stroke-width="1"/>
-                    <text x="${padL - 6}" y="${y}" text-anchor="end" dominant-baseline="middle" font-size="10" fill="#94a3b8">${v}</text>`;
+                    <text x="${padL - 6}" y="${y}" text-anchor="end" dominant-baseline="middle" font-size="10" fill="#9d94ae">${v}</text>`;
         }).join('');
 
         const step = Math.max(1, Math.ceil(dates.length / 6));
         const dateLabels = dates.map((d, i) => {
             if (i % step !== 0 && i !== dates.length - 1) return '';
             const label = new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-            return `<text x="${toX(i).toFixed(1)}" y="${H - 8}" text-anchor="middle" font-size="10" fill="#94a3b8">${label}</text>`;
+            return `<text x="${toX(i).toFixed(1)}" y="${H - 8}" text-anchor="middle" font-size="10" fill="#9d94ae">${label}</text>`;
         }).join('');
 
         const pts  = values.map((v, i) => `${toX(i).toFixed(1)},${toY(v).toFixed(1)}`).join(' ');
@@ -1108,7 +1108,7 @@
 
         const score = Math.max(0, Math.min(100, entry.score || 0));
         const cls   = scoreClasses(score, dim.inverse);
-        const color = BAND_COLORS[cls.num] || '#6366f1';
+        const color = BAND_COLORS[cls.num] || '#9333ea';
 
         document.getElementById('trend-modal-title').textContent = dim.label;
         document.getElementById('trend-modal-score').textContent = score;
@@ -1201,14 +1201,14 @@
     };
 
     const DIM_COLORS = {
-        growth_mindset:            '#6366f1',
-        job_satisfaction:          '#10b981',
-        self_confidence:           '#f59e0b',
-        work_life_balance:         '#3b82f6',
-        stress_anxiety:            '#ef4444',
-        frustration_disengagement: '#f97316',
-        psychological_safety:      '#8b5cf6',
-        empathy:                   '#ec4899',
+        growth_mindset:            '#6d28d9',
+        job_satisfaction:          '#a855f7',
+        self_confidence:           '#c026d3',
+        work_life_balance:         '#8b5cf6',
+        stress_anxiety:            '#3b0764',
+        frustration_disengagement: '#e879f9',
+        psychological_safety:      '#701a75',
+        empathy:                   '#c084fc',
     };
 
     let _comboMeta = null;
@@ -1236,20 +1236,20 @@
         const gridLines = [0, 25, 50, 75, 100].map(v => {
             const y = toY(v).toFixed(1);
             return `<line x1="${padL}" y1="${y}" x2="${padL + iW}" y2="${y}" stroke="rgba(0,0,0,0.06)" stroke-width="1"/>
-                    <text x="${padL - 6}" y="${y}" text-anchor="end" dominant-baseline="middle" font-size="10" fill="#94a3b8">${v}</text>`;
+                    <text x="${padL - 6}" y="${y}" text-anchor="end" dominant-baseline="middle" font-size="10" fill="#9d94ae">${v}</text>`;
         }).join('');
 
         const step = Math.max(1, Math.ceil(n / 6));
         const xLabels = sortedDates.map((d, i) => {
             if (i % step !== 0 && i !== n - 1) return '';
             const lbl = new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-            return `<text x="${toX(i).toFixed(1)}" y="${H - 8}" text-anchor="middle" font-size="10" fill="#94a3b8">${lbl}</text>`;
+            return `<text x="${toX(i).toFixed(1)}" y="${H - 8}" text-anchor="middle" font-size="10" fill="#9d94ae">${lbl}</text>`;
         }).join('');
 
         const lines = SENTIMENT_DIMS.map(dim => {
             const entry = data[dim.key];
             if (!entry || !entry.trend || entry.trend.length < 2) return '';
-            const color = DIM_COLORS[dim.key] || '#94a3b8';
+            const color = DIM_COLORS[dim.key] || '#9d94ae';
             const pts = entry.trend
                 .map(t => { const xi = dateIdx.get(t.date); return xi !== undefined ? `${toX(xi).toFixed(1)},${toY(t.score).toFixed(1)}` : null; })
                 .filter(Boolean).join(' ');
@@ -1269,7 +1269,7 @@
         const legendItems = SENTIMENT_DIMS.map(dim => {
             const entry = data[dim.key];
             if (!entry) return '';
-            const color = DIM_COLORS[dim.key] || '#94a3b8';
+            const color = DIM_COLORS[dim.key] || '#9d94ae';
             const score = Math.max(0, Math.min(100, entry.score || 0));
             const cls = scoreClasses(score, dim.inverse);
             return `<div class="combo-legend-item" data-dim-key="${dim.key}">
@@ -1300,7 +1300,7 @@
             dims: SENTIMENT_DIMS.map(dim => {
                 const entry = data[dim.key];
                 if (!entry || !entry.trend) return null;
-                return { key: dim.key, label: dim.label, color: DIM_COLORS[dim.key] || '#94a3b8',
+                return { key: dim.key, label: dim.label, color: DIM_COLORS[dim.key] || '#9d94ae',
                          scoreMap: new Map(entry.trend.map(t => [t.date, t.score])) };
             }).filter(Boolean),
         };
@@ -1422,7 +1422,7 @@
         renderHeatAnalysis(data);
         renderTrendsSection(data);
 
-        const GAUGE_COLORS = { 'score-green': '#10b981', 'score-amber': '#f59e0b', 'score-red': '#ef4444' };
+        const GAUGE_COLORS = { 'score-green': '#6d28d9', 'score-amber': '#a855f7', 'score-red': '#c084fc' };
 
         function buildGauge(score, gc, inverse) {
             const cx = 60, cy = 56, r = 46;
@@ -1473,31 +1473,31 @@
                 </filter>
                 <!-- Needle gradient: dark base fading to silver tip -->
                 <linearGradient id="ndg${uid}" x1="1" y1="0" x2="0" y2="0">
-                  <stop offset="0%"   stop-color="#64748b"/>
-                  <stop offset="55%"  stop-color="#1e293b"/>
-                  <stop offset="100%" stop-color="#cbd5e1"/>
+                  <stop offset="0%"   stop-color="#6b6484"/>
+                  <stop offset="55%"  stop-color="#241f36"/>
+                  <stop offset="100%" stop-color="#d5cee6"/>
                 </linearGradient>
                 <!-- Cap metallic gradient -->
                 <radialGradient id="cap${uid}" cx="38%" cy="32%" r="60%">
-                  <stop offset="0%"   stop-color="#475569"/>
-                  <stop offset="100%" stop-color="#0f172a"/>
+                  <stop offset="0%"   stop-color="#4d4166"/>
+                  <stop offset="100%" stop-color="#17102a"/>
                 </radialGradient>
               </defs>
 
               <!-- Outer ambient shadow ring -->
               <path d="${arc}" fill="none" stroke="rgba(0,0,0,0.07)" stroke-width="22" stroke-linecap="round"/>
               <!-- Dark recessed background track -->
-              <path d="${arc}" fill="none" stroke="rgba(10,18,35,0.22)" stroke-width="14" stroke-linecap="round"/>
+              <path d="${arc}" fill="none" stroke="rgba(18, 10, 35,0.22)" stroke-width="14" stroke-linecap="round"/>
 
               <!-- Zone arcs (solid base) -->
-              <path d="${arc}" fill="none" stroke="${inverse ? '#10b981' : '#ef4444'}" stroke-width="12" stroke-linecap="butt" stroke-dasharray="${rL} 1000" stroke-dashoffset="0"/>
-              <path d="${arc}" fill="none" stroke="#f59e0b" stroke-width="12" stroke-linecap="butt" stroke-dasharray="${aL} 1000" stroke-dashoffset="${aOff}"/>
-              <path d="${arc}" fill="none" stroke="${inverse ? '#ef4444' : '#10b981'}" stroke-width="12" stroke-linecap="butt" stroke-dasharray="${gL} 1000" stroke-dashoffset="${gOff}"/>
+              <path d="${arc}" fill="none" stroke="${inverse ? '#6d28d9' : '#d8b4fe'}" stroke-width="12" stroke-linecap="butt" stroke-dasharray="${rL} 1000" stroke-dashoffset="0"/>
+              <path d="${arc}" fill="none" stroke="#a855f7" stroke-width="12" stroke-linecap="butt" stroke-dasharray="${aL} 1000" stroke-dashoffset="${aOff}"/>
+              <path d="${arc}" fill="none" stroke="${inverse ? '#d8b4fe' : '#6d28d9'}" stroke-width="12" stroke-linecap="butt" stroke-dasharray="${gL} 1000" stroke-dashoffset="${gOff}"/>
 
               <!-- Neon glow overlay on zones -->
-              <path d="${arc}" fill="none" stroke="${inverse ? '#34d399' : '#ff6b6b'}" stroke-width="7" stroke-linecap="butt" stroke-dasharray="${rL} 1000" stroke-dashoffset="0"    opacity="0.45" filter="url(#gz${uid})"/>
-              <path d="${arc}" fill="none" stroke="#fbbf24" stroke-width="7" stroke-linecap="butt" stroke-dasharray="${aL} 1000" stroke-dashoffset="${aOff}" opacity="0.45" filter="url(#gz${uid})"/>
-              <path d="${arc}" fill="none" stroke="${inverse ? '#ff6b6b' : '#34d399'}" stroke-width="7" stroke-linecap="butt" stroke-dasharray="${gL} 1000" stroke-dashoffset="${gOff}" opacity="0.45" filter="url(#gz${uid})"/>
+              <path d="${arc}" fill="none" stroke="${inverse ? '#8b5cf6' : '#e9d5ff'}" stroke-width="7" stroke-linecap="butt" stroke-dasharray="${rL} 1000" stroke-dashoffset="0"    opacity="0.45" filter="url(#gz${uid})"/>
+              <path d="${arc}" fill="none" stroke="#c084fc" stroke-width="7" stroke-linecap="butt" stroke-dasharray="${aL} 1000" stroke-dashoffset="${aOff}" opacity="0.45" filter="url(#gz${uid})"/>
+              <path d="${arc}" fill="none" stroke="${inverse ? '#e9d5ff' : '#8b5cf6'}" stroke-width="7" stroke-linecap="butt" stroke-dasharray="${gL} 1000" stroke-dashoffset="${gOff}" opacity="0.45" filter="url(#gz${uid})"/>
 
               <!-- Glass sheen highlight -->
               <path d="${arc}" fill="none" stroke="rgba(255,255,255,0.11)" stroke-width="5" stroke-linecap="round"/>
@@ -1516,9 +1516,9 @@
 
               <!-- Center cap: layered metallic rings -->
               <circle cx="${cx}" cy="${cy}" r="10"  fill="url(#cap${uid})"/>
-              <circle cx="${cx}" cy="${cy}" r="7.5" fill="#1e293b"/>
-              <circle cx="${cx}" cy="${cy}" r="5.5" fill="#334155"/>
-              <circle cx="${cx}" cy="${cy}" r="3"   fill="#475569"/>
+              <circle cx="${cx}" cy="${cy}" r="7.5" fill="#241f36"/>
+              <circle cx="${cx}" cy="${cy}" r="5.5" fill="#392f4d"/>
+              <circle cx="${cx}" cy="${cy}" r="3"   fill="#4d4166"/>
               <!-- Cap highlight glint -->
               <circle cx="${cx-2}" cy="${cy-2.5}" r="1.8" fill="rgba(255,255,255,0.5)"/>
 

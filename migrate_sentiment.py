@@ -43,12 +43,12 @@ def migrate():
     init_db()
     print("  Done.\n")
 
-    ai_provider = os.environ.get('AI_PROVIDER', 'openai').lower()
+    ai_provider = os.environ.get('AI_PROVIDER', 'claude').lower()
     api_key = os.environ.get('CLAUDE_API_KEY' if ai_provider == 'claude' else 'OPENAI_API_KEY')
     if not api_key:
         print("ERROR: No API key found. Set CLAUDE_API_KEY or OPENAI_API_KEY in your .env file.")
         sys.exit(1)
-    ai_model = os.environ.get('AI_MODEL', 'claude-sonnet-4-5' if ai_provider == 'claude' else 'gpt-4o')
+    ai_model = os.environ.get('AI_MODEL', 'claude-sonnet-4-6' if ai_provider == 'claude' else 'gpt-4o')
     client = _build_client(ai_provider, api_key)
 
     slugs = get_all_org_slugs()

@@ -29,6 +29,7 @@ from database import (
     get_org_sentiment_data,
     get_user_sentiment,
     get_user_sentiment_data,
+    get_user_insight_report,
     get_user_stats,
     upsert_user_login,
     get_user_access_settings,
@@ -238,9 +239,9 @@ def asset(filename: str) -> str:
 
 WEACE_API_URL = os.environ.get("WEACE_API_URL", "https://api.we-ace.com")
 
-AI_PROVIDER = os.environ.get("AI_PROVIDER", "openai").lower()
+AI_PROVIDER = os.environ.get("AI_PROVIDER", "claude").lower()
 DEFAULT_MODELS = {"openai": "gpt-4o", "claude": "claude-sonnet-4-6"}
-AI_MODEL = os.environ.get("AI_MODEL", DEFAULT_MODELS.get(AI_PROVIDER, "gpt-4o"))
+AI_MODEL = os.environ.get("AI_MODEL", DEFAULT_MODELS.get(AI_PROVIDER, "claude-sonnet-4-6"))
 
 api_key = os.environ.get("CLAUDE_API_KEY" if AI_PROVIDER == "claude" else "OPENAI_API_KEY")
 client = None
@@ -1828,6 +1829,159 @@ def my_sentiment_refresh():
                         'error': 'Not enough conversation to analyse yet — keep chatting with Nexa.'}), 400
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/my-themes')
+@require_weace_token
+def my_themes():
+    """Topics the signed-in user keeps returning to across their sessions.
+
+    Generated on first request so the section is populated on a first visit,
+    then served from cache until the user asks for a refresh.
+    """
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    user_id = g.user['user_id']
+    try:
+        report = get_user_insight_report(user_id, 'recurring_themes')
+        if report is None:
+            from sentiment_job import detect_recurring_themes
+            report = detect_recurring_themes(user_id)
+        return jsonify(report or {'themes': []})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/my-themes/refresh', methods=['POST'])
+@require_weace_token
+def my_themes_refresh():
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    try:
+        from sentiment_job import detect_recurring_themes, ReportUnavailable
+        try:
+            report = detect_recurring_themes(g.user['user_id'])
+        except ReportUnavailable as e:
+            return jsonify({'ok': False, 'error': str(e)}), 503
+        if report is not None:
+            return jsonify({'ok': True, 'data': report})
+        return jsonify({'ok': False,
+                        'error': 'Not enough conversation yet to spot recurring themes — keep chatting with Nexa.'}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/my-digest')
+@require_weace_token
+def my_digest():
+    """A reflection digest over the signed-in user's last seven days."""
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    user_id = g.user['user_id']
+    try:
+        report = get_user_insight_report(user_id, 'weekly_digest')
+        if report is None:
+            from sentiment_job import generate_weekly_digest
+            report = generate_weekly_digest(user_id)
+        return jsonify(report or {})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/my-digest/refresh', methods=['POST'])
+@require_weace_token
+def my_digest_refresh():
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    try:
+        from sentiment_job import generate_weekly_digest, ReportUnavailable
+        try:
+            report = generate_weekly_digest(g.user['user_id'])
+        except ReportUnavailable as e:
+            return jsonify({'ok': False, 'error': str(e)}), 503
+        if report is not None:
+            return jsonify({'ok': True, 'data': report})
+        return jsonify({'ok': False,
+                        'error': 'Too few messages this week to write a digest — chat with Nexa and try again.'}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# Recommendation runs, keyed by user_id. Building a list means one web search per
+# resource, which takes far longer than a request should sit open — so the work
+# happens on a background thread and the page polls for the result.
+_recs_jobs: dict[str, dict] = {}
+_recs_jobs_lock = threading.Lock()
+_RECS_JOB_STALE_SECS = 300   # a thread that outlives this is assumed dead
+
+
+def _recs_job_running(user_id: str) -> bool:
+    with _recs_jobs_lock:
+        job = _recs_jobs.get(user_id)
+        if not job or job.get('status') != 'running':
+            return False
+        if time.time() - job.get('started', 0) > _RECS_JOB_STALE_SECS:
+            _recs_jobs.pop(user_id, None)
+            return False
+        return True
+
+
+def _run_recs_job(user_id: str):
+    from sentiment_job import generate_recommendations, ReportUnavailable
+    try:
+        report = generate_recommendations(user_id)
+        status = 'done' if report else 'empty'
+        error = None if report else 'Not enough conversation yet to recommend anything — keep chatting with Nexa.'
+    except ReportUnavailable as e:
+        status, error = 'empty', str(e)
+        print(f"Recommendations unavailable for {user_id}: {e}")
+    except Exception as e:
+        status, error = 'error', str(e)
+        print(f"Recommendation job failed for {user_id}: {e}")
+    with _recs_jobs_lock:
+        _recs_jobs[user_id] = {'status': status, 'error': error, 'started': time.time()}
+
+
+@app.route('/api/my-recommendations')
+@require_weace_token
+def my_recommendations():
+    """Articles, books, videos, and lectures picked from the user's own topics.
+
+    Cache-only, unlike the other insight endpoints: this report runs web searches,
+    so generating it on a page load would leave the section spinning for as long
+    as the searches take. The user asks for it with the button instead.
+    """
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    user_id = g.user['user_id']
+    try:
+        report = get_user_insight_report(user_id, 'recommendations') or {'recommendations': []}
+        if _recs_job_running(user_id):
+            report['status'] = 'running'
+        else:
+            with _recs_jobs_lock:
+                job = _recs_jobs.get(user_id) or {}
+            report['status'] = job.get('status') or 'idle'
+            if job.get('error'):
+                report['error'] = job['error']
+        return jsonify(report)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/my-recommendations/refresh', methods=['POST'])
+@require_weace_token
+def my_recommendations_refresh():
+    """Kick off a run and return straight away — the page polls the GET above."""
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    user_id = g.user['user_id']
+    if _recs_job_running(user_id):
+        return jsonify({'ok': True, 'status': 'running'})
+    with _recs_jobs_lock:
+        _recs_jobs[user_id] = {'status': 'running', 'error': None, 'started': time.time()}
+    threading.Thread(target=_run_recs_job, args=(user_id,), daemon=True).start()
+    return jsonify({'ok': True, 'status': 'running'})
 
 
 @app.route('/admin')

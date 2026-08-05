@@ -167,6 +167,19 @@ def init_db():
                     INDEX idx_user_id (user_id)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """)
+            # Cached narrative reports behind the personal insights dashboard —
+            # one row per (user, report_type), e.g. 'recurring_themes' and
+            # 'weekly_digest'. Regenerated on demand rather than per page view.
+            _execute(cur,"""
+                CREATE TABLE IF NOT EXISTS user_insight_reports (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id VARCHAR(36) NOT NULL,
+                    report_type VARCHAR(40) NOT NULL,
+                    report_data JSON NOT NULL,
+                    calculated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE KEY uniq_user_report (user_id, report_type)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """)
             _execute(cur,"""
                 CREATE TABLE IF NOT EXISTS sentiment_analysis_cursor (
                     org_slug VARCHAR(255) PRIMARY KEY,
@@ -1514,6 +1527,78 @@ def get_user_messages(user_id: str, limit: int = 300) -> list:
                 (user_id, limit),
             )
             return [row['content'] for row in cur.fetchall()]
+    finally:
+        conn.close()
+
+
+def get_user_dated_messages(user_id: str, limit: int = 300, since_days: int = None) -> list:
+    """
+    The user's own messages with their dates, oldest first — input for the
+    recurring-theme and weekly-digest reports, both of which need to know *when*
+    something was said, not just what.
+    """
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            sql = """
+                SELECT content, created_at FROM ai_coach_messages
+                WHERE user_id = %s AND role = 'user'
+            """
+            params = [user_id]
+            if since_days:
+                sql += " AND created_at >= DATE_SUB(NOW(), INTERVAL %s DAY)"
+                params.append(int(since_days))
+            sql += " ORDER BY id DESC LIMIT %s"
+            params.append(limit)
+            _execute(cur, sql, tuple(params))
+            rows = cur.fetchall()
+        return [
+            {'date': str(r['created_at'])[:10], 'content': r['content']}
+            for r in reversed(rows)
+        ]
+    finally:
+        conn.close()
+
+
+def get_user_insight_report(user_id: str, report_type: str) -> dict | None:
+    """A cached narrative report ('recurring_themes', 'weekly_digest') or None."""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur,
+                "SELECT report_data, calculated_at FROM user_insight_reports "
+                "WHERE user_id = %s AND report_type = %s",
+                (user_id, report_type),
+            )
+            row = cur.fetchone()
+            if not row:
+                return None
+            data = row['report_data']
+            if isinstance(data, str):
+                data = json.loads(data)
+            if not isinstance(data, dict):
+                data = {'items': data}
+            data['calculated_at'] = str(row['calculated_at'])
+            return data
+    finally:
+        conn.close()
+
+
+def upsert_user_insight_report(user_id: str, report_type: str, report_data: dict):
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur,
+                """
+                INSERT INTO user_insight_reports (user_id, report_type, report_data, calculated_at)
+                VALUES (%s, %s, %s, NOW())
+                ON DUPLICATE KEY UPDATE
+                    report_data   = VALUES(report_data),
+                    calculated_at = VALUES(calculated_at)
+                """,
+                (user_id, report_type, json.dumps(report_data)),
+            )
+        conn.commit()
     finally:
         conn.close()
 

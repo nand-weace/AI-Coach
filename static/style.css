@@ -17,16 +17,16 @@
 }
 
 :root {
-    --bg-color: #f8fafc;
+    --bg-color: #faf8fd;
     --glass-bg: rgba(255, 255, 255, 0.7);
     --glass-border: rgba(0, 0, 0, 0.08);
-    --primary-color: #2563eb;
-    --primary-hover: #1d4ed8;
-    --text-main: #1e293b;
-    --text-muted: #64748b;
-    --assistant-msg-bg: rgba(226, 232, 240, 0.7);
-    --user-msg-bg: rgba(59, 130, 246, 0.08);
-    --accent-gradient: linear-gradient(135deg, #2563eb 0%, #8b5cf6 100%);
+    --primary-color: #7c3aed;
+    --primary-hover: #6d28d9;
+    --text-main: #241f36;
+    --text-muted: #6b6484;
+    --assistant-msg-bg: rgba(232, 226, 243, 0.7);
+    --user-msg-bg: rgba(139, 92, 246, 0.08);
+    --accent-gradient: linear-gradient(135deg, #6d28d9 0%, #a855f7 100%);
 }
 
 * {
@@ -45,8 +45,8 @@ body {
     align-items: center;
     overflow: hidden;
     background-image: 
-        radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.07), transparent 25%),
-        radial-gradient(circle at 85% 30%, rgba(139, 92, 246, 0.07), transparent 25%);
+        radial-gradient(circle at 15% 50%, rgba(139, 92, 246, 0.07), transparent 25%),
+        radial-gradient(circle at 85% 30%, rgba(168, 85, 247, 0.07), transparent 25%);
     background-attachment: fixed;
 }
 
@@ -176,7 +176,7 @@ body {
 }
 
 .user-avatar {
-    background-color: #475569;
+    background-color: #4d4166;
     color: white;
 }
 
@@ -380,7 +380,7 @@ body {
     padding: 3px;
     border: 1px solid var(--glass-border);
     border-radius: 999px;
-    background: rgba(248, 250, 252, 0.9);
+    background: rgba(250, 248, 253, 0.9);
 }
 
 /* Sliding pill behind the selected option */
@@ -392,7 +392,7 @@ body {
     width: calc(50% - 3px);
     border-radius: 999px;
     background: var(--accent-gradient);
-    box-shadow: 0 1px 4px rgba(37, 99, 235, 0.28);
+    box-shadow: 0 1px 4px rgba(124, 58, 237, 0.28);
     transition: transform 0.22s ease;
 }
 
@@ -464,7 +464,7 @@ body {
     display: flex;
     gap: 12px;
     align-items: flex-end;
-    background: rgba(248, 250, 252, 0.9);
+    background: rgba(250, 248, 253, 0.9);
     border: 1px solid var(--glass-border);
     border-radius: 24px;
     padding: 8px 8px 8px 24px;
@@ -472,8 +472,8 @@ body {
 }
 
 #chat-form:focus-within {
-    border-color: rgba(59, 130, 246, 0.5);
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+    border-color: rgba(139, 92, 246, 0.5);
+    box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2);
 }
 
 #user-input {
@@ -514,7 +514,7 @@ body {
 }
 
 #mic-button:hover {
-    background: rgba(59, 130, 246, 0.1);
+    background: rgba(139, 92, 246, 0.1);
     color: var(--primary-color);
 }
 
@@ -573,7 +573,7 @@ body {
 }
 
 #speak-toggle:hover {
-    background: rgba(59, 130, 246, 0.1);
+    background: rgba(139, 92, 246, 0.1);
     color: var(--primary-color);
 }
 
@@ -583,7 +583,7 @@ body {
 
 #speak-toggle.is-on {
     color: var(--primary-color);
-    background: rgba(59, 130, 246, 0.12);
+    background: rgba(139, 92, 246, 0.12);
 }
 
 /* Live transcript that hasn't been finalised by the recogniser yet */
@@ -669,8 +669,8 @@ body {
     justify-content: center;
     background-color: var(--bg-color);
     background-image:
-        radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.07), transparent 25%),
-        radial-gradient(circle at 85% 30%, rgba(139, 92, 246, 0.07), transparent 25%);
+        radial-gradient(circle at 15% 50%, rgba(139, 92, 246, 0.07), transparent 25%),
+        radial-gradient(circle at 85% 30%, rgba(168, 85, 247, 0.07), transparent 25%);
     z-index: 100;
 }
 
@@ -723,7 +723,7 @@ body {
     padding: 12px 16px;
     border: 1px solid var(--glass-border);
     border-radius: 999px;
-    background: rgba(248, 250, 252, 0.9);
+    background: rgba(250, 248, 253, 0.9);
     color: var(--text-main);
     font-family: inherit;
     font-size: 1rem;
@@ -733,8 +733,8 @@ body {
 }
 
 #login-email:focus {
-    border-color: rgba(59, 130, 246, 0.5);
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+    border-color: rgba(139, 92, 246, 0.5);
+    box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2);
 }
 
 #login-email::placeholder {
@@ -752,7 +752,7 @@ body {
     padding: 12px 44px 12px 16px;
     border: 1px solid var(--glass-border);
     border-radius: 999px;
-    background: rgba(248, 250, 252, 0.9);
+    background: rgba(250, 248, 253, 0.9);
     color: var(--text-main);
     font-family: inherit;
     font-size: 1rem;
@@ -762,8 +762,8 @@ body {
 }
 
 .password-field input:focus {
-    border-color: rgba(59, 130, 246, 0.5);
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+    border-color: rgba(139, 92, 246, 0.5);
+    box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2);
 }
 
 .toggle-password {
@@ -826,7 +826,7 @@ body {
 .login-spinner {
     width: 28px;
     height: 28px;
-    border: 3px solid rgba(37, 99, 235, 0.15);
+    border: 3px solid rgba(124, 58, 237, 0.15);
     border-top-color: var(--primary-color);
     border-radius: 50%;
     animation: spin 0.7s linear infinite;
@@ -860,7 +860,7 @@ body {
     height: 26px;
     border-radius: 50%;
     background: var(--accent-gradient);
-    box-shadow: 0 0 22px rgba(99, 102, 241, 0.55);
+    box-shadow: 0 0 22px rgba(147, 51, 234, 0.55);
     animation: orb-breathe 2.4s ease-in-out infinite;
 }
 
@@ -868,9 +868,9 @@ body {
     position: absolute;
     inset: 0;
     border-radius: 50%;
-    border: 1.5px solid rgba(139, 92, 246, 0.14);
-    border-top-color: #2563eb;
-    border-right-color: #8b5cf6;
+    border: 1.5px solid rgba(168, 85, 247, 0.14);
+    border-top-color: #7c3aed;
+    border-right-color: #a855f7;
     animation: orb-sweep 2.6s cubic-bezier(0.65, 0, 0.35, 1) infinite;
 }
 
@@ -898,7 +898,7 @@ body {
     letter-spacing: -0.01em;
     background: linear-gradient(100deg,
         var(--text-main) 0%, var(--text-main) 35%,
-        #8b5cf6 50%,
+        #a855f7 50%,
         var(--text-main) 65%, var(--text-main) 100%);
     background-size: 220% 100%;
     -webkit-background-clip: text;
@@ -939,14 +939,14 @@ body {
 }
 
 .login-steps::before {
-    background: rgba(100, 116, 139, 0.16);
+    background: rgba(107, 100, 132, 0.16);
 }
 
 .login-steps::after {
     bottom: auto;
     height: calc((100% - 22px) * var(--rail-fill));
-    background: linear-gradient(180deg, #2563eb 0%, #8b5cf6 100%);
-    box-shadow: 0 0 10px rgba(99, 102, 241, 0.4);
+    background: linear-gradient(180deg, #7c3aed 0%, #a855f7 100%);
+    box-shadow: 0 0 10px rgba(147, 51, 234, 0.4);
     transition: height 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -988,7 +988,7 @@ body {
     width: 7px;
     height: 7px;
     border-radius: 50%;
-    background: rgba(100, 116, 139, 0.35);
+    background: rgba(107, 100, 132, 0.35);
     transition: background 0.35s;
 }
 
@@ -1005,7 +1005,7 @@ body {
 
 .login-step.active .login-step-marker {
     background: var(--bg-color);
-    box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.35);
+    box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.35);
 }
 
 .login-step.active .login-step-marker::after {
@@ -1013,7 +1013,7 @@ body {
     position: absolute;
     inset: -3px;
     border-radius: 50%;
-    border: 2px solid rgba(139, 92, 246, 0.5);
+    border: 2px solid rgba(168, 85, 247, 0.5);
     animation: marker-pulse 1.7s ease-out infinite;
 }
 
@@ -1035,7 +1035,7 @@ body {
 
 .login-step.done .login-step-marker {
     background: var(--accent-gradient);
-    box-shadow: 0 0 12px rgba(99, 102, 241, 0.35);
+    box-shadow: 0 0 12px rgba(147, 51, 234, 0.35);
 }
 
 @keyframes marker-pulse {
@@ -1060,7 +1060,7 @@ body {
     max-width: 268px;
     height: 3px;
     border-radius: 999px;
-    background: rgba(100, 116, 139, 0.14);
+    background: rgba(107, 100, 132, 0.14);
     overflow: hidden;
 }
 
@@ -1142,7 +1142,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(15, 23, 42, 0.55);
+    background: rgba(23, 16, 42, 0.55);
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
     z-index: 200;
@@ -1186,7 +1186,7 @@ body {
 .subscription-dates {
     font-size: 0.8rem;
     color: var(--text-muted);
-    background: rgba(248, 250, 252, 0.8);
+    background: rgba(250, 248, 253, 0.8);
     border: 1px solid var(--glass-border);
     border-radius: 8px;
     padding: 8px 16px;

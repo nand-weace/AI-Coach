@@ -209,12 +209,13 @@ Roles come from the We-Ace profile as an **array of role objects** (`[{slug: "..
 
 ### Provider abstraction (`app.py`)
 
-The provider is selected by the `AI_PROVIDER` env var (`openai` or `claude`) at startup:
+The provider is selected by the `AI_PROVIDER` env var (`claude` or `openai`) at startup. Claude is the
+default — web search is only available on that path:
 
 ```python
-AI_PROVIDER = os.environ.get("AI_PROVIDER", "openai").lower()
+AI_PROVIDER = os.environ.get("AI_PROVIDER", "claude").lower()
 DEFAULT_MODELS = {"openai": "gpt-4o", "claude": "claude-sonnet-4-6"}
-AI_MODEL = os.environ.get("AI_MODEL", DEFAULT_MODELS.get(AI_PROVIDER, "gpt-4o"))
+AI_MODEL = os.environ.get("AI_MODEL", DEFAULT_MODELS.get(AI_PROVIDER, "claude-sonnet-4-6"))
 ```
 
 - **Claude**: system prompt passed via the `system=` parameter; message list excludes the system role; `max_tokens=1024`.
@@ -386,10 +387,10 @@ All configuration is via environment variables (loaded from `.env` in developmen
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `AI_PROVIDER` | `openai` | `openai` or `claude`. |
-| `AI_MODEL` | provider default | Override model (`gpt-4o` / `claude-sonnet-4-6`). |
+| `AI_PROVIDER` | `claude` | `claude` or `openai`. |
+| `AI_MODEL` | provider default | Override model (`claude-sonnet-4-6` / `gpt-4o`). |
+| `CLAUDE_API_KEY` | — | Required when `AI_PROVIDER=claude` (the default). |
 | `OPENAI_API_KEY` | — | Required when `AI_PROVIDER=openai`. |
-| `CLAUDE_API_KEY` | — | Required when `AI_PROVIDER=claude`. |
 | `WEACE_API_URL` | `https://api.we-ace.com` | Base URL of the We-Ace auth/profile API. |
 | `FLASK_SECRET_KEY` | `dev-secret-change-in-prod` | **Set in production** — signs Flask session cookies. |
 | `DB_HOST` | `localhost` | MySQL host. |
@@ -420,7 +421,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 
 # 2. Create a .env with at least:
-#    AI_PROVIDER, OPENAI_API_KEY (or CLAUDE_API_KEY),
+#    CLAUDE_API_KEY (or AI_PROVIDER=openai + OPENAI_API_KEY),
 #    DB_HOST/DB_PORT/DB_USER/DB_PASSWORD/DB_NAME,
 #    WEACE_API_URL, FLASK_SECRET_KEY
 
