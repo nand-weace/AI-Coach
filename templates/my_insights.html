@@ -50,7 +50,6 @@
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            margin-top: 14px;
             background: rgba(124, 58, 237,0.06);
             border: 1px solid rgba(124, 58, 237,0.14);
             border-radius: 12px;
@@ -662,12 +661,14 @@
 {% include '_header.html' %}
 
 <div class="page">
-    <div class="page-title" style="display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:12px;">
-        <div>
-            <h2>My Nexa Insights</h2>
-            <span class="org-badge" id="user-badge">{{ user_name or 'Your coaching journey' }}</span>
+    <div class="page-title" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+        <div class="privacy-note">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+            These insights are drawn from the language in your own coaching conversations, and are shown only to you.
         </div>
-        <div class="table-controls" style="padding-top:4px;">
+        <div class="table-controls">
             <div class="date-range-wrap">
                 <input type="date" class="date-input" id="filter-date-from" title="From date">
                 <span class="date-range-sep">–</span>
@@ -676,6 +677,7 @@
             <button class="clear-dates-btn" id="clear-dates-btn">Clear</button>
         </div>
     </div>
+
 
     <!-- Not-enough-data state -->
     <div id="no-data-screen">
@@ -720,13 +722,6 @@
             <div class="stat-label">Coaching Since</div>
             <div class="stat-value loading" id="stat-since" style="font-size:1.3rem;">—</div>
         </div>
-    </div>
-
-    <div class="privacy-note">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-        </svg>
-        These insights are drawn from the language in your own coaching conversations, and are shown only to you.
     </div>
 
     <!-- ── Sentiment Intelligence ── -->
