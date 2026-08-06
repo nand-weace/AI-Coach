@@ -133,24 +133,24 @@
         .sentiment-grid {
             display: flex;
             flex-direction: column;
-            gap: 28px;
-            margin-bottom: 32px;
+            gap: 22px;
+            margin-bottom: 28px;
         }
         /* one block per theme: label + its own card grid */
-        .sentiment-group { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+        .sentiment-group { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
         .sentiment-group-cards {
             display: grid;
             /* auto-fit, not auto-fill: a theme with a single card stretches it
                across its half rather than leaving an empty track */
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 14px;
         }
         /* two themes to a row — column weights come from --pair-cols, set per
            row by the renderer from each theme's card count */
         .sentiment-pair {
             display: grid;
             grid-template-columns: var(--pair-cols, 1fr 1fr);
-            gap: 28px;
+            gap: 22px;
             align-items: start;
             margin-bottom: 0;
         }
@@ -162,13 +162,13 @@
         .sentiment-card {
             background: var(--glass-bg);
             border: 1px solid var(--glass-border);
-            border-radius: 18px;
-            padding: 24px 26px;
+            border-radius: 14px;
+            padding: 14px 16px;
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
             display: flex;
             flex-direction: column;
-            gap: 16px;
+            gap: 8px;
             cursor: pointer;
             transition: box-shadow 0.18s, transform 0.18s;
         }
@@ -176,12 +176,20 @@
         .card-green { border-color: rgba(109,40,217,0.5); background: rgba(109,40,217,0.05); }
         .card-amber { border-color: rgba(168,85,247,0.5); background: rgba(168,85,247,0.05); }
         .card-red   { border-color: rgba(192,132,252,0.5); background: rgba(192,132,252,0.05); }
-        .sentiment-card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
-        .sentiment-label { font-size: 0.95rem; font-weight: 600; color: var(--text-main); line-height: 1.3; }
-        .sentiment-desc { font-size: 0.80rem; color: var(--text-muted); margin-top: 4px; }
+        .sentiment-card-header { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+        .sentiment-label { font-size: 0.88rem; font-weight: 600; color: var(--text-main); line-height: 1.3; }
         .sentiment-score-block { flex-shrink: 0; }
-        .sentiment-insight { font-size: 0.82rem; color: var(--text-muted); line-height: 1.55; padding-top: 2px; }
-        .sentiment-score-meaning { font-size: 0.80rem; color: var(--text-muted); line-height: 1.55; margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(0,0,0,0.06); }
+        /* clamped to keep every card the same height — the modal has the full text */
+        .sentiment-insight {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            line-height: 1.5;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
         .sentiment-no-data {
             grid-column: 1 / -1;
             text-align: center;
@@ -754,8 +762,8 @@
         <div class="panel-empty"><div class="skeleton" style="width:200px; margin:0 auto;"></div></div>
     </div>
 
-    <!-- ── Weekly Reflection Digest ── -->
-    <div class="section-row">
+    <!-- ── Weekly Reflection Digest (temporarily hidden) ── -->
+    <div class="section-row" id="digest-section" style="display:none;">
         <div>
             <h3>Weekly Reflection Digest</h3>
             <p>A read-back of your last seven days of coaching</p>
@@ -765,12 +773,12 @@
             <button class="refresh-btn" id="digest-refresh-btn">Write digest</button>
         </div>
     </div>
-    <div id="digest-wrap">
+    <div id="digest-wrap" style="display:none;">
         <div class="panel-empty"><div class="skeleton" style="width:200px; margin:0 auto;"></div></div>
     </div>
 
-    <!-- ── Reading Recommendations ── -->
-    <div class="section-row">
+    <!-- ── Reading Recommendations (temporarily hidden) ── -->
+    <div class="section-row" id="recs-section" style="display:none;">
         <div>
             <h3>Recommended for You</h3>
             <p>Articles, books, videos, and lectures picked from what you talk about</p>
@@ -780,7 +788,7 @@
             <button class="refresh-btn" id="recs-refresh-btn">Find recommendations</button>
         </div>
     </div>
-    <div id="recs-wrap">
+    <div id="recs-wrap" style="display:none;">
         <div class="panel-empty"><div class="skeleton" style="width:200px; margin:0 auto;"></div></div>
     </div>
 
@@ -911,7 +919,7 @@
           interp: { high: 'Your language reads calm and composed, with few urgency or pressure signals.', mid: 'Moderate stress signals — urgency and pressure surface across several conversations.', low: 'Strong stress signals: pressure and overwhelm run through much of your language.' } },
         { key: 'frustration_disengagement', label: 'Frustration', desc: 'Cynicism, dismissiveness, or detachment', inverse: true, theme: 'wellbeing',
           interp: { high: 'You stay engaged and constructive, with little cynicism in your language.', mid: 'Some frustration comes through — occasional cynicism or disconnection.', low: 'Marked frustration or withdrawal shows up; worth unpacking what sits underneath it.' } },
-        { key: 'psychological_safety', label: 'Openness', desc: 'How openly you discuss mistakes and doubts', inverse: false, theme: 'trust',
+        { key: 'psychological_safety', label: 'Openness', desc: 'How openly you discuss mistakes and doubts', inverse: false, theme: 'wellbeing',
           interp: { high: 'You share failures, fears, and uncertainties freely — that openness makes coaching work harder for you.', mid: 'You open up selectively; some vulnerability, some guardedness.', low: 'Your language stays guarded around failures and doubts — there is more to gain by going deeper.' } },
         { key: 'empathy', label: 'Empathy', desc: "Attention to others' perspectives and emotions", inverse: false, theme: 'interpersonal',
           interp: { high: 'You regularly take others\' perspectives and name their experience explicitly.', mid: 'Awareness of others is present, with room to deepen how you read the room.', low: 'Conversations centre mostly on you or the task; others\' feelings rarely feature.' } },
@@ -919,8 +927,8 @@
 
     const SENTIMENT_THEMES = [
         { key: 'growth',        label: 'Growth & Development' },
-        { key: 'wellbeing',     label: 'Emotional Wellbeing' },
-        { key: 'trust',         label: 'Openness & Trust' },
+        // Emotional Wellbeing and Openness & Trust are merged into one block
+        { key: 'wellbeing',     label: 'Emotional Wellbeing & Trust' },
         { key: 'interpersonal', label: 'Interpersonal Awareness' },
     ];
 
@@ -1350,7 +1358,7 @@
                 keySplines="0.25 0.1 0.25 1;0.4 0 0.6 1;0.4 0 0.6 1;0.4 0 0.6 1"
                 dur="1.9s" fill="freeze"/>`;
 
-            return `<svg viewBox="0 0 120 86" width="114" height="82" style="display:block;margin-left:auto;overflow:visible;">
+            return `<svg viewBox="0 0 120 86" width="86" height="62" style="display:block;margin-left:auto;overflow:visible;">
               <defs>
                 <filter id="ns${uid}" x="-200%" y="-200%" width="500%" height="500%">
                   <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="rgba(0,0,0,0.45)"/>
@@ -1412,16 +1420,14 @@
             const tier = effective >= 70 ? 'high' : effective >= 40 ? 'mid' : 'low';
             const interp = dim.interp ? dim.interp[tier] : '';
             const gaugeColor = GAUGE_COLORS[cls.num];
-            return `<div class="sentiment-card ${cls.card}" data-dim-key="${dim.key}">
+            // Compact card: label + gauge + a clamped insight. The description and
+            // the tier meaning live in the modal, which opens on click.
+            return `<div class="sentiment-card ${cls.card}" data-dim-key="${dim.key}" title="${escHtml(interp || dim.desc)}">
                 <div class="sentiment-card-header">
-                    <div>
-                        <div class="sentiment-label">${dim.label}</div>
-                        <div class="sentiment-desc">${dim.desc}</div>
-                    </div>
+                    <div class="sentiment-label">${dim.label}</div>
                     <div class="sentiment-score-block">${buildGauge(score, gaugeColor, dim.inverse)}</div>
                 </div>
                 <div class="sentiment-insight">${escHtml(entry.insight || '')}</div>
-                ${interp ? `<div class="sentiment-score-meaning">${escHtml(interp)}</div>` : ''}
             </div>`;
         }
 
@@ -1440,9 +1446,9 @@
             </section>`;
         };
 
-        // Themes are laid out two to a row: Growth & Development beside
-        // Interpersonal Awareness, Emotional Wellbeing beside Openness & Trust.
-        const THEME_ROWS = [['growth', 'interpersonal'], ['wellbeing', 'trust']];
+        // Growth & Development sits beside Interpersonal Awareness; the merged
+        // Emotional Wellbeing & Trust block takes the full row below.
+        const THEME_ROWS = [['growth', 'interpersonal'], ['wellbeing']];
         const themeByKey  = k => SENTIMENT_THEMES.find(t => t.key === k);
         const cardCount   = k => SENTIMENT_DIMS.filter(d => d.theme === k && data[d.key]).length;
 
@@ -2003,8 +2009,9 @@
     loadStats();
     loadSentiment();
     loadThemes();
-    loadDigest();
-    loadRecs();
+    // Temporarily hidden — skip the fetches so we don't spend model calls on them.
+    if (document.getElementById('digest-section')?.style.display !== 'none') loadDigest();
+    if (document.getElementById('recs-section')?.style.display !== 'none') loadRecs();
 </script>
 </body>
 </html>

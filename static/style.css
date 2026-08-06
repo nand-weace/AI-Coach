@@ -204,6 +204,7 @@ body {
 .user-message {
     background: var(--user-msg-bg);
     border-top-right-radius: 4px;
+    background-color: lemonchiffon;
 }
 
 .message-body {

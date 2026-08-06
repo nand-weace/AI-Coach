@@ -625,6 +625,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     let dictationBase = '';      // text already in the box when dictation started
     const DEFAULT_PLACEHOLDER = userInput.placeholder;
 
+    // Hands-free: three seconds of silence after something has been said ends
+    // dictation and sends the message, so speaking to Nexa needs no tap.
+    const AUTO_SEND_SILENCE_MS = 3000;
+    let silenceTimer = null;
+    let autoSendOnEnd = false;
+
+    function clearSilenceTimer() {
+        clearTimeout(silenceTimer);
+        silenceTimer = null;
+    }
+
+    function armSilenceTimer() {
+        clearSilenceTimer();
+        silenceTimer = setTimeout(() => {
+            silenceTimer = null;
+            // nothing transcribed yet — keep the mic open rather than sending air
+            if (!recognition || !userInput.value.trim()) return;
+            autoSendOnEnd = true;
+            recognition.stop();   // onend submits once the mic is actually closed
+        }, AUTO_SEND_SILENCE_MS);
+    }
+
     function showVoiceHint(text) {
         let hint = document.getElementById('voice-hint');
         if (!hint) {
@@ -639,6 +661,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function stopDictation() {
+        // a deliberate stop never auto-sends — the user keeps the draft
+        clearSilenceTimer();
+        autoSendOnEnd = false;
         if (recognition) {
             recognition.stop();   // onend does the UI cleanup
         }
@@ -679,9 +704,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             const parts = [dictationBase, interimText.trim()].filter(Boolean);
             userInput.value = parts.join(' ');
             autoResizeInput();
+            armSilenceTimer();   // every word heard restarts the 3s countdown
         };
 
         rec.onerror = (event) => {
+            clearSilenceTimer();
+            autoSendOnEnd = false;
             if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
                 showVoiceHint('Microphone access is blocked. Enable it in your browser settings to use voice.');
             } else if (event.error === 'no-speech') {
@@ -692,6 +720,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
 
         rec.onend = () => {
+            clearSilenceTimer();
             recognition = null;
             micButton.classList.remove('recording');
             micButton.setAttribute('aria-pressed', 'false');
@@ -699,6 +728,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             userInput.classList.remove('dictating');
             userInput.placeholder = DEFAULT_PLACEHOLDER;
             userInput.focus();
+
+            if (autoSendOnEnd) {
+                autoSendOnEnd = false;
+                if (!userInput.disabled && userInput.value.trim()) {
+                    chatForm.dispatchEvent(new Event('submit', { cancelable: true }));
+                }
+            }
         };
 
         try {
@@ -709,6 +745,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             showVoiceHint('Could not start voice input. Please try again.');
         }
     }
+
+    // Typing while the mic is open also counts as activity, so an edit in
+    // progress is never cut off mid-word by the auto-send.
+    userInput.addEventListener('input', () => {
+        if (recognition && silenceTimer) armSilenceTimer();
+    });
 
     if (SpeechRecognitionCtor && micButton) {
         micButton.style.display = 'flex';
