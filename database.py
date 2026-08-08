@@ -407,6 +407,33 @@ def get_user_history(user_id: str, limit: int = 20) -> list:
         conn.close()
 
 
+def get_recent_user_messages(user_id: str, limit: int = 600) -> list:
+    """The user's most recent `limit` messages across every session, oldest-first.
+
+    This is what /chat replays to the model, so the conversation carries across
+    sessions and survives a restart or a switch between gunicorn workers.
+    Ordered by id rather than created_at so same-second messages keep their
+    real order.
+    """
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur,
+                """
+                SELECT role, content
+                FROM ai_coach_messages
+                WHERE user_id = %s
+                ORDER BY id DESC
+                LIMIT %s
+                """,
+                (user_id, limit),
+            )
+            rows = cur.fetchall()
+            return list(reversed(rows))
+    finally:
+        conn.close()
+
+
 def get_user_history_before(user_id: str, before_id: int, limit: int = 20) -> list:
     """Page older messages for infinite scroll: up to `limit` messages with an
     id lower than `before_id`, returned oldest-first."""

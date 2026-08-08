@@ -19,6 +19,7 @@ from database import (
     get_session_highlights,
     get_user_history,
     get_user_history_before,
+    get_recent_user_messages,
     set_message_feedback,
     get_message_feedback,
     get_org_custom_content,
@@ -306,8 +307,16 @@ def _claude_reply(system_content: str, messages: list, max_tokens: int) -> str:
     return _reply_text(response)
 
 
-# In-memory conversation history keyed by session_uuid
+# Cached system prompt per session_uuid, as a one-element history list. The
+# conversation turns themselves are read from the DB per request — see
+# _get_or_rebuild_history.
 sessions_cache: dict[str, list] = {}
+
+# How many past messages a /chat turn replays, counted across all of the user's
+# sessions rather than just the current one. Sonnet's window is far larger than
+# this; the cap is here so a user with years of history doesn't make every turn
+# slow and expensive.
+MAX_CONTEXT_MESSAGES = 400
 
 # In-memory user state keyed by weace access_token
 auth_tokens: dict[str, dict] = {}
@@ -695,16 +704,44 @@ def _build_personalized_prompt(user_name: str, highlights: list, profile_context
     return prompt
 
 
-def _get_or_rebuild_history(session_uuid: str, user_id: str, user_name: str,
-                            profile_context: dict = None) -> list:
-    if session_uuid in sessions_cache:
-        return sessions_cache[session_uuid]
+def _system_prompt_for(session_uuid: str, user_id: str, user_name: str,
+                       profile_context: dict = None) -> str:
+    """The session's system prompt, built once and cached per session_uuid."""
+    cached = sessions_cache.get(session_uuid)
+    if cached:
+        return cached[0]["content"]
     highlights = get_session_highlights(user_id)
     ctx = profile_context or _get_profile_context_cached(user_id)
     prompt = _build_personalized_prompt(user_name, highlights, ctx, user_id)
-    history = [{"role": "system", "content": prompt}]
-    sessions_cache[session_uuid] = history
-    return history
+    if session_uuid:
+        sessions_cache[session_uuid] = [{"role": "system", "content": prompt}]
+    return prompt
+
+
+def _get_or_rebuild_history(session_uuid: str, user_id: str, user_name: str,
+                            profile_context: dict = None) -> list:
+    """System prompt plus the user's whole coaching history, not just this session.
+
+    Nexa is a continuing relationship, so every past conversation is replayed —
+    the user can pick up something from weeks ago without repeating it. Read from
+    the DB on every request: the in-memory cache can't be the source of truth,
+    because we run several gunicorn workers, each with its own copy, so
+    consecutive messages land in different processes and no single worker ever
+    holds the whole conversation. Replaying from the DB is also what carries the
+    context through a restart or a deploy.
+    """
+    history = [{"role": "system", "content":
+                _system_prompt_for(session_uuid, user_id, user_name, profile_context)}]
+
+    rows = get_recent_user_messages(user_id, MAX_CONTEXT_MESSAGES)
+    turns = [{"role": r["role"], "content": r["content"]} for r in rows
+             if r["role"] in ("user", "assistant") and (r["content"] or "").strip()]
+    # The API requires the first message to be from the user, so drop a leading
+    # assistant turn — a session's welcome message, or whatever the window
+    # happened to start on.
+    while turns and turns[0]["role"] == "assistant":
+        turns.pop(0)
+    return history + turns
 
 
 def _generate_welcome(user_name: str, highlights: list, profile_context: dict = None,
@@ -990,17 +1027,16 @@ def create_session():
             logger.info("[linkedin] waited %s for the scrape (finished=%s)",
                         _elapsed(t0), not linkedin_thread.is_alive())
 
-        # A resumed session keeps whatever context is already cached; only seed
-        # the prompt when there's nothing to carry over (new session, or the
-        # cache was lost to a restart).
+        # Only the system prompt is cached here — a resumed session's turns are
+        # replayed from the DB on each /chat request.
         if session_uuid not in sessions_cache:
             prompt = _build_personalized_prompt(user_name, highlights, profile_context, user_id)
             sessions_cache[session_uuid] = [{"role": "system", "content": prompt}]
             logger.info("[create_session] seeded system prompt: session_uuid=%s prompt_chars=%s "
                         "cached_sessions=%s", session_uuid, len(prompt), len(sessions_cache))
         else:
-            logger.info("[create_session] reusing cached conversation: session_uuid=%s messages=%s",
-                        session_uuid, len(sessions_cache[session_uuid]))
+            logger.info("[create_session] reusing cached system prompt: session_uuid=%s",
+                        session_uuid)
 
         language = get_user_language(user_id) or DEFAULT_LANGUAGE
         mode = get_user_mode(user_id) or DEFAULT_MODE
@@ -1175,9 +1211,9 @@ def resume_session():
             logger.info("[resume_session] token cache cold — rebuilt identity for user_id=%s from DB",
                         user_id)
 
-        # Conversation context is lost on a restart; rebuild it from past
-        # highlights so the AI still knows who it's talking to.
-        _get_or_rebuild_history(session_uuid, user_id, user_name, profile_context)
+        # Warm the system prompt for this session; the conversation itself is
+        # replayed from the DB on each /chat turn.
+        _system_prompt_for(session_uuid, user_id, user_name, profile_context)
 
         if _has_role(role, 'weace_super_admin', 'corporate_super_admin'):
             nexa_access, access_last_date = True, cached.get('access_last_date')
@@ -1598,14 +1634,11 @@ def chat():
 
         reply, suggestions = _extract_suggestions(reply)
 
-        conversation_history.append({"role": "assistant", "content": reply})
         message_id = save_message(session_uuid, user_id, 'assistant', reply, language=language)
         return jsonify({'response': reply, 'suggestions': suggestions,
                         'message_id': message_id})
 
     except Exception as e:
-        if conversation_history and conversation_history[-1]["role"] == "user":
-            conversation_history.pop()
         return jsonify({'error': str(e)}), 500
 
 
