@@ -443,6 +443,114 @@
             margin-bottom: 16px;
         }
 
+        /* ── Insight tabs ── */
+        .insight-tabs {
+            display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 999px;
+            padding: 5px;
+            margin: 26px 0 4px;
+            width: fit-content;
+            max-width: 100%;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+        .insight-tab {
+            background: none; border: none; cursor: pointer;
+            font-family: inherit; font-size: 0.84rem; font-weight: 500;
+            color: var(--text-muted);
+            padding: 8px 18px; border-radius: 999px;
+            white-space: nowrap;
+            transition: background 0.18s ease, color 0.18s ease;
+        }
+        .insight-tab:hover { color: var(--primary-color); }
+        .insight-tab.active {
+            background: var(--accent-gradient);
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(109, 40, 217, 0.22);
+        }
+        .insight-panel[hidden] { display: none; }
+
+        /* ── Growth Snapshot (GROW-aligned four quadrants) ── */
+        /* Two by two, always — the four quadrants are read as a pair of pairs, so
+           auto-fit is wrong here: a three-across row breaks the reading. */
+        .growth-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 18px;
+        }
+        @media (max-width: 1000px) {
+            .growth-grid { grid-template-columns: 1fr; }
+        }
+        .growth-quad {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 18px;
+            padding: 22px 24px;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .growth-quad-head { display: flex; align-items: flex-start; gap: 11px; }
+        .growth-quad-icon {
+            width: 30px; height: 30px; border-radius: 9px; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(124, 58, 237, 0.10); color: var(--primary-color);
+        }
+        .growth-quad-title { font-size: 0.95rem; font-weight: 600; line-height: 1.3; }
+        .growth-quad-sub { font-size: 0.75rem; color: var(--text-muted); line-height: 1.45; margin-top: 2px; }
+        .growth-items { display: flex; flex-direction: column; gap: 16px; }
+        .growth-item { display: flex; flex-direction: column; gap: 8px; }
+        .growth-item + .growth-item { border-top: 1px solid var(--glass-border); padding-top: 16px; }
+        .growth-item-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+        .growth-item-label { font-size: 0.86rem; font-weight: 600; line-height: 1.35; }
+        .growth-item-summary { font-size: 0.8rem; color: var(--text-muted); line-height: 1.55; }
+        .growth-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+        .growth-pill {
+            display: inline-flex; align-items: center; gap: 5px;
+            font-size: 0.68rem; font-weight: 600; letter-spacing: 0.03em;
+            text-transform: uppercase; border-radius: 999px;
+            padding: 3px 9px; white-space: nowrap; flex-shrink: 0;
+        }
+        .pill-dim { background: rgba(107, 100, 132, 0.10); color: var(--text-muted); }
+        .pill-improving   { background: rgba(109, 40, 217, 0.10); color: #6d28d9; }
+        .pill-steady-t    { background: rgba(107, 100, 132, 0.10); color: #6b6484; }
+        .pill-surfaced    { background: rgba(168, 85, 247, 0.14); color: #9333ea; }
+        .pill-attention   { background: rgba(216, 180, 254, 0.28); color: #7e22ce; }
+        /* Their own words, quoted back — verified verbatim before it renders. */
+        .growth-quote {
+            font-size: 0.8rem; color: var(--text-main); line-height: 1.6;
+            font-style: italic;
+            border-left: 2px solid rgba(124, 58, 237, 0.35);
+            padding: 2px 0 2px 12px;
+        }
+        .growth-note {
+            display: flex; align-items: flex-start; gap: 7px;
+            font-size: 0.78rem; color: var(--text-main); line-height: 1.55;
+            background: rgba(124, 58, 237, 0.06);
+            border-radius: 10px; padding: 9px 12px;
+        }
+        .growth-note svg { color: var(--primary-color); flex-shrink: 0; margin-top: 3px; }
+        .growth-meta {
+            display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+            font-size: 0.74rem; color: var(--text-muted);
+        }
+        .growth-meta strong { color: var(--text-main); font-weight: 600; }
+        .growth-quad-empty { font-size: 0.8rem; color: var(--text-muted); line-height: 1.55; }
+        .growth-overview {
+            font-size: 0.82rem; color: var(--text-muted); line-height: 1.6;
+            margin-bottom: 16px;
+        }
+        .growth-credit {
+            display: inline-flex; align-items: center; gap: 6px;
+            font-size: 0.72rem; color: var(--text-muted);
+            margin-top: 14px;
+        }
+        .growth-credit svg { color: var(--primary-color); flex-shrink: 0; }
+
         /* ── Weekly reflection digest ── */
         .digest-card {
             background: var(--glass-bg);
@@ -733,7 +841,18 @@
         </div>
     </div>
 
+    <!-- ── Tabs ──
+         Each panel owns one report. Themes and the Growth Snapshot are generated
+         on their first GET, so a panel's data is fetched when it is first opened
+         rather than on page load — an unopened tab costs no model call. -->
+    <div class="insight-tabs" role="tablist" aria-label="Insight sections">
+        <button class="insight-tab active" role="tab" aria-selected="true"  aria-controls="panel-sentiment" data-panel="sentiment">Sentiment Analysis</button>
+        <button class="insight-tab"        role="tab" aria-selected="false" aria-controls="panel-themes"    data-panel="themes">Themes</button>
+        <button class="insight-tab"        role="tab" aria-selected="false" aria-controls="panel-growth"    data-panel="growth">Growth Snapshot</button>
+    </div>
+
     <!-- ── Sentiment Intelligence ── -->
+    <div class="insight-panel" id="panel-sentiment" role="tabpanel">
     <div class="section-row">
         <div>
             <h3>My Sentiment Intelligence</h3>
@@ -748,6 +867,24 @@
         <div id="heat-wrap"></div>
         <div id="trends-wrap"></div>
     </div>
+
+    <!-- ── Dimension detail ──
+         The per-dimension gauges sit at the bottom of this tab: the heat bars and
+         trend line above already give the headline, and this is the drill-down. -->
+    <div class="section-row">
+        <div>
+            <h3>Dimension by Dimension</h3>
+            <p>The detail behind each score, and what it suggests</p>
+        </div>
+    </div>
+    <div class="sentiment-grid" id="sentiment-grid">
+        <!-- populated by JS -->
+        <div class="sentiment-no-data"><div class="skeleton" style="width:200px; margin:0 auto;"></div></div>
+    </div>
+    </div><!-- /#panel-sentiment -->
+
+    <!-- ── Themes ── -->
+    <div class="insight-panel" id="panel-themes" role="tabpanel" hidden>
     <!-- ── Recurring Theme Detection ── -->
     <div class="section-row">
         <div>
@@ -792,20 +929,24 @@
     <div id="recs-wrap" style="display:none;">
         <div class="panel-empty"><div class="skeleton" style="width:200px; margin:0 auto;"></div></div>
     </div>
+    </div><!-- /#panel-themes -->
 
-    <!-- ── Dimension detail ──
-         The per-dimension gauges sit at the bottom: the heat bars and trend line
-         above already give the headline, and this is the drill-down. -->
+    <!-- ── Growth Snapshot ── -->
+    <div class="insight-panel" id="panel-growth" role="tabpanel" hidden>
     <div class="section-row">
         <div>
-            <h3>Dimension by Dimension</h3>
-            <p>The detail behind each score, and what it suggests</p>
+            <h3>Growth Snapshot</h3>
+            <p>A GROW-aligned read of where you are, drawn from your own words</p>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px; flex-shrink:0;">
+            <span class="section-meta" id="growth-updated"></span>
+            <button class="refresh-btn" id="growth-refresh-btn">Rebuild snapshot</button>
         </div>
     </div>
-    <div class="sentiment-grid" id="sentiment-grid">
-        <!-- populated by JS -->
-        <div class="sentiment-no-data"><div class="skeleton" style="width:200px; margin:0 auto;"></div></div>
+    <div id="growth-wrap">
+        <div class="panel-empty"><div class="skeleton" style="width:200px; margin:0 auto;"></div></div>
     </div>
+    </div><!-- /#panel-growth -->
     </div><!-- /#main-dashboard-content -->
 </div>
 
@@ -1506,6 +1647,17 @@
                 'Nearly there — patterns reward a little patience…',
             ],
         },
+        growth: {
+            sub: 'Quoting you back to yourself takes reading, not skimming.',
+            lines: [
+                'Reading back through your own words…',
+                'Finding the strengths you have been showing without naming…',
+                'Working out which skills are moving, and which way…',
+                'Looking for where those strengths would pay off next…',
+                'Counting what keeps coming up across your sessions…',
+                'Almost there — checking every quote is really yours…',
+            ],
+        },
         digest: {
             sub: 'Reading your week properly, not just skimming it.',
             lines: [
@@ -1557,6 +1709,184 @@
         clearTimeout(_waitTimers[key]);
         _waitTimers[key] = null;
     }
+
+    // ── Growth Snapshot ───────────────────────────────────────────────────────
+    // The GROW-aligned four quadrants: strengths evidenced by the user's own
+    // words, growth areas as skills-in-progress mapped onto the same taxonomy the
+    // rest of this page uses, opportunities they have actually mentioned, and
+    // patterns to watch — recurring triggers, counted across sessions.
+
+    const DIM_LABEL = Object.fromEntries(SENTIMENT_DIMS.map(d => [d.key, d.label]));
+
+    const TRAJECTORY_META = {
+        'improving':       { label: 'Improving',       cls: 'pill-improving' },
+        'steady':          { label: 'Steady',          cls: 'pill-steady-t' },
+        'newly surfaced':  { label: 'Newly surfaced',  cls: 'pill-surfaced' },
+        'needs attention': { label: 'Needs attention', cls: 'pill-attention' },
+    };
+
+    const ICON_LIGHTBULB = '<path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/>';
+
+    const GROWTH_QUADS = [
+        {
+            key: 'strengths', title: 'Strengths', sub: 'What your own words already show you doing well',
+            icon: '<circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/>',
+            empty: 'No evidenced strengths yet — a few more sessions and your own words will supply them.',
+            item: s => `
+                <div class="growth-item-top">
+                    <div class="growth-item-label">${escHtml(s.label)}</div>
+                    ${s.dimension ? `<span class="growth-pill pill-dim">${escHtml(DIM_LABEL[s.dimension] || s.dimension)}</span>` : ''}
+                </div>
+                ${s.summary ? `<div class="growth-item-summary">${escHtml(s.summary)}</div>` : ''}
+                ${s.quote ? `<div class="growth-quote">“${escHtml(s.quote)}”</div>` : ''}`,
+        },
+        {
+            key: 'growth_areas', title: 'Growth Areas', sub: 'Skills in progress, and which way each is moving',
+            icon: '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>',
+            empty: 'Nothing to flag as a skill in progress yet.',
+            item: g => {
+                const t = TRAJECTORY_META[g.trajectory] || TRAJECTORY_META.steady;
+                return `
+                <div class="growth-item-top">
+                    <div class="growth-item-label">${escHtml(g.label)}</div>
+                    <span class="growth-pill ${t.cls}">${t.label}</span>
+                </div>
+                ${g.summary ? `<div class="growth-item-summary">${escHtml(g.summary)}</div>` : ''}
+                ${g.dimension ? `<div class="growth-pills"><span class="growth-pill pill-dim">${escHtml(DIM_LABEL[g.dimension] || g.dimension)}</span></div>` : ''}
+                ${g.practice ? `<div class="growth-note">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICON_LIGHTBULB}</svg>
+                    <span>${escHtml(g.practice)}</span></div>` : ''}`;
+            },
+        },
+        {
+            key: 'opportunities', title: 'Opportunities', sub: 'Situations you have raised where your strengths apply',
+            icon: '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+            empty: 'No specific openings mentioned yet — they tend to appear as you talk through real situations.',
+            item: o => `
+                <div class="growth-item-top">
+                    <div class="growth-item-label">${escHtml(o.label)}</div>
+                </div>
+                ${o.summary ? `<div class="growth-item-summary">${escHtml(o.summary)}</div>` : ''}
+                ${o.strength ? `<div class="growth-meta">Draws on <strong>${escHtml(o.strength)}</strong></div>` : ''}
+                ${o.step ? `<div class="growth-note">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                    <span>${escHtml(o.step)}</span></div>` : ''}`,
+        },
+        {
+            key: 'patterns', title: 'Patterns to Watch', sub: 'Recurring triggers worth noticing, not worrying about',
+            icon: '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>',
+            empty: 'No recurring triggers stand out yet.',
+            item: (p, data) => {
+                const total = data.sessions_analyzed || 0;
+                const seen = (p.sessions_seen && total)
+                    ? `Came up in <strong>${p.sessions_seen} of your last ${total} sessions</strong>` : '';
+                const bits = [p.trigger ? `Trigger: ${escHtml(p.trigger)}` : '', seen].filter(Boolean);
+                return `
+                <div class="growth-item-top">
+                    <div class="growth-item-label">${escHtml(p.label)}</div>
+                </div>
+                ${p.summary ? `<div class="growth-item-summary">${escHtml(p.summary)}</div>` : ''}
+                ${bits.length ? `<div class="growth-meta">${bits.join('<span class="theme-meta-sep">·</span>')}</div>` : ''}
+                ${p.prompt ? `<div class="growth-note">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    <span>${escHtml(p.prompt)}</span></div>` : ''}`;
+            },
+        },
+    ];
+
+    function renderGrowth(data) {
+        const wrap = document.getElementById('growth-wrap');
+        const updatedEl = document.getElementById('growth-updated');
+
+        if (data && data.calculated_at) {
+            const d = new Date(data.calculated_at);
+            let meta = `Built ${d.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' })}`;
+            if (data.messages_analyzed) meta += ` · ${data.messages_analyzed} of your messages`;
+            updatedEl.textContent = meta;
+        } else {
+            updatedEl.textContent = '';
+        }
+
+        const filled = data && GROWTH_QUADS.some(q => (data[q.key] || []).length);
+        if (!filled) {
+            wrap.innerHTML = `<div class="panel-empty">${escHtml(
+                (data && data.overview) ||
+                'No snapshot yet — once you have talked through a few sessions this fills in from your own words.'
+            )}</div>`;
+            return;
+        }
+
+        const quads = GROWTH_QUADS.map(q => {
+            const items = data[q.key] || [];
+            const body = items.length
+                ? `<div class="growth-items">${items.map(it =>
+                       `<div class="growth-item">${q.item(it, data)}</div>`).join('')}</div>`
+                : `<div class="growth-quad-empty">${escHtml(q.empty)}</div>`;
+            return `<div class="growth-quad">
+                <div class="growth-quad-head">
+                    <div class="growth-quad-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${q.icon}</svg>
+                    </div>
+                    <div>
+                        <div class="growth-quad-title">${escHtml(q.title)}</div>
+                        <div class="growth-quad-sub">${escHtml(q.sub)}</div>
+                    </div>
+                </div>
+                ${body}
+            </div>`;
+        }).join('');
+
+        wrap.innerHTML =
+            (data.overview ? `<div class="growth-overview">${escHtml(data.overview)}</div>` : '') +
+            `<div class="growth-grid">${quads}</div>` +
+            `<div class="growth-credit">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>
+                <span>Framed on the GROW coaching model, in partnership with i-Coach Academy</span>
+            </div>`;
+    }
+
+    async function loadGrowth() {
+        // Like the themes GET, a first visit generates the report here, so the
+        // waiting copy is armed on a delay and never shows on a cached load.
+        startWaiting('growth', 'growth-wrap', { delay: 1200 });
+        try {
+            const res = await fetch('/api/my-growth', { headers: getAuthHeaders(), credentials: 'omit' });
+            stopWaiting('growth');
+            if (res.status === 401 || res.status === 403) { window.location.href = '/'; return; }
+            if (!res.ok) { renderGrowth(null); return; }
+            renderGrowth(await res.json());
+        } catch (_) {
+            stopWaiting('growth');
+            document.getElementById('growth-wrap').innerHTML =
+                '<div class="panel-empty">Failed to load your snapshot. Please refresh.</div>';
+        }
+    }
+
+    document.getElementById('growth-refresh-btn').addEventListener('click', async () => {
+        const btn = document.getElementById('growth-refresh-btn');
+        btn.disabled = true;
+        btn.textContent = 'Building…';
+        startWaiting('growth', 'growth-wrap');
+        try {
+            const res = await fetch('/api/my-growth/refresh', { method: 'POST', headers: getAuthHeaders(), credentials: 'omit' });
+            const payload = await res.json();
+            stopWaiting('growth');
+            if (payload.ok && payload.data) {
+                payload.data.calculated_at = new Date().toISOString();
+                renderGrowth(payload.data);
+            } else {
+                document.getElementById('growth-wrap').innerHTML =
+                    `<div class="panel-empty">${escHtml(payload.error || 'Could not build a snapshot. Try again later.')}</div>`;
+            }
+        } catch (_) {
+            document.getElementById('growth-wrap').innerHTML =
+                '<div class="panel-empty">Request failed. Please try again.</div>';
+        } finally {
+            stopWaiting('growth');
+            btn.disabled = false;
+            btn.textContent = 'Rebuild snapshot';
+        }
+    });
 
     // ── Recurring theme detection ─────────────────────────────────────────────
 
@@ -2007,12 +2337,56 @@
         link.addEventListener('click', e => { e.preventDefault(); smoothNavTo('/'); });
     });
 
+    // ── Tabs ────────────────────────────────────────────────────────────────
+    // A panel's loader runs the first time that panel is opened, not on page
+    // load: the themes and growth GETs generate their report when there is no
+    // cached one, so eagerly loading all three would spend model calls on tabs
+    // the user never looks at. The chosen tab lives in the URL hash so a refresh
+    // (and the browser back button) lands where they were.
+
+    const TAB_LOADERS = {
+        sentiment: () => loadSentiment(),
+        themes:    () => {
+            loadThemes();
+            // Temporarily hidden — skip the fetches so we don't spend model calls on them.
+            if (document.getElementById('digest-section')?.style.display !== 'none') loadDigest();
+            if (document.getElementById('recs-section')?.style.display !== 'none') loadRecs();
+        },
+        growth:    () => loadGrowth(),
+    };
+    const loadedTabs = new Set();
+
+    function showTab(name, { updateHash = true } = {}) {
+        if (!TAB_LOADERS[name]) name = 'sentiment';
+        document.querySelectorAll('.insight-tab').forEach(btn => {
+            const on = btn.dataset.panel === name;
+            btn.classList.toggle('active', on);
+            btn.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+        document.querySelectorAll('.insight-panel').forEach(p => {
+            p.hidden = p.id !== `panel-${name}`;
+        });
+        // The date range only scopes the sentiment scores, so it follows that tab.
+        const controls = document.querySelector('.table-controls');
+        if (controls) controls.style.display = name === 'sentiment' ? '' : 'none';
+        if (updateHash) history.replaceState(null, '', `#${name}`);
+        if (!loadedTabs.has(name)) {
+            loadedTabs.add(name);
+            TAB_LOADERS[name]();
+        }
+    }
+
+    document.querySelectorAll('.insight-tab').forEach(btn => {
+        btn.addEventListener('click', () => showTab(btn.dataset.panel));
+    });
+    window.addEventListener('hashchange', () => {
+        showTab(location.hash.slice(1), { updateHash: false });
+    });
+
+    // Stats sit above the tabs and gate the whole page (they decide whether the
+    // not-enough-data screen shows), so they load regardless of which tab opens.
     loadStats();
-    loadSentiment();
-    loadThemes();
-    // Temporarily hidden — skip the fetches so we don't spend model calls on them.
-    if (document.getElementById('digest-section')?.style.display !== 'none') loadDigest();
-    if (document.getElementById('recs-section')?.style.display !== 'none') loadRecs();
+    showTab(location.hash.slice(1), { updateHash: false });
 </script>
 </body>
 </html>

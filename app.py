@@ -1905,6 +1905,47 @@ def my_themes_refresh():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/my-growth')
+@require_weace_token
+def my_growth():
+    """The signed-in user's GROW-aligned Growth Snapshot.
+
+    Same contract as /api/my-themes: generated on first request so the section is
+    populated on a first visit, then served from cache until a refresh.
+    """
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    user_id = g.user['user_id']
+    try:
+        report = get_user_insight_report(user_id, 'growth_snapshot')
+        if report is None:
+            from sentiment_job import generate_growth_snapshot
+            report = generate_growth_snapshot(user_id)
+        return jsonify(report or {'strengths': [], 'growth_areas': [],
+                                  'opportunities': [], 'patterns': []})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/my-growth/refresh', methods=['POST'])
+@require_weace_token
+def my_growth_refresh():
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    try:
+        from sentiment_job import generate_growth_snapshot, ReportUnavailable
+        try:
+            report = generate_growth_snapshot(g.user['user_id'])
+        except ReportUnavailable as e:
+            return jsonify({'ok': False, 'error': str(e)}), 503
+        if report is not None:
+            return jsonify({'ok': True, 'data': report})
+        return jsonify({'ok': False,
+                        'error': 'Not enough conversation yet to build a snapshot — keep chatting with Nexa.'}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/my-digest')
 @require_weace_token
 def my_digest():

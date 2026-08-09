@@ -8,6 +8,7 @@ from database import (
     get_user_messages,
     get_user_dated_messages,
     get_user_insight_report,
+    get_user_sentiment_data,
     upsert_user_insight_report,
     upsert_user_sentiment,
     get_org_user_messages_after,
@@ -26,6 +27,18 @@ _DIMS = [
     'work_life_balance', 'job_satisfaction', 'stress_anxiety', 'self_confidence',
     'empathy', 'frustration_disengagement', 'growth_mindset', 'psychological_safety',
 ]
+# Reader-facing names for the same dimensions, matching the labels on the
+# insights page — a growth area reads as "Openness", not "psychological_safety".
+_DIM_LABELS = {
+    'work_life_balance':         'Work-Life Balance',
+    'job_satisfaction':          'Job Satisfaction',
+    'stress_anxiety':            'Stress & Anxiety',
+    'self_confidence':           'Self-Confidence',
+    'empathy':                   'Empathy',
+    'frustration_disengagement': 'Frustration',
+    'growth_mindset':            'Growth Mindset',
+    'psychological_safety':      'Openness',
+}
 _MAX_CHARS = 40_000   # org-level prompt cap (~10k tokens)
 _USER_MAX_CHARS = 6_000  # per-user cap (keeps per-user calls cheap)
 _SELF_MAX_CHARS = 24_000  # personal insights prompt cap (one user, richer output)
@@ -43,6 +56,16 @@ _DIGEST_MAX_CHARS = 8_000   # weekly digest prompt cap
 _DIGEST_MSG_CHARS = 240     # per-message truncation
 _DIGEST_DAYS = 7            # window the weekly digest reads
 _MIN_DIGEST_MESSAGES = 3    # below this the week has nothing to reflect on
+
+# Growth Snapshot — the GROW-aligned four-quadrant read of one person. It quotes
+# the user back to themselves, so it reads more history than the other reports
+# and truncates each message less: a clipped message is a clipped quote.
+_GROWTH_MAX_CHARS = 13_000  # growth snapshot prompt cap
+_GROWTH_MSG_LIMIT = 180     # messages read per run
+_GROWTH_MSG_CHARS = 320     # per-message truncation
+_MIN_GROWTH_MESSAGES = 8    # below this there is no trajectory to read
+_GROWTH_ITEMS = 3           # items asked for per quadrant
+_GROWTH_TRAJECTORIES = ('improving', 'steady', 'newly surfaced', 'needs attention')
 
 # Recommendations are the most expensive report on the page (web search + a long
 # prompt), so the input is deliberately small: the cached recurring themes if we
@@ -223,6 +246,72 @@ This week's messages:
 # when web search is available (Claude), so links can be checked rather than
 # recalled; the offline version asks for well-known works only and leaves the
 # link to be built as a search URL on our side.
+# Growth Snapshot — a GROW-aligned read of one leader in four quadrants. It is
+# deliberately NOT a SWOT: no "weaknesses", no "threats". Growth areas are
+# skills-in-progress carrying a direction of travel, and the fourth quadrant is
+# patterns to watch — recurring triggers counted across sessions, not risks.
+# Strengths must quote the person's own words back to them; anything the model
+# cannot quote is dropped on our side, so the prompt asks for verbatim only.
+_GROWTH_PROMPT = """You are an executive coach writing a Growth Snapshot for ONE leader, from their own \
+messages during their AI coaching sessions. Each line is prefixed with the date it was written. \
+These messages span {sessions} separate session dates.
+
+This is a GROW-aligned developmental reflection, NOT a SWOT analysis. Never use the words "weakness", \
+"threat", or "risk". Growth areas are skills in progress, not deficits. The fourth quadrant is patterns \
+worth noticing, not dangers.
+
+Their sentiment dimension scores, with how each has moved across readings:
+{dimensions}
+
+Write four quadrants, at most {count} items each, most significant first:
+
+1. STRENGTHS — capabilities their own words demonstrate. Each MUST carry "quote": a VERBATIM span of \
+8-25 words copied exactly from one of their messages below, word for word, with nothing added, reworded, \
+or corrected. Do not include the date prefix. If you cannot copy an exact span for a strength, omit that \
+strength entirely — never paraphrase into the quote field.
+
+2. GROWTH_AREAS — skills in progress. Map each to the single closest dimension key from: \
+work_life_balance, job_satisfaction, stress_anxiety, self_confidence, empathy, \
+frustration_disengagement, growth_mindset, psychological_safety. Set "trajectory" from the scores above \
+and from what changes across dates: "improving" (moving in a good direction), "steady" (present, not \
+shifting), "newly surfaced" (only appears in recent messages), "needs attention" (moving the wrong way). \
+Add "practice": one concrete thing to try.
+
+3. OPPORTUNITIES — specific situations THEY HAVE MENTIONED where a strength of theirs would pay off. \
+Name the situation, not a generic possibility. Never invent a situation they did not raise.
+
+4. PATTERNS — recurring triggers worth noticing, e.g. what tends to precede stress or hesitation. \
+Set "sessions_seen" to the number of the {sessions} session dates the pattern actually appears on \
+(count them; it must be at least 2 and never more than {sessions}). Describe the trigger plainly, \
+never diagnostically.
+
+Write to them ("you"), warm and specific. Keep every line short — one sentence means one short sentence.
+
+Return ONLY a valid JSON object with no markdown fences:
+{
+  "strengths": [{"label": "<2-4 words>", "summary": "<ONE short sentence, max 20 words>",
+                 "quote": "<verbatim 8-25 words from their messages>", "dimension": "<dimension key, or empty string>"}],
+  "growth_areas": [{"label": "<2-4 words>", "summary": "<ONE short sentence, max 20 words>",
+                    "dimension": "<dimension key>",
+                    "trajectory": "improving|steady|newly surfaced|needs attention",
+                    "practice": "<ONE short sentence, max 18 words>"}],
+  "opportunities": [{"label": "<2-4 words>", "summary": "<ONE short sentence on the situation, max 20 words>",
+                     "strength": "<the strength that applies, 2-4 words>",
+                     "step": "<ONE short first step, max 18 words>"}],
+  "patterns": [{"label": "<2-4 words>", "summary": "<ONE short sentence, max 20 words>",
+                "trigger": "<what tends to set it off, max 12 words>",
+                "sessions_seen": <int>,
+                "prompt": "<ONE short coaching question, max 15 words>"}],
+  "overview": "<ONE short sentence tying the snapshot together, max 25 words>"
+}
+
+Use an empty array for any quadrant the messages genuinely do not support. Never pad to fill a slot.
+
+Their messages:
+---
+{messages}
+---"""
+
 _RECS_SEARCH_PROMPT = """You are an executive coach curating a reading and watching list for ONE leader, \
 from the coaching topics below.
 
@@ -627,6 +716,162 @@ def generate_weekly_digest(user_id: str) -> dict | None:
         return None
     upsert_user_insight_report(user_id, 'weekly_digest', report)
     return report
+
+
+def _growth_dimension_block(user_id: str) -> str:
+    """The user's own dimension scores and their direction of travel, as prompt text.
+
+    Growth areas are supposed to name a dimension and say whether it is moving.
+    The messages alone cannot support that — the scores can, because they are
+    recorded run by run. Returns '' when the user has never been scored, in which
+    case the prompt tells the model to leave trajectory unstated.
+    """
+    data = get_user_sentiment_data(user_id) or {}
+    lines = []
+    for dim in _DIMS:
+        entry = data.get(dim)
+        if not isinstance(entry, dict):
+            continue
+        trend = [p['score'] for p in (entry.get('trend') or []) if isinstance(p, dict)]
+        if len(trend) >= 2:
+            delta = trend[-1] - trend[0]
+            arrow = 'up' if delta >= 5 else ('down' if delta <= -5 else 'flat')
+            move = f", {len(trend)} readings, {arrow} {delta:+d} over that span"
+        else:
+            move = ", first reading — no history yet"
+        lines.append(f"- {_DIM_LABELS[dim]} ({dim}): {entry.get('score')}/100{move}")
+    return '\n'.join(lines)
+
+
+def generate_growth_snapshot(user_id: str) -> dict | None:
+    """
+    Writes the GROW-aligned Growth Snapshot — strengths, growth areas,
+    opportunities, and patterns to watch — from one user's own messages, and
+    caches it. Returns the report, or None if there is too little to read or the
+    LLM call fails.
+    """
+    cfg = _llm_config()
+    if not cfg:
+        print("Growth snapshot: no API key configured.")
+        return None
+    client, ai_provider, ai_model = cfg
+
+    messages = get_user_dated_messages(user_id, limit=_GROWTH_MSG_LIMIT)
+    if len(messages) < _MIN_GROWTH_MESSAGES:
+        return None
+
+    sessions = len({m['date'] for m in messages})
+    block = _dated_block(messages, _GROWTH_MAX_CHARS, _GROWTH_MSG_CHARS)
+    dim_block = _growth_dimension_block(user_id) or \
+        '(no dimension scores recorded yet — leave "dimension" empty and use "newly surfaced")'
+
+    raw = None
+    try:
+        raw = _call_llm(
+            _GROWTH_PROMPT
+                .replace('{count}', str(_GROWTH_ITEMS))
+                .replace('{sessions}', str(sessions))
+                .replace('{dimensions}', dim_block)
+                .replace('{messages}', block),
+            client, ai_provider, ai_model, max_tokens=2048, system=_PERSONAL_SYSTEM,
+        )
+        result = _extract_json(raw)
+    except ReportUnavailable:
+        print(f"Growth snapshot unavailable for {user_id}")
+        raise
+    except Exception as e:
+        print(f"Growth snapshot failed for {user_id}: {e}")
+        if raw:
+            print(f"  Raw snippet: {raw[:300]}")
+        return None
+
+    haystack = _normalise_quote(block)
+
+    def _items(key, builder):
+        vals = result.get(key)
+        if not isinstance(vals, list):
+            return []
+        out = []
+        for v in vals[:_GROWTH_ITEMS]:
+            if isinstance(v, dict) and str(v.get('label', '')).strip():
+                out.append(builder(v))
+        return out
+
+    def _dimension(v) -> str:
+        dim = str(v.get('dimension', '')).strip().lower().replace(' ', '_')
+        return dim if dim in _DIMS else ''
+
+    def _strength(v):
+        # A strength is only evidence-backed if the quote is genuinely theirs, so
+        # anything we cannot find in their own messages is dropped rather than
+        # shown to them as something they said.
+        quote = str(v.get('quote', '') or '').strip().strip('"“”')
+        if quote and _normalise_quote(quote) not in haystack:
+            print(f"  Dropped unverified strength quote for {user_id}: {quote[:80]!r}")
+            quote = ''
+        return {
+            'label':     str(v['label'])[:80],
+            'summary':   str(v.get('summary', ''))[:200],
+            'quote':     quote[:220],
+            'dimension': _dimension(v),
+        }
+
+    def _growth_area(v):
+        traj = str(v.get('trajectory', '')).strip().lower()
+        return {
+            'label':      str(v['label'])[:80],
+            'summary':    str(v.get('summary', ''))[:200],
+            'dimension':  _dimension(v),
+            'trajectory': traj if traj in _GROWTH_TRAJECTORIES else 'steady',
+            'practice':   str(v.get('practice', ''))[:180],
+        }
+
+    def _opportunity(v):
+        return {
+            'label':    str(v['label'])[:80],
+            'summary':  str(v.get('summary', ''))[:200],
+            'strength': str(v.get('strength', ''))[:80],
+            'step':     str(v.get('step', ''))[:180],
+        }
+
+    def _pattern(v):
+        try:
+            seen = max(0, min(sessions, int(v.get('sessions_seen') or 0)))
+        except (TypeError, ValueError):
+            seen = 0
+        return {
+            'label':         str(v['label'])[:80],
+            'summary':       str(v.get('summary', ''))[:200],
+            'trigger':       str(v.get('trigger', ''))[:120],
+            'sessions_seen': seen,
+            'prompt':        str(v.get('prompt', ''))[:140],
+        }
+
+    report = {
+        'strengths':     _items('strengths', _strength),
+        'growth_areas':  _items('growth_areas', _growth_area),
+        'opportunities': _items('opportunities', _opportunity),
+        'patterns':      _items('patterns', _pattern),
+        'overview':      str(result.get('overview', ''))[:220],
+        'messages_analyzed': len(messages),
+        'sessions_analyzed': sessions,
+    }
+    if not any(report[k] for k in ('strengths', 'growth_areas', 'opportunities', 'patterns')):
+        return None
+    upsert_user_insight_report(user_id, 'growth_snapshot', report)
+    return report
+
+
+def _normalise_quote(text: str) -> str:
+    """Lowercased, whitespace- and punctuation-flattened, for quote verification.
+
+    A quote is checked by substring against the same messages the model was
+    given. Smart quotes, apostrophes, and line wrapping differ between what the
+    user typed and what the model echoes back, so drop everything that is not a
+    letter or digit — otherwise a genuine quote fails the check on a curly
+    apostrophe or a rewrapped line.
+    """
+    return re.sub(r'[^a-z0-9]+', '', text.lower())
 
 
 def _fallback_url(item: dict) -> str:
