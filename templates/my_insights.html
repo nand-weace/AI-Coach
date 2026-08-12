@@ -11,14 +11,21 @@
     <link rel="icon" type="image/png" href="/static/favicon-wit.png">
     <style>
         :root {
-            --bg-color: #faf8fd;
-            --glass-bg: rgba(255, 255, 255, 0.7);
-            --glass-border: rgba(0, 0, 0, 0.08);
-            --primary-color: #7c3aed;
-            --primary-hover: #6d28d9;
-            --text-main: #241f36;
-            --text-muted: #6b6484;
-            --accent-gradient: linear-gradient(135deg, #6d28d9 0%, #a855f7 100%);
+            --bg-color: #e2e6fc;
+            --bg-gradient: linear-gradient(100deg, #dfeafd 0%, #e2e2fb 30%, #ece2fb 52%, #e0e6fc 74%, #dcebfd 100%);
+            --glass-bg: rgba(255, 255, 255, 0.78);
+            --glass-border: rgba(76, 59, 138, 0.14);
+            --primary-color: #6d28d9;
+            --primary-hover: #5b21b6;
+            --text-main: #1e1b33;
+            --text-muted: #5b5674;
+            --accent-gradient: linear-gradient(135deg, #5b21b6 0%, #7c3aed 52%, #a855f7 100%);
+            /* Tinted fills and elevation, so shadows and hovers belong to the
+               palette instead of greying the page down. */
+            --primary-soft: rgba(109, 40, 217, 0.09);
+            --primary-ring: rgba(109, 40, 217, 0.30);
+            --surface: rgba(255, 255, 255, 0.92);
+            --card-shadow: 0 12px 32px -14px rgba(49, 32, 110, 0.30);
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -26,9 +33,8 @@
             background-color: var(--bg-color);
             color: var(--text-main);
             min-height: 100vh;
-            background-image:
-                radial-gradient(circle at 15% 50%, rgba(139, 92, 246, 0.07), transparent 25%),
-                radial-gradient(circle at 85% 30%, rgba(168, 85, 247, 0.07), transparent 25%);
+            background-image: var(--bg-gradient);
+            background-attachment: fixed;
         }
 
         /* ── Page body ── */
@@ -87,7 +93,7 @@
             padding: 6px 10px;
             border: 1px solid var(--glass-border);
             border-radius: 999px;
-            background: rgba(250, 248, 253, 0.9);
+            background: rgba(240, 243, 254, 0.9);
             font-family: inherit;
             font-size: 0.82rem;
             color: var(--text-main);
@@ -160,23 +166,49 @@
         @media (max-width: 1000px) {
             .sentiment-pair { grid-template-columns: 1fr; }
         }
+        /* The tinted card fills went muddy once the page picked up a blue-lavender
+           gradient behind them — a 5%-violet wash over a coloured backdrop reads
+           as dirt, not as a band. The tier now rides a solid accent rail down the
+           left edge and the surface stays clean white, so the cards sit on the
+           gradient instead of sinking into it. Each tier only sets --tier. */
         .sentiment-card {
-            background: var(--glass-bg);
+            position: relative;
+            background: var(--surface);
             border: 1px solid var(--glass-border);
+            border-left: 3px solid var(--tier, var(--primary-color));
             border-radius: 14px;
-            padding: 14px 16px;
+            padding: 14px 16px 14px 17px;
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
             display: flex;
             flex-direction: column;
             gap: 8px;
             cursor: pointer;
-            transition: box-shadow 0.18s, transform 0.18s;
+            box-shadow: 0 2px 10px -6px rgba(49, 32, 110, 0.28);
+            transition: box-shadow 0.18s, transform 0.18s, border-color 0.18s;
         }
-        .sentiment-card:hover { box-shadow: 0 4px 24px rgba(0,0,0,0.10); transform: translateY(-1px); }
-        .card-green { border-color: rgba(109,40,217,0.5); background: rgba(109,40,217,0.05); }
-        .card-amber { border-color: rgba(168,85,247,0.5); background: rgba(168,85,247,0.05); }
-        .card-red   { border-color: rgba(192,132,252,0.5); background: rgba(192,132,252,0.05); }
+        /* A whisper of the tier colour bleeding in from the rail — enough to
+           group the cards by band at a glance, not enough to tint the text. */
+        .sentiment-card::before {
+            content: '';
+            position: absolute; inset: 0;
+            border-radius: 11px;
+            background: linear-gradient(90deg, var(--tier-wash, transparent) 0%, transparent 42%);
+            pointer-events: none;
+        }
+        .sentiment-card > * { position: relative; }
+        .sentiment-card:hover {
+            box-shadow: var(--card-shadow);
+            transform: translateY(-2px);
+            border-color: var(--primary-ring);
+            border-left-color: var(--tier, var(--primary-color));
+        }
+        .card-green { --tier: #5b21b6; --tier-wash: rgba(91, 33, 182, 0.07); }
+        .card-amber { --tier: #8b5cf6; --tier-wash: rgba(139, 92, 246, 0.07); }
+        .card-red   { --tier: #c084fc; --tier-wash: rgba(192, 132, 252, 0.09); }
+        @media (prefers-reduced-motion: reduce) {
+            .sentiment-card, .sentiment-card:hover { transition: none; transform: none; }
+        }
         .sentiment-card-header { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
         .sentiment-label { font-size: 0.88rem; font-weight: 600; color: var(--text-main); line-height: 1.3; }
         .sentiment-score-block { flex-shrink: 0; }
@@ -191,33 +223,45 @@
             -webkit-box-orient: vertical;
             overflow: hidden;
         }
+        /* Bare centred text floated on the gradient with nothing holding it —
+           it now gets a surface of its own, so empty and loading states read as
+           part of the grid. */
         .sentiment-no-data {
             grid-column: 1 / -1;
             text-align: center;
             color: var(--text-muted);
             font-size: 0.88rem;
-            padding: 32px 0;
+            padding: 32px 20px;
+            background: rgba(255, 255, 255, 0.45);
+            border: 1px dashed var(--primary-ring);
+            border-radius: 14px;
         }
         .sentiment-group-label {
             grid-column: 1 / -1;
             display: flex;
             align-items: center;
-            gap: 8px;
-            font-size: 0.7rem;
-            font-weight: 600;
-            letter-spacing: 0.09em;
+            gap: 10px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
             text-transform: uppercase;
-            color: var(--text-muted);
+            color: var(--primary-color);
             margin-bottom: -4px;
         }
-        .sentiment-group-label .group-line { flex: 1; height: 1px; background: rgba(0,0,0,0.08); }
-        /* score-based colour helpers applied via JS */
-        .score-green  { color: #3b0764; }
+        /* Rule fades out rather than stopping dead against the gradient. */
+        .sentiment-group-label .group-line {
+            flex: 1; height: 1px;
+            background: linear-gradient(90deg, var(--primary-ring) 0%, rgba(109, 40, 217, 0) 100%);
+        }
+        /* Score ramp — deep violet is a strong score, pale is a weak one. Kept
+           monochrome on purpose: these are dimensions to work on, not failures,
+           so no red. Deepened from the old values to hold contrast on white. */
+        .score-green  { color: #4c1d95; }
         .score-amber  { color: #6d28d9; }
         .score-red    { color: #9333ea; }
-        .fill-green   { background: #6d28d9; }
-        .fill-amber   { background: #a855f7; }
-        .fill-red     { background: #d8b4fe; }
+        .fill-green   { background: #5b21b6; }
+        .fill-amber   { background: #8b5cf6; }
+        .fill-red     { background: #c084fc; }
 
         /* ── Trend modal ── */
         .trend-modal-overlay {
@@ -239,7 +283,7 @@
             padding: 32px 32px 28px;
             max-width: 660px;
             width: 100%;
-            box-shadow: 0 24px 64px rgba(0,0,0,0.18);
+            box-shadow: 0 24px 64px rgba(49, 32, 110,0.18);
             position: relative;
             animation: modalIn 0.18s ease;
         }
@@ -250,17 +294,17 @@
         .trend-modal-close {
             position: absolute; top: 16px; right: 18px;
             background: none; border: none; cursor: pointer;
-            font-size: 1.4rem; color: #9d94ae; line-height: 1;
+            font-size: 1.4rem; color: #7f78a0; line-height: 1;
             padding: 2px 6px; border-radius: 6px; transition: color 0.15s, background 0.15s;
         }
-        .trend-modal-close:hover { color: #241f36; background: rgba(0,0,0,0.06); }
+        .trend-modal-close:hover { color: #1e1b33; background: rgba(45, 32, 90, 0.08); }
         .trend-modal-title { font-size: 1.1rem; font-weight: 600; color: var(--text-main); margin-bottom: 3px; }
         .trend-modal-meta  { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 24px; }
         .trend-modal-score-row { display: flex; align-items: baseline; gap: 8px; margin-bottom: 20px; }
         .trend-modal-score-num { font-size: 2.4rem; font-weight: 700; letter-spacing: -0.04em; line-height: 1; }
         .trend-modal-score-sub { font-size: 0.78rem; color: var(--text-muted); }
         .trend-chart-wrap { width: 100%; overflow: hidden; }
-        .trend-modal-divider { height: 1px; background: rgba(0,0,0,0.07); margin: 20px 0; }
+        .trend-modal-divider { height: 1px; background: rgba(45, 32, 90, 0.10); margin: 20px 0; }
         .trend-modal-insight { font-size: 0.82rem; color: var(--text-muted); line-height: 1.6; }
 
         /* ── Theme Heat Analysis ── */
@@ -288,11 +332,10 @@
             flex-shrink: 0;
         }
         .heat-title-wrap h3 { font-size: 0.95rem; font-weight: 600; }
-        .heat-col-label { font-size: 0.78rem; color: var(--text-muted); padding-right: 2px; }
         .heat-rows { display: flex; flex-direction: column; gap: 4px; }
         .heat-row {
             display: grid;
-            grid-template-columns: 18px minmax(160px, 1.2fr) 3fr 32px 80px;
+            grid-template-columns: 18px minmax(160px, 1.2fr) 3fr 32px;
             align-items: center;
             gap: 14px;
             padding: 6px 0;
@@ -301,10 +344,11 @@
         .heat-rows .heat-row:last-child { border-bottom: none; }
         .heat-row-icon { display: flex; align-items: center; color: var(--text-muted); }
         .heat-row-label { font-size: 0.85rem; font-weight: 500; color: var(--text-main); }
-        .heat-row-track { height: 10px; border-radius: 99px; background: rgba(0,0,0,0.07); overflow: hidden; }
+        .heat-row-track { height: 10px; border-radius: 99px; background: rgba(45, 32, 90, 0.10); overflow: hidden; }
         .heat-row-fill { height: 100%; border-radius: 99px; transition: width 0.7s ease; }
-        .heat-row-score { font-size: 0.78rem; font-weight: 600; color: var(--text-muted); text-align: center; font-variant-numeric: tabular-nums; }
-        .heat-row-signal { font-size: 0.83rem; font-weight: 600; text-align: right; white-space: nowrap; }
+        /* Colour comes from BAND_COLORS inline, matched to the bar beside it;
+           the muted value here is the fallback for an unrecognised band. */
+        .heat-row-score { font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-align: center; font-variant-numeric: tabular-nums; }
 
         /* ── Combined Trend Chart ── */
         .combo-chart-card {
@@ -334,7 +378,7 @@
             border: 1px solid rgba(0,0,0,0.08);
             border-radius: 10px;
             padding: 10px 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+            box-shadow: 0 4px 20px rgba(49, 32, 110,0.12);
             pointer-events: none;
             min-width: 190px;
             z-index: 10;
@@ -349,7 +393,7 @@
             display: flex;
             flex-wrap: wrap;
             gap: 8px 18px;
-            border-top: 1px solid rgba(0,0,0,0.06);
+            border-top: 1px solid rgba(45, 32, 90, 0.08);
             padding-top: 12px;
         }
         .combo-legend-item { display: flex; align-items: center; gap: 7px; font-size: 0.78rem; cursor: pointer; }
@@ -370,16 +414,15 @@
         .insight-row .combo-chart-card { margin-bottom: 0; width: 100%; }
         /* half-width columns: tighten the heat rows so the bar keeps its room */
         .insight-row .heat-row {
-            grid-template-columns: 18px minmax(96px, 1.1fr) 2.4fr 28px 62px;
+            grid-template-columns: 18px minmax(96px, 1.1fr) 2.4fr 28px;
             gap: 10px;
         }
-        .insight-row .heat-row-signal { font-size: 0.78rem; }
         /* if either half has nothing to show (e.g. too little history for a
            trend line), let the surviving card take the full width */
         .insight-row:has(> #heat-wrap:empty),
         .insight-row:has(> #trends-wrap:empty) { grid-template-columns: 1fr; }
         .insight-row:has(> #trends-wrap:empty) .heat-row {
-            grid-template-columns: 18px minmax(160px, 1.2fr) 3fr 32px 80px;
+            grid-template-columns: 18px minmax(160px, 1.2fr) 3fr 32px;
             gap: 14px;
         }
         @media (max-width: 1000px) {
@@ -387,7 +430,7 @@
             .insight-row .heat-card,
             .insight-row .combo-chart-card { margin-bottom: 24px; }
             .insight-row .heat-row {
-                grid-template-columns: 18px minmax(160px, 1.2fr) 3fr 32px 80px;
+                grid-template-columns: 18px minmax(160px, 1.2fr) 3fr 32px;
                 gap: 14px;
             }
         }
@@ -419,9 +462,12 @@
             text-transform: uppercase; border-radius: 999px;
             padding: 4px 10px; white-space: nowrap; flex-shrink: 0;
         }
-        .pill-rising { background: rgba(109,40,217,0.10); color: #6d28d9; }
-        .pill-steady { background: rgba(107,100,132,0.10); color: #6b6484; }
-        .pill-fading { background: rgba(192,132,252,0.14); color: #9333ea; }
+        /* Direction pills carried three shades of the same violet, so the state
+           had to be read from the word alone. Hue now does that work: green for
+           moving up, violet for easing off, neutral for holding. */
+        .pill-rising { background: rgba(16, 163, 127, 0.12); color: #0e7c66; }
+        .pill-steady { background: rgba(91, 86, 116, 0.10);  color: #5b5674; }
+        .pill-fading { background: rgba(124, 58, 237, 0.12); color: #7c3aed; }
         .theme-meta {
             display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
             font-size: 0.75rem; color: var(--text-muted);
@@ -444,31 +490,47 @@
         }
 
         /* ── Insight tabs ── */
+        /* These switch the whole page, so they carry more weight than a filter
+           row: solid white pill, a real border, and an active tab that reads as
+           the primary control on screen. */
         .insight-tabs {
-            display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
-            background: var(--glass-bg);
-            border: 1px solid var(--glass-border);
+            display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+            background: rgba(255, 255, 255, 0.92);
+            border: 1px solid rgba(124, 58, 237, 0.18);
             border-radius: 999px;
-            padding: 5px;
-            margin: 26px 0 4px;
+            padding: 6px;
+            margin: 30px 0 6px;
             width: fit-content;
             max-width: 100%;
+            box-shadow: 0 4px 18px rgba(109, 40, 217, 0.09);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
         }
         .insight-tab {
             background: none; border: none; cursor: pointer;
-            font-family: inherit; font-size: 0.84rem; font-weight: 500;
+            font-family: inherit; font-size: 0.95rem; font-weight: 600;
+            letter-spacing: -0.01em;
             color: var(--text-muted);
-            padding: 8px 18px; border-radius: 999px;
+            padding: 11px 26px; border-radius: 999px;
             white-space: nowrap;
-            transition: background 0.18s ease, color 0.18s ease;
+            transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
         }
-        .insight-tab:hover { color: var(--primary-color); }
+        .insight-tab:hover:not(.active) {
+            color: var(--primary-color);
+            background: rgba(124, 58, 237, 0.08);
+        }
+        .insight-tab:focus-visible {
+            outline: 2px solid var(--primary-color);
+            outline-offset: 2px;
+        }
         .insight-tab.active {
             background: var(--accent-gradient);
             color: #fff;
-            box-shadow: 0 2px 8px rgba(109, 40, 217, 0.22);
+            box-shadow: 0 4px 14px rgba(109, 40, 217, 0.35);
+        }
+        @media (max-width: 640px) {
+            .insight-tabs { width: 100%; justify-content: center; }
+            .insight-tab { font-size: 0.86rem; padding: 10px 18px; }
         }
         .insight-panel[hidden] { display: none; }
 
@@ -515,11 +577,14 @@
             text-transform: uppercase; border-radius: 999px;
             padding: 3px 9px; white-space: nowrap; flex-shrink: 0;
         }
-        .pill-dim { background: rgba(107, 100, 132, 0.10); color: var(--text-muted); }
-        .pill-improving   { background: rgba(109, 40, 217, 0.10); color: #6d28d9; }
-        .pill-steady-t    { background: rgba(107, 100, 132, 0.10); color: #6b6484; }
-        .pill-surfaced    { background: rgba(168, 85, 247, 0.14); color: #9333ea; }
-        .pill-attention   { background: rgba(216, 180, 254, 0.28); color: #7e22ce; }
+        .pill-dim { background: rgba(91, 86, 116, 0.10); color: var(--text-muted); }
+        /* Same reasoning as the theme pills: four trajectories, four hues, so
+           "needs attention" is visible without reading it. Amber, not red —
+           these are skills in progress, not failures. */
+        .pill-improving   { background: rgba(16, 163, 127, 0.12); color: #0e7c66; }
+        .pill-steady-t    { background: rgba(91, 86, 116, 0.10);  color: #5b5674; }
+        .pill-surfaced    { background: rgba(79, 70, 229, 0.12);  color: #4338ca; }
+        .pill-attention   { background: rgba(217, 119, 6, 0.14);  color: #b45309; }
         /* Their own words, quoted back — verified verbatim before it renders. */
         .growth-quote {
             font-size: 0.8rem; color: var(--text-main); line-height: 1.6;
@@ -540,6 +605,34 @@
         }
         .growth-meta strong { color: var(--text-main); font-weight: 600; }
         .growth-quad-empty { font-size: 0.8rem; color: var(--text-muted); line-height: 1.55; }
+        /* "Work on this" — takes a single growth area into a fresh coaching
+           session rather than leaving it as something to read and forget. */
+        .growth-action {
+            align-self: flex-start;
+            display: inline-flex; align-items: center; gap: 8px;
+            background: var(--accent-gradient); border: none;
+            border-radius: 999px; padding: 10px 20px;
+            margin-top: 4px;
+            font-family: inherit; font-size: 0.82rem; font-weight: 600;
+            letter-spacing: -0.01em;
+            color: #fff; cursor: pointer;
+            box-shadow: 0 3px 12px rgba(109, 40, 217, 0.28);
+            transition: transform 0.16s ease, box-shadow 0.18s ease, opacity 0.18s ease;
+        }
+        .growth-action:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 18px rgba(109, 40, 217, 0.38);
+        }
+        .growth-action:active { transform: translateY(0); }
+        .growth-action:focus-visible {
+            outline: 2px solid var(--primary-color);
+            outline-offset: 2px;
+        }
+        .growth-action:disabled { opacity: 0.65; cursor: default; transform: none; }
+        .growth-action svg { flex-shrink: 0; }
+        @media (prefers-reduced-motion: reduce) {
+            .growth-action, .growth-action:hover { transition: none; transform: none; }
+        }
         .growth-overview {
             font-size: 0.82rem; color: var(--text-muted); line-height: 1.6;
             margin-bottom: 16px;
@@ -585,7 +678,7 @@
             width: 5px; height: 5px; border-radius: 50%; background: rgba(124, 58, 237, 0.45);
         }
         .digest-questions {
-            border-top: 1px solid rgba(0,0,0,0.07);
+            border-top: 1px solid rgba(45, 32, 90, 0.10);
             padding-top: 18px;
             display: flex; flex-direction: column; gap: 10px;
         }
@@ -597,7 +690,7 @@
         .digest-focus {
             display: flex; align-items: flex-start; gap: 9px;
             margin-top: 18px; padding-top: 16px;
-            border-top: 1px solid rgba(0,0,0,0.07);
+            border-top: 1px solid rgba(45, 32, 90, 0.10);
             font-size: 0.85rem; color: var(--text-main); line-height: 1.55;
         }
         .digest-focus svg { color: var(--primary-color); flex-shrink: 0; margin-top: 2px; }
@@ -637,7 +730,7 @@
             transition: box-shadow 0.18s, transform 0.18s, border-color 0.18s;
         }
         .rec-card:hover {
-            box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+            box-shadow: 0 4px 24px rgba(49, 32, 110,0.10);
             transform: translateY(-1px);
             border-color: rgba(124, 58, 237, 0.28);
         }
@@ -745,7 +838,7 @@
             margin-bottom: 32px;
         }
         .no-data-progress-wrap {
-            background: rgba(0,0,0,0.06);
+            background: rgba(45, 32, 90, 0.08);
             border-radius: 999px;
             height: 8px;
             width: 260px;
@@ -785,7 +878,9 @@
             </svg>
             These insights are drawn from the language in your own coaching conversations, and are shown only to you.
         </div>
-        <div class="table-controls">
+        <!-- Scopes the sentiment scores only, so showTab() reveals it on that
+             tab. Starts hidden now that Growth Snapshot opens the page. -->
+        <div class="table-controls" style="display:none;">
             <div class="date-range-wrap">
                 <input type="date" class="date-input" id="filter-date-from" title="From date">
                 <span class="date-range-sep">–</span>
@@ -799,7 +894,7 @@
     <!-- Not-enough-data state -->
     <div id="no-data-screen">
         <div class="no-data-icon">
-            <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="#9d94ae" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+            <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="#7f78a0" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21 21l-4.35-4.35"/>
                 <circle cx="11" cy="11" r="8"/>
                 <path d="M8.5 11h5M11 8.5v5" stroke-width="1.8" stroke="#c4b5fd"/>
@@ -846,13 +941,13 @@
          on their first GET, so a panel's data is fetched when it is first opened
          rather than on page load — an unopened tab costs no model call. -->
     <div class="insight-tabs" role="tablist" aria-label="Insight sections">
-        <button class="insight-tab active" role="tab" aria-selected="true"  aria-controls="panel-sentiment" data-panel="sentiment">Sentiment Analysis</button>
+        <button class="insight-tab active" role="tab" aria-selected="true"  aria-controls="panel-growth"    data-panel="growth">Growth Snapshot</button>
         <button class="insight-tab"        role="tab" aria-selected="false" aria-controls="panel-themes"    data-panel="themes">Themes</button>
-        <button class="insight-tab"        role="tab" aria-selected="false" aria-controls="panel-growth"    data-panel="growth">Growth Snapshot</button>
+        <button class="insight-tab"        role="tab" aria-selected="false" aria-controls="panel-sentiment" data-panel="sentiment">Sentiment Analysis</button>
     </div>
 
     <!-- ── Sentiment Intelligence ── -->
-    <div class="insight-panel" id="panel-sentiment" role="tabpanel">
+    <div class="insight-panel" id="panel-sentiment" role="tabpanel" hidden>
     <div class="section-row">
         <div>
             <h3>My Sentiment Intelligence</h3>
@@ -932,7 +1027,7 @@
     </div><!-- /#panel-themes -->
 
     <!-- ── Growth Snapshot ── -->
-    <div class="insight-panel" id="panel-growth" role="tabpanel" hidden>
+    <div class="insight-panel" id="panel-growth" role="tabpanel">
     <div class="section-row">
         <div>
             <h3>Growth Snapshot</h3>
@@ -1074,17 +1169,17 @@
         { key: 'interpersonal', label: 'Interpersonal Awareness' },
     ];
 
-    const BAND_COLORS = { 'score-green': '#6d28d9', 'score-amber': '#a855f7', 'score-red': '#c084fc' };
+    const BAND_COLORS = { 'score-green': 'green', 'score-amber': '#e1a34e', 'score-red': 'red' };
 
     const HEAT_META = {
-        growth_mindset:            { signal: { high: 'Strong',   mid: 'Developing', low: 'Limited'  }, icon: '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>' },
-        job_satisfaction:          { signal: { high: 'Strong',   mid: 'Moderate',   low: 'Low'      }, icon: '<rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>' },
-        self_confidence:           { signal: { high: 'Strong',   mid: 'Moderate',   low: 'Low'      }, icon: '<circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/>' },
-        work_life_balance:         { signal: { high: 'Healthy',  mid: 'Moderate',   low: 'Strained' }, icon: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>' },
-        stress_anxiety:            { signal: { high: 'Low',      mid: 'Moderate',   low: 'High'     }, icon: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>' },
-        frustration_disengagement: { signal: { high: 'Low',      mid: 'Moderate',   low: 'Elevated' }, icon: '<circle cx="12" cy="12" r="10"/><path d="M16 16s-1.5-2-4-2-4 2-4 2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/>' },
-        psychological_safety:      { signal: { high: 'Strong',   mid: 'Moderate',   low: 'Low'      }, icon: '<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>' },
-        empathy:                   { signal: { high: 'Strong',   mid: 'Moderate',   low: 'Low'      }, icon: '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>' },
+        growth_mindset:            { icon: '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>' },
+        job_satisfaction:          { icon: '<rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>' },
+        self_confidence:           { icon: '<circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/>' },
+        work_life_balance:         { icon: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>' },
+        stress_anxiety:            { icon: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>' },
+        frustration_disengagement: { icon: '<circle cx="12" cy="12" r="10"/><path d="M16 16s-1.5-2-4-2-4 2-4 2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/>' },
+        psychological_safety:      { icon: '<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>' },
+        empathy:                   { icon: '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>' },
     };
 
     // Trend-line palette: a VIBGYOR spectrum, one fixed hue per dimension so a
@@ -1116,7 +1211,7 @@
 
     function renderTrendChart(trendData, color) {
         if (!trendData || trendData.length < 2) {
-            return '<div style="text-align:center;color:#9d94ae;padding:32px 0;font-size:0.85rem;">Not enough history to show a trend yet.</div>';
+            return '<div style="text-align:center;color:#7f78a0;padding:32px 0;font-size:0.85rem;">Not enough history to show a trend yet.</div>';
         }
         const values = trendData.map(t => t.score);
         const dates  = trendData.map(t => t.date);
@@ -1129,15 +1224,15 @@
 
         const gridLines = [0, 25, 50, 75, 100].map(v => {
             const y = toY(v).toFixed(1);
-            return `<line x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}" stroke="rgba(0,0,0,0.07)" stroke-width="1"/>
-                    <text x="${padL - 6}" y="${y}" text-anchor="end" dominant-baseline="middle" font-size="10" fill="#9d94ae">${v}</text>`;
+            return `<line x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}" stroke="rgba(45, 32, 90, 0.10)" stroke-width="1"/>
+                    <text x="${padL - 6}" y="${y}" text-anchor="end" dominant-baseline="middle" font-size="10" fill="#7f78a0">${v}</text>`;
         }).join('');
 
         const step = Math.max(1, Math.ceil(dates.length / 6));
         const dateLabels = dates.map((d, i) => {
             if (i % step !== 0 && i !== dates.length - 1) return '';
             const label = new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-            return `<text x="${toX(i).toFixed(1)}" y="${H - 8}" text-anchor="middle" font-size="10" fill="#9d94ae">${label}</text>`;
+            return `<text x="${toX(i).toFixed(1)}" y="${H - 8}" text-anchor="middle" font-size="10" fill="#7f78a0">${label}</text>`;
         }).join('');
 
         const pts  = values.map((v, i) => `${toX(i).toFixed(1)},${toY(v).toFixed(1)}`).join(' ');
@@ -1225,21 +1320,21 @@
 
         const gridLines = [0, 25, 50, 75, 100].map(v => {
             const y = toY(v).toFixed(1);
-            return `<line x1="${padL}" y1="${y}" x2="${padL + iW}" y2="${y}" stroke="rgba(0,0,0,0.06)" stroke-width="1"/>
-                    <text x="${padL - 6}" y="${y}" text-anchor="end" dominant-baseline="middle" font-size="10" fill="#9d94ae">${v}</text>`;
+            return `<line x1="${padL}" y1="${y}" x2="${padL + iW}" y2="${y}" stroke="rgba(45, 32, 90, 0.08)" stroke-width="1"/>
+                    <text x="${padL - 6}" y="${y}" text-anchor="end" dominant-baseline="middle" font-size="10" fill="#7f78a0">${v}</text>`;
         }).join('');
 
         const step = Math.max(1, Math.ceil(n / 6));
         const xLabels = sortedDates.map((d, i) => {
             if (i % step !== 0 && i !== n - 1) return '';
             const lbl = new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-            return `<text x="${toX(i).toFixed(1)}" y="${H - 8}" text-anchor="middle" font-size="10" fill="#9d94ae">${lbl}</text>`;
+            return `<text x="${toX(i).toFixed(1)}" y="${H - 8}" text-anchor="middle" font-size="10" fill="#7f78a0">${lbl}</text>`;
         }).join('');
 
         const lines = SENTIMENT_DIMS.map(dim => {
             const entry = data[dim.key];
             if (!entry || !entry.trend || entry.trend.length < 2) return '';
-            const color = DIM_COLORS[dim.key] || '#9d94ae';
+            const color = DIM_COLORS[dim.key] || '#7f78a0';
             const pts = entry.trend
                 .map(t => { const xi = dateIdx.get(t.date); return xi !== undefined ? `${toX(xi).toFixed(1)},${toY(t.score).toFixed(1)}` : null; })
                 .filter(Boolean).join(' ');
@@ -1261,7 +1356,7 @@
         const legendItems = SENTIMENT_DIMS.map(dim => {
             const entry = data[dim.key];
             if (!entry) return '';
-            const color = DIM_COLORS[dim.key] || '#9d94ae';
+            const color = DIM_COLORS[dim.key] || '#7f78a0';
             const score = Math.max(0, Math.min(100, entry.score || 0));
             const cls = scoreClasses(score, dim.inverse);
             return `<div class="combo-legend-item" data-dim-key="${dim.key}">
@@ -1292,7 +1387,7 @@
             dims: SENTIMENT_DIMS.map(dim => {
                 const entry = data[dim.key];
                 if (!entry || !entry.trend) return null;
-                return { key: dim.key, label: dim.label, color: DIM_COLORS[dim.key] || '#9d94ae',
+                return { key: dim.key, label: dim.label, color: DIM_COLORS[dim.key] || '#7f78a0',
                          scoreMap: new Map(entry.trend.map(t => [t.date, t.score])) };
             }).filter(Boolean),
         };
@@ -1419,17 +1514,13 @@
             if (!entry) return '';
             const score = Math.max(0, Math.min(100, entry.score || 0));
             const cls = scoreClasses(score, dim.inverse);
-            const effective = dim.inverse ? (100 - score) : score;
-            const tier = effective >= 65 ? 'high' : effective >= 35 ? 'mid' : 'low';
             const meta = HEAT_META[dim.key] || {};
-            const signalLabel = (meta.signal || {})[tier] || tier;
             const svg = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${meta.icon || ''}</svg>`;
             return `<div class="heat-row">
                 <div class="heat-row-icon">${svg}</div>
                 <div class="heat-row-label">${dim.label}</div>
                 <div class="heat-row-track"><div class="heat-row-fill ${cls.fill}" style="width:${score}%"></div></div>
-                <div class="heat-row-score">${score}</div>
-                <div class="heat-row-signal ${cls.num}">${signalLabel}</div>
+                <div class="heat-row-score" style="color:${BAND_COLORS[cls.num] || 'var(--text-muted)'}">${score}</div>
             </div>`;
         }).join('');
 
@@ -1439,7 +1530,6 @@
                     <span class="heat-num"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="18" y="3" width="4" height="18"/><rect x="10" y="8" width="4" height="13"/><rect x="2" y="13" width="4" height="8"/></svg></span>
                     <h3>My Sentiment Heat Analysis</h3>
                 </div>
-                <span class="heat-col-label">Signal</span>
             </div>
             <div class="heat-rows">${rows}</div>
         </div>`;
@@ -1468,7 +1558,13 @@
         renderHeatAnalysis(data);
         renderTrendsSection(data);
 
-        const GAUGE_COLORS = { 'score-green': '#10b981', 'score-amber': '#f59e0b', 'score-red': '#ef4444' };
+        // The dial is the one deliberate exception to the page's violet ramp: a
+        // physical gauge reads green/amber/red instantly, and no amount of
+        // monochrome shading replaces that. The numeral uses deeper shades of
+        // the same three hues so it holds contrast against the white card.
+        const GAUGE_COLORS = { 'score-green': '#047857', 'score-amber': '#b45309', 'score-red': '#dc2626' };
+        const GAUGE_BAND   = { low: '#ef4444', mid: '#f59e0b', high: '#10b981' };
+        const GAUGE_GLOW   = { low: '#ff6b6b', mid: '#fbbf24', high: '#34d399' };
 
         function buildGauge(score, gc, inverse) {
             const cx = 60, cy = 56, r = 46;
@@ -1510,8 +1606,8 @@
                   <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
                 </filter>
                 <linearGradient id="ndg${uid}" x1="1" y1="0" x2="0" y2="0">
-                  <stop offset="0%"   stop-color="#6b6484"/>
-                  <stop offset="55%"  stop-color="#241f36"/>
+                  <stop offset="0%"   stop-color="#5b5674"/>
+                  <stop offset="55%"  stop-color="#1e1b33"/>
                   <stop offset="100%" stop-color="#d5cee6"/>
                 </linearGradient>
                 <radialGradient id="cap${uid}" cx="38%" cy="32%" r="60%">
@@ -1520,29 +1616,29 @@
                 </radialGradient>
               </defs>
 
-              <path d="${arc}" fill="none" stroke="rgba(0,0,0,0.07)" stroke-width="22" stroke-linecap="round"/>
+              <path d="${arc}" fill="none" stroke="rgba(45, 32, 90, 0.10)" stroke-width="22" stroke-linecap="round"/>
               <path d="${arc}" fill="none" stroke="rgba(18, 10, 35,0.22)" stroke-width="14" stroke-linecap="round"/>
 
-              <path d="${arc}" fill="none" stroke="${inverse ? '#10b981' : '#ef4444'}" stroke-width="12" stroke-linecap="butt" stroke-dasharray="${rL} 1000" stroke-dashoffset="0"/>
-              <path d="${arc}" fill="none" stroke="#f59e0b" stroke-width="12" stroke-linecap="butt" stroke-dasharray="${aL} 1000" stroke-dashoffset="${aOff}"/>
-              <path d="${arc}" fill="none" stroke="${inverse ? '#ef4444' : '#10b981'}" stroke-width="12" stroke-linecap="butt" stroke-dasharray="${gL} 1000" stroke-dashoffset="${gOff}"/>
+              <path d="${arc}" fill="none" stroke="${inverse ? GAUGE_BAND.high : GAUGE_BAND.low}" stroke-width="12" stroke-linecap="butt" stroke-dasharray="${rL} 1000" stroke-dashoffset="0"/>
+              <path d="${arc}" fill="none" stroke="${GAUGE_BAND.mid}" stroke-width="12" stroke-linecap="butt" stroke-dasharray="${aL} 1000" stroke-dashoffset="${aOff}"/>
+              <path d="${arc}" fill="none" stroke="${inverse ? GAUGE_BAND.low : GAUGE_BAND.high}" stroke-width="12" stroke-linecap="butt" stroke-dasharray="${gL} 1000" stroke-dashoffset="${gOff}"/>
 
-              <path d="${arc}" fill="none" stroke="${inverse ? '#34d399' : '#ff6b6b'}" stroke-width="7" stroke-linecap="butt" stroke-dasharray="${rL} 1000" stroke-dashoffset="0"    opacity="0.45" filter="url(#gz${uid})"/>
-              <path d="${arc}" fill="none" stroke="#fbbf24" stroke-width="7" stroke-linecap="butt" stroke-dasharray="${aL} 1000" stroke-dashoffset="${aOff}" opacity="0.45" filter="url(#gz${uid})"/>
-              <path d="${arc}" fill="none" stroke="${inverse ? '#ff6b6b' : '#34d399'}" stroke-width="7" stroke-linecap="butt" stroke-dasharray="${gL} 1000" stroke-dashoffset="${gOff}" opacity="0.45" filter="url(#gz${uid})"/>
+              <path d="${arc}" fill="none" stroke="${inverse ? GAUGE_GLOW.high : GAUGE_GLOW.low}" stroke-width="7" stroke-linecap="butt" stroke-dasharray="${rL} 1000" stroke-dashoffset="0"    opacity="0.45" filter="url(#gz${uid})"/>
+              <path d="${arc}" fill="none" stroke="${GAUGE_GLOW.mid}" stroke-width="7" stroke-linecap="butt" stroke-dasharray="${aL} 1000" stroke-dashoffset="${aOff}" opacity="0.45" filter="url(#gz${uid})"/>
+              <path d="${arc}" fill="none" stroke="${inverse ? GAUGE_GLOW.low : GAUGE_GLOW.high}" stroke-width="7" stroke-linecap="butt" stroke-dasharray="${gL} 1000" stroke-dashoffset="${gOff}" opacity="0.45" filter="url(#gz${uid})"/>
 
               <path d="${arc}" fill="none" stroke="rgba(255,255,255,0.11)" stroke-width="5" stroke-linecap="round"/>
 
               ${ticks}
 
-              <text x="${cx-r-10}" y="${cy+5}" text-anchor="middle" font-size="8.5" font-weight="600" fill="rgba(0,0,0,0.4)" font-family="system-ui,sans-serif">0</text>
-              <text x="${cx+r+10}" y="${cy+5}" text-anchor="middle" font-size="8.5" font-weight="600" fill="rgba(0,0,0,0.4)" font-family="system-ui,sans-serif">10</text>
+              <text x="${cx-r-10}" y="${cy+5}" text-anchor="middle" font-size="8.5" font-weight="600" fill="rgba(45, 32, 90, 0.45)" font-family="system-ui,sans-serif">0</text>
+              <text x="${cx+r+10}" y="${cy+5}" text-anchor="middle" font-size="8.5" font-weight="600" fill="rgba(45, 32, 90, 0.45)" font-family="system-ui,sans-serif">10</text>
 
               <path d="${ndl}" fill="rgba(0,0,0,0.3)" filter="url(#ns${uid})">${anim}</path>
               <path d="${ndl}" fill="url(#ndg${uid})">${anim}</path>
 
               <circle cx="${cx}" cy="${cy}" r="10"  fill="url(#cap${uid})"/>
-              <circle cx="${cx}" cy="${cy}" r="7.5" fill="#241f36"/>
+              <circle cx="${cx}" cy="${cy}" r="7.5" fill="#1e1b33"/>
               <circle cx="${cx}" cy="${cy}" r="5.5" fill="#392f4d"/>
               <circle cx="${cx}" cy="${cy}" r="3"   fill="#4d4166"/>
               <circle cx="${cx-2}" cy="${cy-2.5}" r="1.8" fill="rgba(255,255,255,0.5)"/>
@@ -1755,7 +1851,14 @@
                 ${g.dimension ? `<div class="growth-pills"><span class="growth-pill pill-dim">${escHtml(DIM_LABEL[g.dimension] || g.dimension)}</span></div>` : ''}
                 ${g.practice ? `<div class="growth-note">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICON_LIGHTBULB}</svg>
-                    <span>${escHtml(g.practice)}</span></div>` : ''}`;
+                    <span>${escHtml(g.practice)}</span></div>` : ''}
+                <button type="button" class="growth-action" data-focus-label="${escHtml(g.label || '')}"
+                        data-focus-summary="${escHtml(g.summary || '')}"
+                        data-focus-practice="${escHtml(g.practice || '')}"
+                        data-focus-dimension="${escHtml(DIM_LABEL[g.dimension] || g.dimension || '')}">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                    <span>Work on this with Nexa</span>
+                </button>`;
             },
         },
         {
@@ -1886,6 +1989,47 @@
             btn.disabled = false;
             btn.textContent = 'Rebuild snapshot';
         }
+    });
+
+    // Starting a session on one growth area. The chat page owns the session; all
+    // this side does is park the intent for the tab and navigate. sessionStorage
+    // (not localStorage) so it dies with the tab and never leaks into a later
+    // visit, and the tab-nav marker is cleared so the chat page opens a *new*
+    // session on this focus rather than resuming the previous conversation.
+    const FOCUS_KEY = 'we_ace_focus_session';
+
+    function startFocusSession(focus) {
+        const bits = [`I'd like to use this session to work on ${focus.label}.`];
+        if (focus.summary)  bits.push(`My Growth Snapshot put it like this: "${focus.summary}"`);
+        if (focus.practice) bits.push(`It suggested I try: "${focus.practice}"`);
+        bits.push('Can you help me work out what is getting in the way, and what I could actually do about it?');
+
+        try {
+            sessionStorage.setItem(FOCUS_KEY, JSON.stringify({
+                label: focus.label,
+                dimension: focus.dimension || '',
+                message: bits.join(' '),
+            }));
+            sessionStorage.removeItem('we_ace_tab_nav');
+        } catch (_) { /* private mode — fall through to a plain new session */ }
+        window.location.href = '/';
+    }
+
+    // Delegated: #growth-wrap is replaced wholesale on every render, its children
+    // are not around to bind to.
+    document.getElementById('growth-wrap').addEventListener('click', (e) => {
+        const btn = e.target.closest('.growth-action');
+        if (!btn) return;
+        const label = btn.dataset.focusLabel || '';
+        if (!label) return;
+        btn.disabled = true;
+        btn.querySelector('span').textContent = 'Opening session…';
+        startFocusSession({
+            label,
+            summary:   btn.dataset.focusSummary || '',
+            practice:  btn.dataset.focusPractice || '',
+            dimension: btn.dataset.focusDimension || '',
+        });
     });
 
     // ── Recurring theme detection ─────────────────────────────────────────────
@@ -2344,20 +2488,22 @@
     // the user never looks at. The chosen tab lives in the URL hash so a refresh
     // (and the browser back button) lands where they were.
 
+    // Order here is the tab order, and the first key is the default.
     const TAB_LOADERS = {
-        sentiment: () => loadSentiment(),
+        growth:    () => loadGrowth(),
         themes:    () => {
             loadThemes();
             // Temporarily hidden — skip the fetches so we don't spend model calls on them.
             if (document.getElementById('digest-section')?.style.display !== 'none') loadDigest();
             if (document.getElementById('recs-section')?.style.display !== 'none') loadRecs();
         },
-        growth:    () => loadGrowth(),
+        sentiment: () => loadSentiment(),
     };
+    const DEFAULT_TAB = Object.keys(TAB_LOADERS)[0];
     const loadedTabs = new Set();
 
     function showTab(name, { updateHash = true } = {}) {
-        if (!TAB_LOADERS[name]) name = 'sentiment';
+        if (!TAB_LOADERS[name]) name = DEFAULT_TAB;
         document.querySelectorAll('.insight-tab').forEach(btn => {
             const on = btn.dataset.panel === name;
             btn.classList.toggle('active', on);

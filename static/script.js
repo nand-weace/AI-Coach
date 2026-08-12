@@ -1143,6 +1143,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!nexaAccess) {
             showNexaAccessDenied();
         }
+
+        consumeFocusIntent();
+    }
+
+    // ── Focus session — arrived from a Growth Area on My Insights ─────────────
+    // The insights page parks {label, message} in sessionStorage and sends the
+    // browser here. Read it once (so a refresh doesn't re-ask the same thing)
+    // and open the conversation on that area instead of a blank prompt.
+    function consumeFocusIntent() {
+        let raw = null;
+        try {
+            raw = sessionStorage.getItem('we_ace_focus_session');
+            sessionStorage.removeItem('we_ace_focus_session');
+        } catch (_) { return; }
+        if (!raw) return;
+
+        let focus;
+        try { focus = JSON.parse(raw); } catch (_) { return; }
+        if (!focus || !focus.message || userInput.disabled) return;
+
+        // After the greeting has painted, so the opener reads as the reply to it.
+        setTimeout(() => sendMessage(focus.message), 350);
     }
 
     function showLoginForm() {

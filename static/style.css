@@ -17,16 +17,23 @@
 }
 
 :root {
-    --bg-color: #faf8fd;
-    --glass-bg: rgba(255, 255, 255, 0.7);
-    --glass-border: rgba(0, 0, 0, 0.08);
-    --primary-color: #7c3aed;
-    --primary-hover: #6d28d9;
-    --text-main: #241f36;
-    --text-muted: #6b6484;
+    --bg-color: #e2e6fc;
+    --bg-gradient: linear-gradient(100deg, #dfeafd 0%, #e2e2fb 30%, #ece2fb 52%, #e0e6fc 74%, #dcebfd 100%);
+    --glass-bg: rgba(255, 255, 255, 0.78);
+    --glass-border: rgba(76, 59, 138, 0.14);
+    --primary-color: #6d28d9;
+    --primary-hover: #5b21b6;
+    --text-main: #1e1b33;
+    --text-muted: #5b5674;
     --assistant-msg-bg: rgba(232, 226, 243, 0.7);
     --user-msg-bg: rgba(139, 92, 246, 0.08);
-    --accent-gradient: linear-gradient(135deg, #6d28d9 0%, #a855f7 100%);
+    --accent-gradient: linear-gradient(135deg, #5b21b6 0%, #7c3aed 52%, #a855f7 100%);
+    /* Tinted fills and elevation, so shadows and hovers belong to the
+       palette instead of greying the page down. */
+    --primary-soft: rgba(109, 40, 217, 0.09);
+    --primary-ring: rgba(109, 40, 217, 0.30);
+    --surface: rgba(255, 255, 255, 0.92);
+    --card-shadow: 0 12px 32px -14px rgba(49, 32, 110, 0.30);
 }
 
 * {
@@ -44,9 +51,7 @@ body {
     justify-content: center;
     align-items: center;
     overflow: hidden;
-    background-image: 
-        radial-gradient(circle at 15% 50%, rgba(139, 92, 246, 0.07), transparent 25%),
-        radial-gradient(circle at 85% 30%, rgba(168, 85, 247, 0.07), transparent 25%);
+    background-image: var(--bg-gradient);
     background-attachment: fixed;
 }
 
@@ -72,7 +77,7 @@ body {
     border-radius: 24px;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 25px 50px -12px rgba(49, 32, 110, 0.08);
     overflow: hidden;
 }
 
@@ -185,7 +190,7 @@ body {
     border-radius: 18px;
     line-height: 1.6;
     font-size: 0.95rem;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 6px -1px rgba(49, 32, 110, 0.1);
 }
 
 .message p {
@@ -199,12 +204,13 @@ body {
     background: var(--assistant-msg-bg);
     border-top-left-radius: 4px;
     border: 1px solid var(--glass-border);
+    background-color: #d3d8ff;
 }
 
 .user-message {
     background: var(--user-msg-bg);
     border-top-right-radius: 4px;
-    background-color: lemonchiffon;
+    background-color: rgb(218 245 255);
 }
 
 .message-body {
@@ -381,7 +387,7 @@ body {
     padding: 3px;
     border: 1px solid var(--glass-border);
     border-radius: 999px;
-    background: rgba(250, 248, 253, 0.9);
+    background: rgba(240, 243, 254, 0.9);
 }
 
 /* Sliding pill behind the selected option */
@@ -465,7 +471,7 @@ body {
     display: flex;
     gap: 12px;
     align-items: flex-end;
-    background: rgba(250, 248, 253, 0.9);
+    background: rgba(240, 243, 254, 0.9);
     border: 1px solid var(--glass-border);
     border-radius: 24px;
     padding: 8px 8px 8px 24px;
@@ -669,9 +675,8 @@ body {
     align-items: center;
     justify-content: center;
     background-color: var(--bg-color);
-    background-image:
-        radial-gradient(circle at 15% 50%, rgba(139, 92, 246, 0.07), transparent 25%),
-        radial-gradient(circle at 85% 30%, rgba(168, 85, 247, 0.07), transparent 25%);
+    background-image: var(--bg-gradient);
+    background-attachment: fixed;
     z-index: 100;
 }
 
@@ -684,7 +689,7 @@ body {
     padding: 48px 40px;
     width: 100%;
     max-width: 400px;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 25px 50px -12px rgba(49, 32, 110, 0.08);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -724,7 +729,7 @@ body {
     padding: 12px 16px;
     border: 1px solid var(--glass-border);
     border-radius: 999px;
-    background: rgba(250, 248, 253, 0.9);
+    background: rgba(240, 243, 254, 0.9);
     color: var(--text-main);
     font-family: inherit;
     font-size: 1rem;
@@ -753,7 +758,7 @@ body {
     padding: 12px 44px 12px 16px;
     border: 1px solid var(--glass-border);
     border-radius: 999px;
-    background: rgba(250, 248, 253, 0.9);
+    background: rgba(240, 243, 254, 0.9);
     color: var(--text-main);
     font-family: inherit;
     font-size: 1rem;
@@ -1158,7 +1163,7 @@ body {
     padding: 48px 40px;
     width: 100%;
     max-width: 380px;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 25px 50px -12px rgba(49, 32, 110, 0.15);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -1187,7 +1192,7 @@ body {
 .subscription-dates {
     font-size: 0.8rem;
     color: var(--text-muted);
-    background: rgba(250, 248, 253, 0.8);
+    background: rgba(240, 243, 254, 0.8);
     border: 1px solid var(--glass-border);
     border-radius: 8px;
     padding: 8px 16px;

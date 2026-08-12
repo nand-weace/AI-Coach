@@ -11,14 +11,21 @@
     <link rel="icon" type="image/png" href="/static/favicon-wit.png">
     <style>
         :root {
-            --bg-color: #faf8fd;
-            --glass-bg: rgba(255, 255, 255, 0.7);
-            --glass-border: rgba(0, 0, 0, 0.08);
-            --primary-color: #7c3aed;
-            --primary-hover: #6d28d9;
-            --text-main: #241f36;
-            --text-muted: #6b6484;
-            --accent-gradient: linear-gradient(135deg, #6d28d9 0%, #a855f7 100%);
+            --bg-color: #e2e6fc;
+            --bg-gradient: linear-gradient(100deg, #dfeafd 0%, #e2e2fb 30%, #ece2fb 52%, #e0e6fc 74%, #dcebfd 100%);
+            --glass-bg: rgba(255, 255, 255, 0.78);
+            --glass-border: rgba(76, 59, 138, 0.14);
+            --primary-color: #6d28d9;
+            --primary-hover: #5b21b6;
+            --text-main: #1e1b33;
+            --text-muted: #5b5674;
+            --accent-gradient: linear-gradient(135deg, #5b21b6 0%, #7c3aed 52%, #a855f7 100%);
+            /* Tinted fills and elevation, so shadows and hovers belong to the
+               palette instead of greying the page down. */
+            --primary-soft: rgba(109, 40, 217, 0.09);
+            --primary-ring: rgba(109, 40, 217, 0.30);
+            --surface: rgba(255, 255, 255, 0.92);
+            --card-shadow: 0 12px 32px -14px rgba(49, 32, 110, 0.30);
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -26,9 +33,8 @@
             background-color: var(--bg-color);
             color: var(--text-main);
             min-height: 100vh;
-            background-image:
-                radial-gradient(circle at 15% 50%, rgba(139, 92, 246, 0.07), transparent 25%),
-                radial-gradient(circle at 85% 30%, rgba(168, 85, 247, 0.07), transparent 25%);
+            background-image: var(--bg-gradient);
+            background-attachment: fixed;
         }
 
 
@@ -90,7 +96,7 @@
             padding: 6px 14px;
             border: 1px solid var(--glass-border);
             border-radius: 999px;
-            background: rgba(250, 248, 253, 0.9);
+            background: rgba(240, 243, 254, 0.9);
             font-family: inherit;
             font-size: 0.85rem;
             color: var(--text-main);
@@ -104,7 +110,7 @@
             padding: 6px 28px 6px 14px;
             border: 1px solid var(--glass-border);
             border-radius: 999px;
-            background: rgba(250, 248, 253, 0.9);
+            background: rgba(240, 243, 254, 0.9);
             font-family: inherit;
             font-size: 0.85rem;
             color: var(--text-main);
@@ -154,7 +160,7 @@
             padding: 6px 10px;
             border: 1px solid var(--glass-border);
             border-radius: 999px;
-            background: rgba(250, 248, 253, 0.9);
+            background: rgba(240, 243, 254, 0.9);
             font-family: inherit;
             font-size: 0.82rem;
             color: var(--text-main);
@@ -173,7 +179,7 @@
         .clear-dates-btn.visible { display: inline-block; }
         .clear-dates-btn:hover { color: var(--primary-color); border-color: rgba(139, 92, 246, 0.3); }
         table { width: 100%; border-collapse: collapse; }
-        thead tr { background: rgba(250, 248, 253, 0.6); }
+        thead tr { background: rgba(240, 243, 254, 0.6); }
         th {
             padding: 12px 20px;
             text-align: left;
@@ -279,11 +285,11 @@
         .sentiment-card-header { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
         .sentiment-label { font-size: 0.88rem; font-weight: 600; color: var(--text-main); line-height: 1.3; }
         .sentiment-score-block { flex-shrink: 0; }
-        .sentiment-divider { height: 1px; background: rgba(0,0,0,0.07); margin: 0 -2px; }
+        .sentiment-divider { height: 1px; background: rgba(45, 32, 90, 0.10); margin: 0 -2px; }
         .sentiment-bands { display: flex; flex-direction: column; gap: 8px; }
         .sentiment-band-row { display: flex; align-items: center; gap: 10px; }
         .sentiment-band-label { font-size: 0.78rem; color: var(--text-muted); width: 72px; flex-shrink: 0; }
-        .sentiment-band-track { flex: 1; height: 7px; border-radius: 99px; background: rgba(0,0,0,0.07); overflow: hidden; }
+        .sentiment-band-track { flex: 1; height: 7px; border-radius: 99px; background: rgba(45, 32, 90, 0.10); overflow: hidden; }
         .sentiment-band-fill { height: 100%; border-radius: 99px; transition: width 0.6s ease; }
         .band-very-high  { background: #9333ea; }
         .band-moderate   { background: #c084fc; }
@@ -355,7 +361,7 @@
             padding: 32px 32px 28px;
             max-width: 660px;
             width: 100%;
-            box-shadow: 0 24px 64px rgba(0,0,0,0.18);
+            box-shadow: 0 24px 64px rgba(49, 32, 110,0.18);
             position: relative;
             animation: modalIn 0.18s ease;
         }
@@ -366,25 +372,25 @@
         .trend-modal-close {
             position: absolute; top: 16px; right: 18px;
             background: none; border: none; cursor: pointer;
-            font-size: 1.4rem; color: #9d94ae; line-height: 1;
+            font-size: 1.4rem; color: #7f78a0; line-height: 1;
             padding: 2px 6px; border-radius: 6px; transition: color 0.15s, background 0.15s;
         }
-        .trend-modal-close:hover { color: #241f36; background: rgba(0,0,0,0.06); }
+        .trend-modal-close:hover { color: #1e1b33; background: rgba(45, 32, 90, 0.08); }
         .trend-modal-title { font-size: 1.1rem; font-weight: 600; color: var(--text-main); margin-bottom: 3px; }
         .trend-modal-meta  { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 24px; }
         .trend-modal-score-row { display: flex; align-items: baseline; gap: 8px; margin-bottom: 20px; }
         .trend-modal-score-num { font-size: 2.4rem; font-weight: 700; letter-spacing: -0.04em; line-height: 1; }
         .trend-modal-score-sub { font-size: 0.78rem; color: var(--text-muted); }
         .trend-chart-wrap { width: 100%; overflow: hidden; }
-        .trend-modal-divider { height: 1px; background: rgba(0,0,0,0.07); margin: 20px 0; }
+        .trend-modal-divider { height: 1px; background: rgba(45, 32, 90, 0.10); margin: 20px 0; }
         .trend-modal-bands-label { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 10px; }
         .trend-modal-insight { font-size: 0.82rem; color: var(--text-muted); line-height: 1.6; }
         .sentiment-card { cursor: pointer; transition: box-shadow 0.18s, transform 0.18s; }
-        .sentiment-card:hover { box-shadow: 0 4px 24px rgba(0,0,0,0.10); transform: translateY(-1px); }
+        .sentiment-card:hover { box-shadow: 0 4px 24px rgba(49, 32, 110,0.10); transform: translateY(-1px); }
 
         /* ── Employee Distribution bar ── */
         .emp-dist {
-            background: rgba(250, 248, 253, 0.6);
+            background: rgba(240, 243, 254, 0.6);
             border-radius: 12px;
             padding: 12px 14px;
             display: flex;
@@ -463,7 +469,7 @@
         .heat-rows .heat-row:last-child { border-bottom: none; }
         .heat-row-icon { display: flex; align-items: center; color: var(--text-muted); }
         .heat-row-label { font-size: 0.85rem; font-weight: 500; color: var(--text-main); }
-        .heat-row-track { height: 10px; border-radius: 99px; background: rgba(0,0,0,0.07); overflow: hidden; }
+        .heat-row-track { height: 10px; border-radius: 99px; background: rgba(45, 32, 90, 0.10); overflow: hidden; }
         .heat-row-fill { height: 100%; border-radius: 99px; transition: width 0.7s ease; }
         .heat-row-score { font-size: 0.78rem; font-weight: 600; color: var(--text-muted); text-align: center; font-variant-numeric: tabular-nums; }
         .heat-row-signal { font-size: 0.83rem; font-weight: 600; text-align: right; white-space: nowrap; }
@@ -496,7 +502,7 @@
             border: 1px solid rgba(0,0,0,0.08);
             border-radius: 10px;
             padding: 10px 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+            box-shadow: 0 4px 20px rgba(49, 32, 110,0.12);
             pointer-events: none;
             min-width: 190px;
             z-index: 10;
@@ -511,7 +517,7 @@
             display: flex;
             flex-wrap: wrap;
             gap: 8px 18px;
-            border-top: 1px solid rgba(0,0,0,0.06);
+            border-top: 1px solid rgba(45, 32, 90, 0.08);
             padding-top: 12px;
         }
         .combo-legend-item { display: flex; align-items: center; gap: 7px; font-size: 0.78rem; cursor: pointer; }
@@ -594,7 +600,7 @@
             margin-bottom: 32px;
         }
         .no-data-progress-wrap {
-            background: rgba(0,0,0,0.06);
+            background: rgba(45, 32, 90, 0.08);
             border-radius: 999px;
             height: 8px;
             width: 260px;
@@ -657,7 +663,7 @@
     <!-- Not-enough-data state -->
     <div id="no-data-screen">
         <div class="no-data-icon">
-            <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="#9d94ae" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+            <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="#7f78a0" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21 21l-4.35-4.35"/>
                 <circle cx="11" cy="11" r="8"/>
                 <path d="M8.5 11h5M11 8.5v5" stroke-width="1.8" stroke="#c4b5fd"/>
@@ -1027,7 +1033,7 @@
 
     function renderTrendChart(trendData, color) {
         if (!trendData || trendData.length < 2) {
-            return '<div style="text-align:center;color:#9d94ae;padding:32px 0;font-size:0.85rem;">Not enough history to show a trend yet.</div>';
+            return '<div style="text-align:center;color:#7f78a0;padding:32px 0;font-size:0.85rem;">Not enough history to show a trend yet.</div>';
         }
         const values = trendData.map(t => t.score);
         const dates  = trendData.map(t => t.date);
@@ -1040,15 +1046,15 @@
 
         const gridLines = [0, 25, 50, 75, 100].map(v => {
             const y = toY(v).toFixed(1);
-            return `<line x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}" stroke="rgba(0,0,0,0.07)" stroke-width="1"/>
-                    <text x="${padL - 6}" y="${y}" text-anchor="end" dominant-baseline="middle" font-size="10" fill="#9d94ae">${v}</text>`;
+            return `<line x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}" stroke="rgba(45, 32, 90, 0.10)" stroke-width="1"/>
+                    <text x="${padL - 6}" y="${y}" text-anchor="end" dominant-baseline="middle" font-size="10" fill="#7f78a0">${v}</text>`;
         }).join('');
 
         const step = Math.max(1, Math.ceil(dates.length / 6));
         const dateLabels = dates.map((d, i) => {
             if (i % step !== 0 && i !== dates.length - 1) return '';
             const label = new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-            return `<text x="${toX(i).toFixed(1)}" y="${H - 8}" text-anchor="middle" font-size="10" fill="#9d94ae">${label}</text>`;
+            return `<text x="${toX(i).toFixed(1)}" y="${H - 8}" text-anchor="middle" font-size="10" fill="#7f78a0">${label}</text>`;
         }).join('');
 
         const pts  = values.map((v, i) => `${toX(i).toFixed(1)},${toY(v).toFixed(1)}`).join(' ');
@@ -1214,21 +1220,21 @@
 
         const gridLines = [0, 25, 50, 75, 100].map(v => {
             const y = toY(v).toFixed(1);
-            return `<line x1="${padL}" y1="${y}" x2="${padL + iW}" y2="${y}" stroke="rgba(0,0,0,0.06)" stroke-width="1"/>
-                    <text x="${padL - 6}" y="${y}" text-anchor="end" dominant-baseline="middle" font-size="10" fill="#9d94ae">${v}</text>`;
+            return `<line x1="${padL}" y1="${y}" x2="${padL + iW}" y2="${y}" stroke="rgba(45, 32, 90, 0.08)" stroke-width="1"/>
+                    <text x="${padL - 6}" y="${y}" text-anchor="end" dominant-baseline="middle" font-size="10" fill="#7f78a0">${v}</text>`;
         }).join('');
 
         const step = Math.max(1, Math.ceil(n / 6));
         const xLabels = sortedDates.map((d, i) => {
             if (i % step !== 0 && i !== n - 1) return '';
             const lbl = new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-            return `<text x="${toX(i).toFixed(1)}" y="${H - 8}" text-anchor="middle" font-size="10" fill="#9d94ae">${lbl}</text>`;
+            return `<text x="${toX(i).toFixed(1)}" y="${H - 8}" text-anchor="middle" font-size="10" fill="#7f78a0">${lbl}</text>`;
         }).join('');
 
         const lines = SENTIMENT_DIMS.map(dim => {
             const entry = data[dim.key];
             if (!entry || !entry.trend || entry.trend.length < 2) return '';
-            const color = DIM_COLORS[dim.key] || '#9d94ae';
+            const color = DIM_COLORS[dim.key] || '#7f78a0';
             const pts = entry.trend
                 .map(t => { const xi = dateIdx.get(t.date); return xi !== undefined ? `${toX(xi).toFixed(1)},${toY(t.score).toFixed(1)}` : null; })
                 .filter(Boolean).join(' ');
@@ -1250,7 +1256,7 @@
         const legendItems = SENTIMENT_DIMS.map(dim => {
             const entry = data[dim.key];
             if (!entry) return '';
-            const color = DIM_COLORS[dim.key] || '#9d94ae';
+            const color = DIM_COLORS[dim.key] || '#7f78a0';
             const score = Math.max(0, Math.min(100, entry.score || 0));
             const cls = scoreClasses(score, dim.inverse);
             return `<div class="combo-legend-item" data-dim-key="${dim.key}">
@@ -1282,7 +1288,7 @@
             dims: SENTIMENT_DIMS.map(dim => {
                 const entry = data[dim.key];
                 if (!entry || !entry.trend) return null;
-                return { key: dim.key, label: dim.label, color: DIM_COLORS[dim.key] || '#9d94ae',
+                return { key: dim.key, label: dim.label, color: DIM_COLORS[dim.key] || '#7f78a0',
                          scoreMap: new Map(entry.trend.map(t => [t.date, t.score])) };
             }).filter(Boolean),
         };
@@ -1512,8 +1518,8 @@
                 </filter>
                 <!-- Needle gradient: dark base fading to silver tip -->
                 <linearGradient id="ndg${uid}" x1="1" y1="0" x2="0" y2="0">
-                  <stop offset="0%"   stop-color="#6b6484"/>
-                  <stop offset="55%"  stop-color="#241f36"/>
+                  <stop offset="0%"   stop-color="#5b5674"/>
+                  <stop offset="55%"  stop-color="#1e1b33"/>
                   <stop offset="100%" stop-color="#d5cee6"/>
                 </linearGradient>
                 <!-- Cap metallic gradient -->
@@ -1524,7 +1530,7 @@
               </defs>
 
               <!-- Outer ambient shadow ring -->
-              <path d="${arc}" fill="none" stroke="rgba(0,0,0,0.07)" stroke-width="22" stroke-linecap="round"/>
+              <path d="${arc}" fill="none" stroke="rgba(45, 32, 90, 0.10)" stroke-width="22" stroke-linecap="round"/>
               <!-- Dark recessed background track -->
               <path d="${arc}" fill="none" stroke="rgba(18, 10, 35,0.22)" stroke-width="14" stroke-linecap="round"/>
 
@@ -1555,7 +1561,7 @@
 
               <!-- Center cap: layered metallic rings -->
               <circle cx="${cx}" cy="${cy}" r="10"  fill="url(#cap${uid})"/>
-              <circle cx="${cx}" cy="${cy}" r="7.5" fill="#241f36"/>
+              <circle cx="${cx}" cy="${cy}" r="7.5" fill="#1e1b33"/>
               <circle cx="${cx}" cy="${cy}" r="5.5" fill="#392f4d"/>
               <circle cx="${cx}" cy="${cy}" r="3"   fill="#4d4166"/>
               <!-- Cap highlight glint -->
