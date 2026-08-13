@@ -55,10 +55,12 @@ body {
     background-attachment: fixed;
 }
 
-/* Shell = full-width top bar + centred chat card underneath */
+/* Shell = the chat card, centred in whatever the side panel leaves over.
+   Height tracks the body box so the mobile top-bar offset doesn't push the
+   card past the fold. */
 .app-shell {
     width: 100%;
-    height: 100vh;
+    height: 100%;
     display: flex;
     flex-direction: column;
     align-items: stretch;
@@ -67,14 +69,16 @@ body {
 .app-card {
     flex: 1;
     min-height: 0;
-    width: calc(100% - 32px);
-    max-width: 900px;
-    margin: 22px auto;
+    /* Fills the space the side panel leaves; the cap only stops the card from
+       stretching into an unreadable line length on very wide screens. */
+    width: calc(100% - 20px);
+    max-width: 1280px;
+    margin: 5px auto;
     background: var(--glass-bg);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     border: 1px solid var(--glass-border);
-    border-radius: 24px;
+    border-radius: 10px;
     display: flex;
     flex-direction: column;
     box-shadow: 0 25px 50px -12px rgba(49, 32, 110, 0.08);
@@ -378,6 +382,50 @@ body {
     align-items: center;
     gap: 12px;
     padding: 0 4px 10px;
+    flex-wrap: wrap;
+    row-gap: 8px;
+}
+
+/* ── Language picker (sits at the right of the mode row) ────────────────
+   Shares header.js's ids and the .app-tab-wrap open/close plumbing, but
+   wears a chip here and opens upward — it's at the bottom of the card. */
+.lang-picker {
+    margin-left: auto;
+}
+
+.lang-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 12px;
+    border: 1px solid var(--glass-border);
+    border-radius: 999px;
+    background: rgba(240, 243, 254, 0.9);
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 0.8rem;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+}
+
+.lang-btn:hover,
+.lang-picker.open .lang-btn {
+    color: var(--primary-color);
+    border-color: var(--primary-ring);
+}
+
+.lang-picker .app-tab-value {
+    margin-left: 0;
+    color: inherit;
+}
+
+.lang-picker .tab-popover {
+    top: auto;
+    bottom: calc(100% + 8px);
+    left: auto;
+    right: 0;
 }
 
 .mode-toggle {

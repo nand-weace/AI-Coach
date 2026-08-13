@@ -91,6 +91,20 @@
                     </button>
                 </div>
                 <span class="mode-hint" id="mode-hint">Nexa asks questions so you reach your own answer</span>
+
+                <!-- Language sits with the composer, not in the side panel: it
+                     only ever changed the conversation. header.js wires it by
+                     id, so the ids match what it expects. -->
+                <div class="app-tab-wrap lang-picker" id="language-menu-wrap">
+                    <button type="button" class="lang-btn" id="btn-language" aria-haspopup="true" aria-expanded="false" title="Conversation language">
+                        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/>
+                            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                        </svg>
+                        <span class="app-tab-value" id="language-current">English</span>
+                    </button>
+                    <div class="tab-popover" id="language-submenu"></div>
+                </div>
             </div>
 
             <form id="chat-form">

@@ -108,17 +108,32 @@ def _serialize_messages(user_id: str, rows: list) -> list[dict]:
 
 
 def _language_directive(language: str | None) -> str:
-    """System-prompt addendum instructing Nexa to reply in the chosen language."""
-    if not language or language == DEFAULT_LANGUAGE:
-        return ''
-    label = SUPPORTED_LANGUAGES.get(language, (language, language))[1]
+    """System-prompt addendum instructing Nexa to reply in the chosen language.
+
+    Emitted for every language including English. Skipping it for English used
+    to let a mid-session switch back from, say, Hindi go unnoticed: the visible
+    conversation was still Hindi and the model kept mirroring it with nothing
+    in the prompt to say otherwise. The picker is the only authority on output
+    language, so it always states one.
+    """
+    label = SUPPORTED_LANGUAGES.get(language or DEFAULT_LANGUAGE,
+                                    (language, language or DEFAULT_LANGUAGE))[1]
     return (
-        f"\n\n---\nLANGUAGE:\n"
-        f"Write every reply in {label}, including the suggested follow-ups inside the "
-        f"[[SUGGESTIONS]] block. Keep the same warm, informal coaching tone in {label}. "
-        f"Do not translate or alter the [[SUGGESTIONS]] tags themselves. "
-        f"If the user writes in another language, still reply in {label} unless they ask "
-        f"you to switch.\n---"
+        f"\n\n---\nLANGUAGE (overrides everything above):\n"
+        f"Write every reply in {label} — the whole reply, including the suggested "
+        f"follow-ups inside the [[SUGGESTIONS]] block. Keep the same warm, informal "
+        f"coaching tone in {label}. Do not translate or alter the [[SUGGESTIONS]] tags "
+        f"themselves.\n"
+        f"This holds no matter what language anything else is in:\n"
+        f"- Earlier turns in this conversation may be in another language, because the "
+        f"user has just switched. Ignore that and write this reply in {label}.\n"
+        f"- If the user writes to you in another language, understand them, but still "
+        f"reply in {label}.\n"
+        f"- Web search results, their profile, and their organisation's material are "
+        f"often in English. Use what they say, but write it up in {label}.\n"
+        f"- Never mix languages in one reply, and never add a translation of your own "
+        f"reply. Proper nouns and established job titles may stay in their usual form.\n"
+        f"Switch away from {label} only if the user explicitly asks you to.\n---"
     )
 
 
@@ -781,16 +796,28 @@ def _generate_welcome(user_name: str, highlights: list, profile_context: dict = 
             "Warmly reference a relevant theme from their past coaching highlights and "
             "invite them to continue it or start something new — without stating that you "
             "have access to past session records. Keep it to 2-3 warm, concise sentences. "
-            "Then include 2-3 tappable starter nudges in the [[SUGGESTIONS]] block, phrased "
-            "from the user's point of view, that pick up past themes or open new ground."
+            "Then include 2-3 tappable starter nudges in the [[SUGGESTIONS]] block that pick "
+            "up past themes or open new ground."
         )
     else:
         instruction = (
             f"[SESSION START] Greet {user_name} to open their first coaching session. "
             "Briefly introduce yourself as Nexa and what you help with, in 2-3 warm, concise "
-            "sentences. Then include 2-3 tappable starter nudges in the [[SUGGESTIONS]] block, "
-            "phrased from the user's point of view, to help them begin."
+            "sentences. Then include 2-3 tappable starter nudges in the [[SUGGESTIONS]] block "
+            "to help them begin."
         )
+
+    # The opener is where the nudges go wrong most often — Nexa has just asked
+    # the user a question, and the obvious next lines are more of its own
+    # questions. Restated here because this call doesn't replay the rules the
+    # way an ongoing conversation does.
+    instruction += (
+        " Each nudge is the first thing the user says to you, in their own voice — "
+        f"what {user_name} would type to open the session, like \"Help me think through a "
+        "team issue\" or \"I need to prep for a tough conversation\". Never write a nudge "
+        "that asks the user a question or invites them to reflect; that is your job, not "
+        "theirs."
+    )
 
     # Their LinkedIn is usually the richest thing we have on a first-time user —
     # it's what turns a generic hello into an opener that lands.

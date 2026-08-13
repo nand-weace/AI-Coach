@@ -1,6 +1,7 @@
-// Shared app-header behaviour — chat page and dashboard both load this.
-// Wires the tabs, language picker, Corporate Knowledge modal and user-chip
-// dropdown. Pages hook back in via window.NexaHeader.
+// Shared side-panel behaviour — chat page and dashboard both load this.
+// Wires the tabs, language picker, Corporate Knowledge modal, user-chip
+// dropdown and the mobile off-canvas drawer. Pages hook back in via
+// window.NexaHeader.
 
 // Language picker — keep in sync with SUPPORTED_LANGUAGES in app.py
 const LANGUAGES = [
@@ -69,6 +70,32 @@ const NexaHeader = (() => {
             const btn = $('btn-language');
             if (btn) btn.setAttribute('aria-expanded', 'false');
         }
+    }
+
+    // ── My Insights sub-nav ─────────────────────────────────────────────────
+    // The reports are addressed by URL hash, so the highlight follows the hash
+    // rather than a click: it also has to be right after a back/forward or a
+    // tab switched from inside the page itself. 'growth' is the report
+    // my_insights.html opens on when the hash is empty.
+    const DEFAULT_SUBTAB = 'growth';
+
+    function syncSubnav() {
+        const subs = document.querySelectorAll('.app-subtab');
+        if (!subs.length) return;
+        const onPage = window.location.pathname.replace(/\/+$/, '') === '/my-insights';
+        const current = onPage ? (window.location.hash.slice(1) || DEFAULT_SUBTAB) : null;
+        subs.forEach(a => a.classList.toggle('active', a.dataset.subtab === current));
+    }
+
+    // ── Off-canvas panel (under 900px) ──────────────────────────────────────
+    function setDrawer(open) {
+        const panel = $('app-sidebar');
+        const scrim = $('sidebar-scrim');
+        const toggle = $('sidebar-toggle');
+        if (panel) panel.classList.toggle('open', open);
+        if (scrim) scrim.classList.toggle('open', open);
+        if (toggle) toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (!open) closeMenus();
     }
 
     // role can be an array of role objects [{slug: '...'}] or a legacy string
@@ -206,13 +233,24 @@ const NexaHeader = (() => {
             });
         }
 
+        const toggleBtn = $('sidebar-toggle');
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', e => {
+                e.stopPropagation();
+                const panel = $('app-sidebar');
+                setDrawer(!(panel && panel.classList.contains('open')));
+            });
+        }
+        const scrim = $('sidebar-scrim');
+        if (scrim) scrim.addEventListener('click', () => setDrawer(false));
+
         document.addEventListener('click', e => {
             if (chipWrap && chipWrap.contains(e.target)) return;
             if (langWrap && langWrap.contains(e.target)) return;
             closeMenus();
         });
         document.addEventListener('keydown', e => {
-            if (e.key === 'Escape') closeMenus();
+            if (e.key === 'Escape') { closeMenus(); setDrawer(false); }
         });
 
         // Tabs that navigate: mark them active straight away so the header
@@ -227,6 +265,27 @@ const NexaHeader = (() => {
                 if (tab.classList.contains('app-tab')) tab.classList.add('active');
             });
         });
+
+        // Any nav choice dismisses the drawer on mobile. Language is the one
+        // exception — its flyout lives inside the panel, so closing it there
+        // would hide the options being picked from.
+        document.querySelectorAll('.app-tab, .app-subtab').forEach(tab => {
+            if (tab.id === 'btn-language') return;
+            tab.addEventListener('click', () => setDrawer(false));
+        });
+
+        // A sub-nav link either navigates to /my-insights (carry the running
+        // conversation over, as the tabs do) or, when already there, only moves
+        // the hash — no reload, so the highlight is updated here as well as on
+        // hashchange.
+        document.querySelectorAll('.app-subtab').forEach(link => {
+            link.addEventListener('click', () => {
+                markTabNav();
+                requestAnimationFrame(syncSubnav);
+            });
+        });
+        window.addEventListener('hashchange', syncSubnav);
+        syncSubnav();
 
         // The chat page has no separate "Talk" destination when already there.
         const talkTab = $('tab-talk');
@@ -290,6 +349,7 @@ const NexaHeader = (() => {
         show('tab-talk', !isWeaceAdmin);
         show('language-menu-wrap', !isWeaceAdmin);
         show('my-insights-link', !isWeaceAdmin);
+        show('my-insights-subnav', !isWeaceAdmin);
         show('btn-corp-content', isOrgAdmin && !isWeaceAdmin);
         show('dashboard-link', isOrgAdmin);
         show('tab-admin', isWeaceAdmin);
@@ -302,7 +362,8 @@ const NexaHeader = (() => {
         if (!allowed) btn.title = 'Access required to use Weace Coaching';
     }
 
-    return { init, applyRoles, setNexaAccess, renderLanguageMenu, getLanguage, hasRole, closeMenus };
+    return { init, applyRoles, setNexaAccess, renderLanguageMenu, getLanguage, hasRole,
+             closeMenus, setDrawer, syncSubnav };
 })();
 
 window.NexaHeader = NexaHeader;

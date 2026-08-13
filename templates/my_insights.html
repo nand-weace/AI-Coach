@@ -2517,6 +2517,9 @@
         const controls = document.querySelector('.table-controls');
         if (controls) controls.style.display = name === 'sentiment' ? '' : 'none';
         if (updateHash) history.replaceState(null, '', `#${name}`);
+        // replaceState fires no hashchange, so the side panel's sub-nav is told
+        // directly — otherwise it would keep marking the tab we just left.
+        window.NexaHeader?.syncSubnav();
         if (!loadedTabs.has(name)) {
             loadedTabs.add(name);
             TAB_LOADERS[name]();
