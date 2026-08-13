@@ -39,6 +39,21 @@ const NexaHeader = (() => {
         return (el && el.dataset.refreshToken) || localStorage.getItem('we_ace_refresh_token') || '';
     }
 
+    // Every credential and preference the app persists — keep in sync with
+    // clearTokens() in script.js. Logout has to drop all of it: clearing only
+    // the server session leaves a live refresh token behind, and the very next
+    // page load signs straight back in, which reads as "logout didn't work".
+    const STORED_KEYS = [
+        'we_ace_access_token', 'we_ace_refresh_token', 'we_ace_user_id',
+        'we_ace_user_name', 'we_ace_session_uuid', 'we_ace_profile_context',
+        'we_ace_profile_roles', 'we_ace_session_token', 'we_ace_org_id',
+        'we_ace_org_name', 'we_ace_cohort_id', 'we_ace_language', 'we_ace_mode',
+    ];
+    function clearStoredCredentials() {
+        try { STORED_KEYS.forEach(k => localStorage.removeItem(k)); } catch (_) {}
+        try { sessionStorage.removeItem('we_ace_tab_nav'); } catch (_) {}
+    }
+
     // Marks the next page load as an in-app tab switch. sessionStorage is
     // per browser tab and survives the navigation; script.js reads it once.
     function markTabNav() {
@@ -213,9 +228,6 @@ const NexaHeader = (() => {
             });
         });
 
-        const adminLink = $('admin-link');
-        if (adminLink) adminLink.addEventListener('click', markTabNav);
-
         // The chat page has no separate "Talk" destination when already there.
         const talkTab = $('tab-talk');
         if (talkTab && opts.onTalk) {
@@ -240,9 +252,17 @@ const NexaHeader = (() => {
             });
         }
 
-        $('logout-button').addEventListener('click', async () => {
-            try { sessionStorage.removeItem('we_ace_tab_nav'); } catch (_) {}
-            await fetch('/logout', { method: 'POST', headers: authHeaders() });
+        const logoutBtn = $('logout-button');
+        logoutBtn.addEventListener('click', async () => {
+            if (logoutBtn.disabled) return;   // one logout per click, not one per impatient click
+            logoutBtn.disabled = true;
+            // Server session first — it needs the token that's about to go.
+            // A failed request must not strand the user signed in locally, so
+            // the credentials are dropped either way.
+            try {
+                await fetch('/logout', { method: 'POST', headers: authHeaders() });
+            } catch (_) {}
+            clearStoredCredentials();
             if (opts.onLogout) opts.onLogout();
             else window.location.href = '/';
         });
@@ -251,23 +271,28 @@ const NexaHeader = (() => {
         renderLanguageMenu();
     }
 
-    // Chat page calls this once /session reports the user's roles.
+    // Chat page calls this once /session reports the user's roles. Mirrors the
+    // server-rendered gating in _header.html — keep the two in step.
     function applyRoles(role) {
         const isOrgAdmin = hasRole(role, 'corporate_super_admin');
         const isWeaceAdmin = hasRole(role, 'weace_super_admin');
 
-        const dash = $('dashboard-link');
-        if (dash) dash.style.display = isOrgAdmin ? 'flex' : 'none';
+        // '' drops the inline override so each element falls back to its own
+        // stylesheet display — flex for a tab, block for the language wrapper.
+        const show = (id, on) => {
+            const el = $(id);
+            if (el) el.style.display = on ? '' : 'none';
+        };
 
-        const corp = $('btn-corp-content');
-        if (corp) corp.style.display = (isOrgAdmin || isWeaceAdmin) ? 'flex' : 'none';
-
-        const admin = $('admin-link');
-        if (admin) admin.style.display = isWeaceAdmin ? 'flex' : 'none';
-
-        // Divider only earns its place when Admin sits above it
-        const divider = $('chip-nav-divider');
-        if (divider) divider.style.display = isWeaceAdmin ? 'block' : 'none';
+        // A WeAce super admin runs the platform rather than using the coaching
+        // product, so the bar collapses to Admin — Chat, Language, My Insights
+        // and Knowledge Base are not theirs to see.
+        show('tab-talk', !isWeaceAdmin);
+        show('language-menu-wrap', !isWeaceAdmin);
+        show('my-insights-link', !isWeaceAdmin);
+        show('btn-corp-content', isOrgAdmin && !isWeaceAdmin);
+        show('dashboard-link', isOrgAdmin);
+        show('tab-admin', isWeaceAdmin);
     }
 
     function setNexaAccess(allowed) {

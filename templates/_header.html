@@ -3,15 +3,23 @@
   same bar with the current tab marked.
 
   Params:
-    active_tab     'talk' | 'sentiment' | 'my-insights'
+    active_tab     'talk' | 'sentiment' | 'my-insights' | 'admin'
     show_org_tabs  true to render Sentiment Analysis / Corporate Knowledge as
                    visible (the dashboard, which is role-gated server-side).
                    The chat page leaves them hidden and lets script.js reveal
                    them once it knows the user's roles.
-    show_admin     true to render the Admin link in the chip dropdown
+    show_admin     true for a WeAce super admin. They manage the platform rather
+                   than using the coaching product, so the bar collapses to the
+                   Admin tab: Chat, Language, My Insights and Knowledge Base all
+                   drop out, and Admin sits in the bar itself instead of being
+                   tucked inside the chip dropdown.
     user_name, initials, profile_image, refresh_token
                    server-rendered identity; omitted on the chat page, where
                    script.js fills them in after /session.
+
+  Every tab is always rendered and hidden with style="display:none;" rather than
+  left out — the chat page only learns the user's roles after /session, and
+  header.js's applyRoles() toggles them from there.
 #}
 <header class="app-header">
     <div class="logo">
@@ -20,9 +28,11 @@
 
     <nav class="app-tabs" id="app-tabs" aria-label="Main navigation">
         <a href="/" class="app-tab{% if active_tab == 'talk' %} active{% endif %}" id="tab-talk"
-           {% if active_tab == 'talk' %}aria-current="page"{% endif %}>Chat</a>
+           {% if active_tab == 'talk' %}aria-current="page"{% endif %}
+           {% if show_admin %}style="display:none;"{% endif %}>Chat</a>
 
-        <div class="app-tab-wrap" id="language-menu-wrap">
+        <div class="app-tab-wrap" id="language-menu-wrap"
+             {% if show_admin %}style="display:none;"{% endif %}>
             <button type="button" class="app-tab" id="btn-language" aria-haspopup="true" aria-expanded="false">
                 Language
                 <span class="app-tab-value" id="language-current">English</span>
@@ -32,7 +42,8 @@
 
         <a id="my-insights-link" href="/my-insights"
            class="app-tab{% if active_tab == 'my-insights' %} active{% endif %}"
-           {% if active_tab == 'my-insights' %}aria-current="page"{% endif %}>My Insights</a>
+           {% if active_tab == 'my-insights' %}aria-current="page"{% endif %}
+           {% if show_admin %}style="display:none;"{% endif %}>My Insights</a>
 
         <a id="dashboard-link" href="/dashboard"
            class="app-tab{% if active_tab == 'sentiment' %} active{% endif %}"
@@ -40,7 +51,12 @@
            {% if not show_org_tabs %}style="display:none;"{% endif %}>Nexa Insights</a>
 
         <button type="button" class="app-tab" id="btn-corp-content"
-                {% if not show_org_tabs %}style="display:none;"{% endif %}>Knowledge Base</button>
+                {% if not show_org_tabs or show_admin %}style="display:none;"{% endif %}>Knowledge Base</button>
+
+        <a id="tab-admin" href="/admin"
+           class="app-tab{% if active_tab == 'admin' %} active{% endif %}"
+           {% if active_tab == 'admin' %}aria-current="page"{% endif %}
+           {% if not show_admin %}style="display:none;"{% endif %}>Admin</a>
 
         <button type="button" class="app-tab" id="btn-weace-coaching">WeAce Platform</button>
     </nav>
@@ -60,15 +76,7 @@
                 </svg>
             </div>
             <div class="chip-dropdown" id="chip-dropdown" data-refresh-token="{{ refresh_token or '' }}">
-                <a id="admin-link" href="/admin" class="chip-dropdown-item"
-                   {% if not show_admin %}style="display:none;"{% endif %}>
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/>
-                    </svg>
-                    Admin
-                </a>
-                <div class="chip-dropdown-divider" id="chip-nav-divider"
-                     {% if not show_admin %}style="display:none;"{% endif %}></div>
+                {# Admin lives in the tab bar now, not here. #}
                 <button class="chip-dropdown-item" id="btn-edit-profile">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>

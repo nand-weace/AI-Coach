@@ -259,9 +259,6 @@
         .score-green  { color: #4c1d95; }
         .score-amber  { color: #6d28d9; }
         .score-red    { color: #9333ea; }
-        .fill-green   { background: #5b21b6; }
-        .fill-amber   { background: #8b5cf6; }
-        .fill-red     { background: #c084fc; }
 
         /* ── Trend modal ── */
         .trend-modal-overlay {
@@ -1201,9 +1198,9 @@
 
     function scoreClasses(score, inverse) {
         const effective = inverse ? (100 - score) : score;
-        if (effective >= 65) return { num: 'score-green', fill: 'fill-green', card: 'card-green' };
-        if (effective >= 35) return { num: 'score-amber', fill: 'fill-amber', card: 'card-amber' };
-        return { num: 'score-red', fill: 'fill-red', card: 'card-red' };
+        if (effective >= 65) return { num: 'score-green', card: 'card-green' };
+        if (effective >= 35) return { num: 'score-amber', card: 'card-amber' };
+        return { num: 'score-red', card: 'card-red' };
     }
 
     // ── Trend modal ───────────────────────────────────────────────────────────
@@ -1509,6 +1506,10 @@
         const wrap = document.getElementById('heat-wrap');
         if (!wrap || !data) return;
 
+        // Bars carry the dimension's own colour from DIM_COLORS — the same one
+        // its line has in My Trend Over Time, which sits beside this card — so a
+        // row and its trend line are the same thing in two views. The score
+        // beside it still shows the band, which is what varies row to row.
         const rows = SENTIMENT_DIMS.map(dim => {
             const entry = data[dim.key];
             if (!entry) return '';
@@ -1519,7 +1520,7 @@
             return `<div class="heat-row">
                 <div class="heat-row-icon">${svg}</div>
                 <div class="heat-row-label">${dim.label}</div>
-                <div class="heat-row-track"><div class="heat-row-fill ${cls.fill}" style="width:${score}%"></div></div>
+                <div class="heat-row-track"><div class="heat-row-fill" style="width:${score}%; background:${DIM_COLORS[dim.key] || '#7f78a0'}"></div></div>
                 <div class="heat-row-score" style="color:${BAND_COLORS[cls.num] || 'var(--text-muted)'}">${score}</div>
             </div>`;
         }).join('');

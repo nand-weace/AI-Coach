@@ -268,34 +268,52 @@
         @media (max-width: 1000px) {
             .sentiment-pair { grid-template-columns: 1fr; }
         }
+        /* The tinted card fills went muddy once the page picked up a blue-lavender
+           gradient behind them — a 5%-violet wash over a coloured backdrop reads
+           as dirt, not as a band. The tier now rides a solid accent rail down the
+           left edge and the surface stays clean white, so the cards sit on the
+           gradient instead of sinking into it. Each tier only sets --tier. */
         .sentiment-card {
-            background: var(--glass-bg);
+            position: relative;
+            background: var(--surface);
             border: 1px solid var(--glass-border);
+            border-left: 3px solid var(--tier, var(--primary-color));
             border-radius: 14px;
-            padding: 14px 16px;
+            padding: 14px 16px 14px 17px;
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
             display: flex;
             flex-direction: column;
             gap: 8px;
+            cursor: pointer;
+            box-shadow: 0 2px 10px -6px rgba(49, 32, 110, 0.28);
+            transition: box-shadow 0.18s, transform 0.18s, border-color 0.18s;
         }
-        .card-green { border-color: rgba(109,40,217,0.5); background: rgba(109,40,217,0.05); }
-        .card-amber { border-color: rgba(168,85,247,0.5); background: rgba(168,85,247,0.05); }
-        .card-red   { border-color: rgba(192,132,252,0.5); background: rgba(192,132,252,0.05); }
+        /* A whisper of the tier colour bleeding in from the rail — enough to
+           group the cards by band at a glance, not enough to tint the text. */
+        .sentiment-card::before {
+            content: '';
+            position: absolute; inset: 0;
+            border-radius: 11px;
+            background: linear-gradient(90deg, var(--tier-wash, transparent) 0%, transparent 42%);
+            pointer-events: none;
+        }
+        .sentiment-card > * { position: relative; }
+        .sentiment-card:hover {
+            box-shadow: var(--card-shadow);
+            transform: translateY(-2px);
+            border-color: var(--primary-ring);
+            border-left-color: var(--tier, var(--primary-color));
+        }
+        .card-green { --tier: #5b21b6; --tier-wash: rgba(91, 33, 182, 0.07); }
+        .card-amber { --tier: #8b5cf6; --tier-wash: rgba(139, 92, 246, 0.07); }
+        .card-red   { --tier: #c084fc; --tier-wash: rgba(192, 132, 252, 0.09); }
+        @media (prefers-reduced-motion: reduce) {
+            .sentiment-card, .sentiment-card:hover { transition: none; transform: none; }
+        }
         .sentiment-card-header { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
         .sentiment-label { font-size: 0.88rem; font-weight: 600; color: var(--text-main); line-height: 1.3; }
         .sentiment-score-block { flex-shrink: 0; }
-        .sentiment-divider { height: 1px; background: rgba(45, 32, 90, 0.10); margin: 0 -2px; }
-        .sentiment-bands { display: flex; flex-direction: column; gap: 8px; }
-        .sentiment-band-row { display: flex; align-items: center; gap: 10px; }
-        .sentiment-band-label { font-size: 0.78rem; color: var(--text-muted); width: 72px; flex-shrink: 0; }
-        .sentiment-band-track { flex: 1; height: 7px; border-radius: 99px; background: rgba(45, 32, 90, 0.10); overflow: hidden; }
-        .sentiment-band-fill { height: 100%; border-radius: 99px; transition: width 0.6s ease; }
-        .band-very-high  { background: #9333ea; }
-        .band-moderate   { background: #c084fc; }
-        .band-low        { background: #d8b4fe; }
-        .band-negligible { background: #e9d5ff; }
-        .sentiment-band-pct { font-size: 0.78rem; color: var(--text-muted); width: 30px; text-align: right; font-variant-numeric: tabular-nums; flex-shrink: 0; }
         /* clamped to keep every card the same height — the modal has the full text */
         .sentiment-insight {
             font-size: 0.78rem;
@@ -307,39 +325,42 @@
             -webkit-box-orient: vertical;
             overflow: hidden;
         }
-        .sentiment-trend-label { font-size: 0.70rem; color: var(--text-muted); margin-bottom: 4px; }
-        .sentiment-trend svg { display: block; width: 100%; }
+        /* Bare centred text floated on the gradient with nothing holding it —
+           it now gets a surface of its own, so empty and loading states read as
+           part of the grid. */
         .sentiment-no-data {
             grid-column: 1 / -1;
             text-align: center;
             color: var(--text-muted);
             font-size: 0.88rem;
-            padding: 32px 0;
+            padding: 32px 20px;
+            background: rgba(255, 255, 255, 0.45);
+            border: 1px dashed var(--primary-ring);
+            border-radius: 14px;
         }
         .sentiment-group-label {
             grid-column: 1 / -1;
             display: flex;
             align-items: center;
-            gap: 8px;
-            font-size: 0.7rem;
-            font-weight: 600;
-            letter-spacing: 0.09em;
+            gap: 10px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
             text-transform: uppercase;
-            color: var(--text-muted);
+            color: var(--primary-color);
             margin-bottom: -4px;
         }
+        /* Rule fades out rather than stopping dead against the gradient. */
         .sentiment-group-label .group-line {
-            flex: 1;
-            height: 1px;
-            background: rgba(0,0,0,0.08);
+            flex: 1; height: 1px;
+            background: linear-gradient(90deg, var(--primary-ring) 0%, rgba(109, 40, 217, 0) 100%);
         }
-        /* score-based colour helpers applied via JS */
-        .score-green  { color: #3b0764; }
+        /* Score ramp — deep violet is a strong score, pale is a weak one. Kept
+           monochrome on purpose: these are dimensions to work on, not failures,
+           so no red. Deepened from the old values to hold contrast on white. */
+        .score-green  { color: #4c1d95; }
         .score-amber  { color: #6d28d9; }
         .score-red    { color: #9333ea; }
-        .fill-green   { background: #6d28d9; }
-        .fill-amber   { background: #a855f7; }
-        .fill-red     { background: #d8b4fe; }
 
         /* ── Trend modal ── */
         .trend-modal-overlay {
@@ -385,8 +406,6 @@
         .trend-modal-divider { height: 1px; background: rgba(45, 32, 90, 0.10); margin: 20px 0; }
         .trend-modal-bands-label { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 10px; }
         .trend-modal-insight { font-size: 0.82rem; color: var(--text-muted); line-height: 1.6; }
-        .sentiment-card { cursor: pointer; transition: box-shadow 0.18s, transform 0.18s; }
-        .sentiment-card:hover { box-shadow: 0 4px 24px rgba(49, 32, 110,0.10); transform: translateY(-1px); }
 
         /* ── Employee Distribution bar ── */
         .emp-dist {
@@ -456,11 +475,10 @@
             flex-shrink: 0;
         }
         .heat-title-wrap h3 { font-size: 0.95rem; font-weight: 600; }
-        .heat-col-label { font-size: 0.78rem; color: var(--text-muted); padding-right: 2px; }
         .heat-rows { display: flex; flex-direction: column; gap: 4px; }
         .heat-row {
             display: grid;
-            grid-template-columns: 18px minmax(160px, 1.2fr) 3fr 32px 80px;
+            grid-template-columns: 18px minmax(160px, 1.2fr) 3fr 32px;
             align-items: center;
             gap: 14px;
             padding: 6px 0;
@@ -471,8 +489,9 @@
         .heat-row-label { font-size: 0.85rem; font-weight: 500; color: var(--text-main); }
         .heat-row-track { height: 10px; border-radius: 99px; background: rgba(45, 32, 90, 0.10); overflow: hidden; }
         .heat-row-fill { height: 100%; border-radius: 99px; transition: width 0.7s ease; }
-        .heat-row-score { font-size: 0.78rem; font-weight: 600; color: var(--text-muted); text-align: center; font-variant-numeric: tabular-nums; }
-        .heat-row-signal { font-size: 0.83rem; font-weight: 600; text-align: right; white-space: nowrap; }
+        /* Colour comes from BAND_COLORS inline, matched to the bar beside it;
+           the muted value here is the fallback for an unrecognised band. */
+        .heat-row-score { font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-align: center; font-variant-numeric: tabular-nums; }
 
         /* ── Combined Trend Chart ── */
         .combo-chart-card {
@@ -538,16 +557,15 @@
         .insight-row .combo-chart-card { margin-bottom: 0; width: 100%; }
         /* half-width columns: tighten the heat rows so the bar keeps its room */
         .insight-row .heat-row {
-            grid-template-columns: 18px minmax(96px, 1.1fr) 2.4fr 28px 62px;
+            grid-template-columns: 18px minmax(96px, 1.1fr) 2.4fr 28px;
             gap: 10px;
         }
-        .insight-row .heat-row-signal { font-size: 0.78rem; }
         /* if either half has nothing to show (e.g. too little history for a
            trend line), let the surviving card take the full width */
         .insight-row:has(> #heat-wrap:empty),
         .insight-row:has(> #trends-wrap:empty) { grid-template-columns: 1fr; }
         .insight-row:has(> #trends-wrap:empty) .heat-row {
-            grid-template-columns: 18px minmax(160px, 1.2fr) 3fr 32px 80px;
+            grid-template-columns: 18px minmax(160px, 1.2fr) 3fr 32px;
             gap: 14px;
         }
         @media (max-width: 1000px) {
@@ -555,7 +573,7 @@
             .insight-row .heat-card,
             .insight-row .combo-chart-card { margin-bottom: 24px; }
             .insight-row .heat-row {
-                grid-template-columns: 18px minmax(160px, 1.2fr) 3fr 32px 80px;
+                grid-template-columns: 18px minmax(160px, 1.2fr) 3fr 32px;
                 gap: 14px;
             }
         }
@@ -660,35 +678,6 @@
         </div>
     </div>
 
-    <!-- Not-enough-data state -->
-    <div id="no-data-screen">
-        <div class="no-data-icon">
-            <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="#7f78a0" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 21l-4.35-4.35"/>
-                <circle cx="11" cy="11" r="8"/>
-                <path d="M8.5 11h5M11 8.5v5" stroke-width="1.8" stroke="#c4b5fd"/>
-            </svg>
-        </div>
-        <div class="no-data-title">Not enough data… yet!</div>
-        <div class="no-data-sub">
-            Your Nexa insights dashboard is hungry. It needs at least
-            <strong>10 sessions</strong> and <strong>30 messages</strong> before it can serve up
-            anything meaningful — not just noise dressed up as data.
-            <br><br>
-            The more your team chats with Nexa, the sharper the insights.
-        </div>
-        <div class="no-data-progress-wrap">
-            <div class="no-data-progress-fill" id="no-data-progress-fill" style="width:0%"></div>
-        </div>
-        <div class="no-data-progress-label" id="no-data-progress-label">Gathering data…</div>
-        <div class="no-data-tip">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-            </svg>
-            Encourage your team to engage with Nexa regularly for useful, actionable insights
-        </div>
-    </div>
-
     <div id="main-dashboard-content">
     <div class="stats-grid">
         <div class="stat-card">
@@ -705,24 +694,59 @@
         </div>
     </div>
 
+    <!-- Shown in place of Sentiment Intelligence until the org clears the
+         thresholds. The stat cards above stay visible either way, so an admin
+         can watch the numbers climb towards them. -->
+    <div id="no-data-screen">
+        <div class="no-data-icon">
+            <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="#7f78a0" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 21l-4.35-4.35"/>
+                <circle cx="11" cy="11" r="8"/>
+                <path d="M8.5 11h5M11 8.5v5" stroke-width="1.8" stroke="#c4b5fd"/>
+            </svg>
+        </div>
+        <div class="no-data-title">Not enough data… yet!</div>
+        <div class="no-data-sub">
+            Sentiment Intelligence needs more than
+            <strong>20 users</strong> and <strong>100 messages</strong> before it can serve up
+            anything meaningful — not just noise dressed up as data.
+            <br><br>
+            The more your team chats with Nexa, the sharper the insights.
+        </div>
+        <div class="no-data-progress-wrap">
+            <div class="no-data-progress-fill" id="no-data-progress-fill" style="width:0%"></div>
+        </div>
+        <div class="no-data-progress-label" id="no-data-progress-label">Gathering data…</div>
+        <div class="no-data-tip">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+            Encourage your team to engage with Nexa regularly for useful, actionable insights
+        </div>
+    </div>
+
     <!-- ── Sentiment Intelligence ── -->
-    <div class="section-row">
-        <div>
-            <h3>Sentiment Intelligence</h3>
-            <p>Language pattern analysis across all coaching sessions</p>
+    <!-- Hidden until /api/analytics confirms the thresholds are cleared, so a
+         gated org never sees it flash on the way in. -->
+    <div id="sentiment-section" style="display:none;">
+        <div class="section-row">
+            <div>
+                <h3>Sentiment Intelligence</h3>
+                <p>Language pattern analysis across all coaching sessions</p>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px; flex-shrink:0;">
+                <span class="section-meta" id="sentiment-updated"></span>
+                <button class="refresh-btn" id="sentiment-refresh-btn">Recalculate</button>
+            </div>
         </div>
-        <div style="display:flex; align-items:center; gap:10px; flex-shrink:0;">
-            <span class="section-meta" id="sentiment-updated"></span>
-            <button class="refresh-btn" id="sentiment-refresh-btn">Recalculate</button>
+        <div class="insight-row">
+            <div id="heat-wrap"></div>
+            <div id="trends-wrap"></div>
         </div>
-    </div>
-    <div class="insight-row">
-        <div id="heat-wrap"></div>
-        <div id="trends-wrap"></div>
-    </div>
-    <div class="sentiment-grid" id="sentiment-grid">
-        <!-- populated by JS -->
-        <div class="sentiment-no-data"><div class="skeleton" style="width:200px; margin:0 auto;"></div></div>
+        <div class="sentiment-grid" id="sentiment-grid">
+            <!-- populated by JS -->
+            <div class="sentiment-no-data"><div class="skeleton" style="width:200px; margin:0 auto;"></div></div>
+        </div>
     </div>
 
     <div class="table-card col-hidden">
@@ -770,8 +794,12 @@
 
 <script src="{{ asset('header.js') }}"></script>
 <script>
-    const MIN_SESSIONS  = 5;
-    const MIN_MESSAGES  = 10;
+    // Sentiment Intelligence only opens up once an org is big enough and talkative
+    // enough for the analysis to mean something — strictly more than these, so 20
+    // users and 100 messages is still short. Counts come from /api/analytics and
+    // respect the active filters, so narrowing the range can close the section again.
+    const MIN_USERS     = 20;
+    const MIN_MESSAGES  = 100;
 
     let allUsers = [];
     let defaultsApplied = false;
@@ -898,6 +926,24 @@
         document.getElementById('clear-dates-btn').classList.toggle('visible', !!(from || to || cohort || gender || level || industry || search));
     }
 
+    // Opens or closes Sentiment Intelligence, and fills in the waiting screen it
+    // is swapped with. Fetching the sentiment itself hangs off this too: below
+    // the thresholds there is nothing to show, so there is nothing to ask for.
+    function showSentimentSection(unlocked, users, messages) {
+        document.getElementById('sentiment-section').style.display = unlocked ? 'block' : 'none';
+        document.getElementById('no-data-screen').style.display    = unlocked ? 'none'  : 'flex';
+        if (unlocked) { loadSentiment(); return; }
+
+        // Progress tracks whichever threshold is further away. "More than" means
+        // the bar only fills at MIN + 1.
+        const userPct = Math.min(100, Math.round((users    / (MIN_USERS    + 1)) * 100));
+        const msgPct  = Math.min(100, Math.round((messages / (MIN_MESSAGES + 1)) * 100));
+        document.getElementById('no-data-progress-fill').style.width = Math.min(userPct, msgPct) + '%';
+        document.getElementById('no-data-progress-label').textContent =
+            `${users} user${users !== 1 ? 's' : ''} · ${messages} message${messages !== 1 ? 's' : ''} so far`
+            + ` — need more than ${MIN_USERS} users & ${MIN_MESSAGES} messages`;
+    }
+
     async function loadAnalytics() {
         const params = getFilterParams();
         const qs = params.toString() ? '?' + params.toString() : '';
@@ -912,25 +958,9 @@
             document.getElementById('stat-messages').textContent = data.total_messages;
             document.querySelectorAll('.stat-value').forEach(el => el.classList.remove('loading'));
 
-            const sessions = data.total_sessions || 0;
+            const users    = data.total_users || 0;
             const messages = data.total_messages || 0;
-            const hasEnoughData = sessions >= MIN_SESSIONS || messages >= MIN_MESSAGES;
-            const noDataScreen = document.getElementById('no-data-screen');
-            const mainContent  = document.getElementById('main-dashboard-content');
-            if (hasEnoughData) {
-                noDataScreen.style.display = 'none';
-                mainContent.style.display  = 'block';
-            } else {
-                noDataScreen.style.display = 'flex';
-                mainContent.style.display  = 'none';
-                // Update progress bar to whichever threshold is further away
-                const sessionPct = Math.min(100, Math.round((sessions / MIN_SESSIONS) * 100));
-                const messagePct = Math.min(100, Math.round((messages / MIN_MESSAGES) * 100));
-                const pct = Math.min(sessionPct, messagePct);
-                document.getElementById('no-data-progress-fill').style.width = pct + '%';
-                document.getElementById('no-data-progress-label').textContent =
-                    `${sessions} session${sessions !== 1 ? 's' : ''} · ${messages} message${messages !== 1 ? 's' : ''} so far — need ${MIN_SESSIONS} sessions & ${MIN_MESSAGES} messages`;
-            }
+            showSentimentSection(users > MIN_USERS && messages > MIN_MESSAGES, users, messages);
 
             if (data.org_name) document.getElementById('org-badge').textContent = data.org_name;
 
@@ -948,6 +978,8 @@
         } catch (err) {
             document.getElementById('user-table-body').innerHTML =
                 '<tr class="empty-row"><td colspan="7">Failed to load data. Please refresh.</td></tr>';
+            // Counts unknown — the gate stays shut rather than guessing it open.
+            showSentimentSection(false, 0, 0);
         }
     }
 
@@ -1026,7 +1058,7 @@
         </svg>`;
     }
 
-    const BAND_COLORS = { 'score-green': '#6d28d9', 'score-amber': '#a855f7', 'score-red': '#c084fc' };
+    const BAND_COLORS = { 'score-green': 'green', 'score-amber': '#e1a34e', 'score-red': 'red' };
 
     // ── Trend modal ───────────────────────────────────────────────────────────
     let currentSentimentData = null;
@@ -1164,9 +1196,9 @@
 
     function scoreClasses(score, inverse) {
         const effective = inverse ? (100 - score) : score;
-        if (effective >= 65) return { num: 'score-green', fill: 'fill-green', card: 'card-green' };
-        if (effective >= 35) return { num: 'score-amber', fill: 'fill-amber', card: 'card-amber' };
-        return { num: 'score-red', fill: 'fill-red', card: 'card-red' };
+        if (effective >= 65) return { num: 'score-green', card: 'card-green' };
+        if (effective >= 35) return { num: 'score-amber', card: 'card-amber' };
+        return { num: 'score-red', card: 'card-red' };
     }
 
     const HEAT_META = {
@@ -1412,22 +1444,22 @@
         const wrap = document.getElementById('heat-wrap');
         if (!wrap || !data) return;
 
+        // Bars carry the dimension's own colour from DIM_COLORS — the same one
+        // its line has in Trend Over Time, which sits beside this card — so a
+        // row and its trend line are the same thing in two views. The score
+        // beside it still shows the band, which is what varies row to row.
         const rows = SENTIMENT_DIMS.map(dim => {
             const entry = data[dim.key];
             if (!entry) return '';
             const score = Math.max(0, Math.min(100, entry.score || 0));
             const cls = scoreClasses(score, dim.inverse);
-            const effective = dim.inverse ? (100 - score) : score;
-            const tier = effective >= 65 ? 'high' : effective >= 35 ? 'mid' : 'low';
             const meta = HEAT_META[dim.key] || {};
-            const signalLabel = (meta.signal || {})[tier] || tier;
             const svg = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${meta.icon || ''}</svg>`;
             return `<div class="heat-row">
                 <div class="heat-row-icon">${svg}</div>
                 <div class="heat-row-label">${dim.label}</div>
-                <div class="heat-row-track"><div class="heat-row-fill ${cls.fill}" style="width:${score}%"></div></div>
-                <div class="heat-row-score">${score}</div>
-                <div class="heat-row-signal ${cls.num}">${signalLabel}</div>
+                <div class="heat-row-track"><div class="heat-row-fill" style="width:${score}%; background:${DIM_COLORS[dim.key] || '#7f78a0'}"></div></div>
+                <div class="heat-row-score" style="color:${BAND_COLORS[cls.num] || 'var(--text-muted)'}">${score}</div>
             </div>`;
         }).join('');
 
@@ -1437,7 +1469,6 @@
                     <span class="heat-num"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="18" y="3" width="4" height="18"/><rect x="10" y="8" width="4" height="13"/><rect x="2" y="13" width="4" height="8"/></svg></span>
                     <h3>Sentiment Heat Analysis</h3>
                 </div>
-                <span class="heat-col-label">Signal</span>
             </div>
             <div class="heat-rows">${rows}</div>
         </div>`;
@@ -1467,7 +1498,13 @@
         renderHeatAnalysis(data);
         renderTrendsSection(data);
 
-        const GAUGE_COLORS = { 'score-green': '#10b981', 'score-amber': '#f59e0b', 'score-red': '#ef4444' };
+        // The dial is the one deliberate exception to the page's violet ramp: a
+        // physical gauge reads green/amber/red instantly, and no amount of
+        // monochrome shading replaces that. The numeral uses deeper shades of
+        // the same three hues so it holds contrast against the white card.
+        const GAUGE_COLORS = { 'score-green': '#047857', 'score-amber': '#b45309', 'score-red': '#dc2626' };
+        const GAUGE_BAND   = { low: '#ef4444', mid: '#f59e0b', high: '#10b981' };
+        const GAUGE_GLOW   = { low: '#ff6b6b', mid: '#fbbf24', high: '#34d399' };
 
         function buildGauge(score, gc, inverse) {
             const cx = 60, cy = 56, r = 46;
@@ -1535,14 +1572,14 @@
               <path d="${arc}" fill="none" stroke="rgba(18, 10, 35,0.22)" stroke-width="14" stroke-linecap="round"/>
 
               <!-- Zone arcs (solid base) -->
-              <path d="${arc}" fill="none" stroke="${inverse ? '#10b981' : '#ef4444'}" stroke-width="12" stroke-linecap="butt" stroke-dasharray="${rL} 1000" stroke-dashoffset="0"/>
-              <path d="${arc}" fill="none" stroke="#f59e0b" stroke-width="12" stroke-linecap="butt" stroke-dasharray="${aL} 1000" stroke-dashoffset="${aOff}"/>
-              <path d="${arc}" fill="none" stroke="${inverse ? '#ef4444' : '#10b981'}" stroke-width="12" stroke-linecap="butt" stroke-dasharray="${gL} 1000" stroke-dashoffset="${gOff}"/>
+              <path d="${arc}" fill="none" stroke="${inverse ? GAUGE_BAND.high : GAUGE_BAND.low}" stroke-width="12" stroke-linecap="butt" stroke-dasharray="${rL} 1000" stroke-dashoffset="0"/>
+              <path d="${arc}" fill="none" stroke="${GAUGE_BAND.mid}" stroke-width="12" stroke-linecap="butt" stroke-dasharray="${aL} 1000" stroke-dashoffset="${aOff}"/>
+              <path d="${arc}" fill="none" stroke="${inverse ? GAUGE_BAND.low : GAUGE_BAND.high}" stroke-width="12" stroke-linecap="butt" stroke-dasharray="${gL} 1000" stroke-dashoffset="${gOff}"/>
 
               <!-- Neon glow overlay on zones -->
-              <path d="${arc}" fill="none" stroke="${inverse ? '#34d399' : '#ff6b6b'}" stroke-width="7" stroke-linecap="butt" stroke-dasharray="${rL} 1000" stroke-dashoffset="0"    opacity="0.45" filter="url(#gz${uid})"/>
-              <path d="${arc}" fill="none" stroke="#fbbf24" stroke-width="7" stroke-linecap="butt" stroke-dasharray="${aL} 1000" stroke-dashoffset="${aOff}" opacity="0.45" filter="url(#gz${uid})"/>
-              <path d="${arc}" fill="none" stroke="${inverse ? '#ff6b6b' : '#34d399'}" stroke-width="7" stroke-linecap="butt" stroke-dasharray="${gL} 1000" stroke-dashoffset="${gOff}" opacity="0.45" filter="url(#gz${uid})"/>
+              <path d="${arc}" fill="none" stroke="${inverse ? GAUGE_GLOW.high : GAUGE_GLOW.low}" stroke-width="7" stroke-linecap="butt" stroke-dasharray="${rL} 1000" stroke-dashoffset="0"    opacity="0.45" filter="url(#gz${uid})"/>
+              <path d="${arc}" fill="none" stroke="${GAUGE_GLOW.mid}" stroke-width="7" stroke-linecap="butt" stroke-dasharray="${aL} 1000" stroke-dashoffset="${aOff}" opacity="0.45" filter="url(#gz${uid})"/>
+              <path d="${arc}" fill="none" stroke="${inverse ? GAUGE_GLOW.low : GAUGE_GLOW.high}" stroke-width="7" stroke-linecap="butt" stroke-dasharray="${gL} 1000" stroke-dashoffset="${gOff}" opacity="0.45" filter="url(#gz${uid})"/>
 
               <!-- Glass sheen highlight -->
               <path d="${arc}" fill="none" stroke="rgba(255,255,255,0.11)" stroke-width="5" stroke-linecap="round"/>
@@ -1551,8 +1588,8 @@
               ${ticks}
 
               <!-- Scale labels -->
-              <text x="${cx-r-10}" y="${cy+5}" text-anchor="middle" font-size="8.5" font-weight="600" fill="rgba(0,0,0,0.4)" font-family="system-ui,sans-serif">0</text>
-              <text x="${cx+r+10}" y="${cy+5}" text-anchor="middle" font-size="8.5" font-weight="600" fill="rgba(0,0,0,0.4)" font-family="system-ui,sans-serif">10</text>
+              <text x="${cx-r-10}" y="${cy+5}" text-anchor="middle" font-size="8.5" font-weight="600" fill="rgba(45, 32, 90, 0.45)" font-family="system-ui,sans-serif">0</text>
+              <text x="${cx+r+10}" y="${cy+5}" text-anchor="middle" font-size="8.5" font-weight="600" fill="rgba(45, 32, 90, 0.45)" font-family="system-ui,sans-serif">10</text>
 
               <!-- Needle drop-shadow -->
               <path d="${ndl}" fill="rgba(0,0,0,0.3)" filter="url(#ns${uid})">${anim}</path>
@@ -1658,8 +1695,8 @@
             '<div class="sentiment-no-data"><div class="skeleton" style="width:200px; margin:0 auto;"></div></div>';
         document.getElementById('heat-wrap').innerHTML = '';
         document.getElementById('trends-wrap').innerHTML = '';
+        // loadAnalytics re-evaluates the gate and pulls the sentiment itself.
         loadAnalytics();
-        loadSentiment();
     }
 
     document.getElementById('filter-date-from').addEventListener('change', () => { updateClearBtn(); reloadAll(); });
@@ -1699,8 +1736,6 @@
             btn.textContent = 'Recalculate';
         }
     });
-
-    loadSentiment();
 </script>
 </body>
 </html>

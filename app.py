@@ -848,6 +848,12 @@ def _generate_welcome(user_name: str, highlights: list, profile_context: dict = 
 
 @app.route('/')
 def index():
+    # A WeAce super admin manages the platform rather than using the coaching
+    # product — the platform admin page is their home. Only possible once a
+    # session exists; a fresh login has no cookie yet and lands here, where
+    # script.js redirects as soon as /session reports the role.
+    if 'user_id' in session and _has_role(session.get('role'), 'weace_super_admin'):
+        return redirect('/admin')
     return render_template('index.html', weace_api_url=WEACE_API_URL, active_tab='talk')
 
 
@@ -2071,6 +2077,12 @@ def admin():
         user_name=name,
         initials=initials,
         profile_image=session.get('profile_image', ''),
+        refresh_token=session.get('refresh_token', ''),
+        # shared header (_header.html) — show_admin collapses the bar to the
+        # Admin tab; Nexa Insights still shows if they also hold the org role.
+        active_tab='admin',
+        show_org_tabs=_has_role(session.get('role'), 'corporate_super_admin'),
+        show_admin=True,
     )
 
 

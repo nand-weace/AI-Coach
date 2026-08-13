@@ -1048,6 +1048,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         } = sessionData;
         const recentMessages = sessionData.recent_messages || [];
 
+        // A WeAce super admin manages the platform rather than using the
+        // coaching product, so hand them straight to /admin instead of painting
+        // the chat UI. This is the fresh-login path — the server does the same
+        // on '/' once it has a session cookie to read the role from.
+        // replace(), not href: Back must not bounce them into the chat page.
+        if (NexaHeader.hasRole(role, 'weace_super_admin')) {
+            window.location.replace('/admin');
+            return;
+        }
+
         loginProgress.stop();
         document.getElementById('login-overlay').style.display = 'none';
         const appEl = document.getElementById('app-container');
@@ -1075,8 +1085,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             headerAvatar.appendChild(makeInitialsSpan(initials));
         }
 
-        // Reveals the Sentiment Analysis / Corporate Knowledge tabs and the
-        // Admin link for the roles that may see them.
+        // Settles the tab bar for this user's roles — reveals Nexa Insights /
+        // Knowledge Base, or collapses the bar to Admin for a WeAce super admin.
         NexaHeader.applyRoles(role);
         NexaHeader.setNexaAccess(nexaAccess);
 
