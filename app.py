@@ -79,7 +79,7 @@ MODES = {
     'coaching': {'label': 'Coaching', 'directive': COACHING_MODE},
     'mentoring': {'label': 'Mentoring', 'directive': MENTORING_MODE},
 }
-DEFAULT_MODE = 'coaching'
+DEFAULT_MODE = 'mentoring'
 
 
 def _elapsed(since: float) -> str:
