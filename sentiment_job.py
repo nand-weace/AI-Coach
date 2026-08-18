@@ -80,6 +80,12 @@ _RECS_COUNT = 6             # resources to ask for per run
 # whose links it is least sure of, and the rest fall back to a search URL.
 _RECS_SEARCHES = 4          # hard cap on web searches per run
 _RECS_TYPES = ('article', 'book', 'video', 'lecture')
+# Tips ride along on the recommendations run rather than costing their own call.
+# One is shown per day, rotated on the client, so a single run covers a week.
+# The tip of the day is its own report, not part of the recommendations run: it
+# is cheap (no web search), so it can generate on a page load. Past headlines are
+# kept so a new tip covers different ground instead of rewording the last one.
+_TIPS_HISTORY = 5           # headlines remembered, to steer the next tip away
 
 # ── Prompts ──────────────────────────────────────────────────────────────────
 
@@ -335,6 +341,28 @@ Return ONLY a valid JSON object with no markdown fences:
      "description": "", "topic": "", "length": "", "url": ""}
   ],
   "overview": "<ONE short sentence on why this list, addressed to them, max 20 words>"
+}
+
+Their coaching topics:
+---
+{messages}
+---"""
+
+_TIPS_PROMPT = """You are an executive coach writing ONE tip for ONE leader for today, \
+from their coaching topics below.
+
+The tip must come from THEIR topics — never generic advice — and be something they could act on today. \
+Address them as "you". Speak to where they actually are: name what is going on for them, then give them \
+one thing to do about it. No preamble, no hedging, no "consider" or "you might".
+
+{avoid}
+
+Return ONLY a valid JSON object with no markdown fences:
+{
+  "headline": "<the tip in a short line, max 8 words, no full stop>",
+  "topic": "<2-4 words naming what it draws on>",
+  "tip": "<2-3 short sentences to them: what you see, and why today>",
+  "try_today": "<ONE concrete thing to do today, max 18 words>"
 }
 
 Their coaching topics:
@@ -994,6 +1022,67 @@ def generate_recommendations(user_id: str) -> dict | None:
         'web_searched': can_search,
     }
     upsert_user_insight_report(user_id, 'recommendations', report)
+    return report
+
+
+
+def generate_tips(user_id: str) -> dict | None:
+    """
+    Writes today's coaching tip from the user's own topics and caches it.
+
+    Separate from the recommendations run: no web search, so it is cheap enough
+    to generate on a page load. The last few headlines are kept on the report and
+    fed back into the prompt, so asking for a new tip gives fresh ground rather
+    than a reword of what they just read. Returns the report, or None if there is
+    too little to draw on.
+    """
+    cfg = _llm_config()
+    if not cfg:
+        print("Tips: no API key configured.")
+        return None
+    client, ai_provider, ai_model = cfg
+
+    block, analyzed = _recs_input(user_id)
+    if not block:
+        return None
+
+    previous = (get_user_insight_report(user_id, 'tip_of_day') or {}).get('recent_headlines') or []
+    avoid = ''
+    if previous:
+        avoid = ("You have already told them these, most recent first — cover different ground:\n"
+                 + '\n'.join(f"- {h}" for h in previous[:_TIPS_HISTORY]))
+
+    prompt = _TIPS_PROMPT.replace('{avoid}', avoid).replace('{messages}', block)
+
+    raw = None
+    try:
+        raw = _call_llm(prompt, client, ai_provider, ai_model, max_tokens=700,
+                        system=_PERSONAL_SYSTEM)
+        result = _extract_json(raw)
+    except ReportUnavailable:
+        print(f"Tips unavailable for {user_id}")
+        raise
+    except Exception as e:
+        print(f"Tips failed for {user_id}: {e}")
+        if raw:
+            print(f"  Raw snippet: {raw[:300]}")
+        return None
+
+    tip = str(result.get('tip', '') or '').strip()
+    if not tip:
+        return None
+
+    headline = str(result.get('headline', '') or '').strip()[:90]
+    report = {
+        'for_date':          datetime.now().strftime('%Y-%m-%d'),
+        'headline':          headline,
+        'topic':             str(result.get('topic', ''))[:80],
+        'tip':               tip[:600],
+        'try_today':         str(result.get('try_today', ''))[:200],
+        'recent_headlines':  [h for h in ([headline] + previous) if h][:_TIPS_HISTORY],
+        'messages_analyzed': analyzed,
+    }
+    upsert_user_insight_report(user_id, 'tip_of_day', report)
     return report
 
 

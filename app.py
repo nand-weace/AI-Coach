@@ -2050,6 +2050,53 @@ def _run_recs_job(user_id: str):
         _recs_jobs[user_id] = {'status': status, 'error': error, 'started': time.time()}
 
 
+@app.route('/api/my-tip')
+@require_weace_token
+def my_tip():
+    """Today's coaching tip, drawn from the user's own topics.
+
+    Generated on the first request of the day — unlike recommendations this runs
+    no web search, so it is quick enough to fill in on a page load. A cached tip
+    from an earlier day is regenerated rather than served.
+    """
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    try:
+        from datetime import date
+        report = get_user_insight_report(g.user['user_id'], 'tip_of_day')
+        # A tip is for a day, so yesterday's cache is a miss.
+        if not report or report.get('for_date') != date.today().isoformat():
+            from sentiment_job import generate_tips
+            report = generate_tips(g.user['user_id']) or report
+        return jsonify(report or {})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/my-tip/refresh', methods=['POST'])
+@require_weace_token
+def my_tip_refresh():
+    """A different tip on demand — the "New tip" button.
+
+    Generation is told what it has already said, so this gives new ground rather
+    than a reword of the tip on screen.
+    """
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    try:
+        from sentiment_job import generate_tips, ReportUnavailable
+        try:
+            report = generate_tips(g.user['user_id'])
+        except ReportUnavailable as e:
+            return jsonify({'ok': False, 'error': str(e)}), 503
+        if report is not None:
+            return jsonify({'ok': True, 'data': report})
+        return jsonify({'ok': False,
+                        'error': 'Not enough conversation yet for a tip — keep chatting with Nexa.'}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/my-recommendations')
 @require_weace_token
 def my_recommendations():

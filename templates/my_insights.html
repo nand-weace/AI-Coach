@@ -700,21 +700,40 @@
             font-family: inherit; font-size: 0.78rem; color: var(--text-muted);
             cursor: pointer; transition: all 0.18s;
         }
-        .rec-filter:hover { color: var(--primary-color); border-color: rgba(139, 92, 246, 0.3); }
         .rec-filter.active {
-            background: rgba(124, 58, 237, 0.10);
-            border-color: rgba(124, 58, 237, 0.35);
-            color: var(--primary-color);
+            background: var(--rec-accent-soft, rgba(124, 58, 237, 0.10));
+            border-color: color-mix(in srgb, var(--rec-accent, #7c3aed) 40%, transparent);
+            color: var(--rec-accent, var(--primary-color));
             font-weight: 600;
+        }
+        .rec-filter:hover {
+            color: var(--rec-accent, var(--primary-color));
+            border-color: color-mix(in srgb, var(--rec-accent, #8b5cf6) 32%, transparent);
+        }
+        .rec-filter-dot {
+            display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+            background: var(--rec-accent, var(--primary-color)); margin-right: 6px;
+            vertical-align: middle;
         }
         .rec-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
             gap: 18px;
         }
+        /* One hue per medium, so the format is readable at a glance rather than
+           only from the label: books amber, articles blue, video red (the
+           colour people already read as "watch this"), lectures teal. Each type
+           class sets the two vars below and everything else — badge, card edge,
+           hover, filter pill — is drawn from them. */
+        .rec-article { --rec-accent: #1d4ed8; --rec-accent-soft: rgba(29, 78, 216, 0.10); }
+        .rec-book    { --rec-accent: #b45309; --rec-accent-soft: rgba(180, 83, 9, 0.11); }
+        .rec-video   { --rec-accent: #c2261d; --rec-accent-soft: rgba(194, 38, 29, 0.10); }
+        .rec-lecture { --rec-accent: #0f766e; --rec-accent-soft: rgba(15, 118, 110, 0.11); }
+
         .rec-card {
             background: var(--glass-bg);
             border: 1px solid var(--glass-border);
+            border-left: 4px solid var(--rec-accent, var(--primary-color));
             border-radius: 18px;
             padding: 20px 22px;
             backdrop-filter: blur(12px);
@@ -727,20 +746,58 @@
             transition: box-shadow 0.18s, transform 0.18s, border-color 0.18s;
         }
         .rec-card:hover {
-            box-shadow: 0 4px 24px rgba(49, 32, 110,0.10);
+            box-shadow: 0 6px 24px -8px var(--rec-accent-soft), 0 4px 24px rgba(49, 32, 110, 0.10);
             transform: translateY(-1px);
-            border-color: rgba(124, 58, 237, 0.28);
+            border-color: var(--rec-accent, rgba(124, 58, 237, 0.28));
         }
         .rec-card-top { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
         .rec-type {
             display: inline-flex; align-items: center; gap: 5px;
-            font-size: 0.68rem; font-weight: 600; letter-spacing: 0.05em;
+            font-size: 0.68rem; font-weight: 700; letter-spacing: 0.05em;
             text-transform: uppercase; border-radius: 999px; padding: 4px 10px;
+            background: var(--rec-accent-soft);
+            color: var(--rec-accent);
+            box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--rec-accent) 22%, transparent);
         }
-        .type-article { background: rgba(109,40,217,0.10);  color: #6d28d9; }
-        .type-book    { background: rgba(168,85,247,0.12);  color: #9333ea; }
-        .type-video   { background: rgba(192,132,252,0.16); color: #7e22ce; }
-        .type-lecture { background: rgba(59,7,100,0.09);    color: #3b0764; }
+        .rec-card .rec-open { color: var(--rec-accent, var(--primary-color)); }
+
+        /* YouTube cards carry the video itself. The thumbnail is a plain image
+           until it is clicked — dropping a dozen iframes on the page would pull
+           in YouTube's player for every card whether or not it is watched. */
+        .rec-media {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #0f0f0f;
+            border: 0; padding: 0; margin: 0;
+            cursor: pointer;
+            display: block;
+        }
+        .rec-media img {
+            width: 100%; height: 100%;
+            object-fit: cover;
+            display: block;
+            transition: transform 0.25s, filter 0.18s;
+        }
+        .rec-media:hover img { transform: scale(1.03); filter: brightness(0.92); }
+        .rec-media iframe { width: 100%; height: 100%; border: 0; display: block; }
+        .rec-play {
+            position: absolute; inset: 0;
+            display: flex; align-items: center; justify-content: center;
+            pointer-events: none;
+        }
+        .rec-play svg {
+            width: 54px; height: 38px;
+            filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.4));
+            transition: transform 0.18s;
+        }
+        .rec-media:hover .rec-play svg { transform: scale(1.08); }
+        .rec-play-bg { fill: rgba(24, 24, 27, 0.78); }
+        .rec-media:hover .rec-play-bg { fill: var(--rec-accent); }
+        .rec-title-link { color: inherit; text-decoration: none; }
+        .rec-title-link:hover { color: var(--rec-accent); }
         .rec-topic { font-size: 0.72rem; color: var(--text-muted); }
         .rec-title { font-size: 0.95rem; font-weight: 600; line-height: 1.35; }
         .rec-author { font-size: 0.78rem; color: var(--text-muted); margin-top: 3px; }
@@ -783,6 +840,50 @@
             font-size: 0.82rem; color: var(--text-muted); line-height: 1.6;
             margin-bottom: 16px;
         }
+
+        /* Tip of the day — its own section above the reading list. The tip is
+           cached against the date, so it holds steady all day; "New tip" asks
+           for a different one. */
+        .panel-divider {
+            height: 1px; margin: 34px 0 0;
+            background: linear-gradient(90deg,
+                        rgba(45, 32, 90, 0.14), rgba(45, 32, 90, 0.02));
+        }
+        .tip-card {
+            display: flex; gap: 14px; align-items: flex-start;
+            background: linear-gradient(135deg,
+                        rgba(109, 40, 217, 0.10), rgba(109, 40, 217, 0.03));
+            border: 1px solid color-mix(in srgb, var(--primary-color) 24%, transparent);
+            border-radius: 18px;
+            padding: 20px 22px;
+        }
+        .tip-card { transition: opacity 0.18s; }
+        .tip-card.is-swapping { opacity: 0.35; }
+        .tip-icon {
+            flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(109, 40, 217, 0.12); color: var(--primary-color);
+        }
+        .tip-topic {
+            font-size: 0.68rem; font-weight: 700; letter-spacing: 0.06em;
+            text-transform: uppercase; color: var(--primary-color);
+        }
+        .tip-headline {
+            font-size: 1rem; font-weight: 600; color: var(--text-main);
+            line-height: 1.35; margin-top: 5px;
+        }
+        .tip-text {
+            font-size: 0.88rem; color: var(--text-muted); line-height: 1.6;
+            margin-top: 6px;
+        }
+        .tip-do {
+            display: flex; align-items: flex-start; gap: 8px;
+            margin-top: 12px; padding-top: 12px;
+            border-top: 1px solid color-mix(in srgb, var(--primary-color) 16%, transparent);
+            font-size: 0.84rem; color: var(--text-main); line-height: 1.5;
+        }
+        .tip-do svg { color: var(--primary-color); flex-shrink: 0; margin-top: 3px; }
+        .tip-do strong { font-weight: 600; }
 
         .panel-empty {
             background: var(--glass-bg);
@@ -940,6 +1041,7 @@
     <div class="insight-tabs" role="tablist" aria-label="Insight sections">
         <button class="insight-tab active" role="tab" aria-selected="true"  aria-controls="panel-growth"    data-panel="growth">Growth Snapshot</button>
         <button class="insight-tab"        role="tab" aria-selected="false" aria-controls="panel-themes"    data-panel="themes">Themes</button>
+        <button class="insight-tab"        role="tab" aria-selected="false" aria-controls="panel-recs"      data-panel="recs">Recommendations</button>
         <button class="insight-tab"        role="tab" aria-selected="false" aria-controls="panel-sentiment" data-panel="sentiment">Sentiment Analysis</button>
     </div>
 
@@ -1006,9 +1108,28 @@
     <div id="digest-wrap" style="display:none;">
         <div class="panel-empty"><div class="skeleton" style="width:200px; margin:0 auto;"></div></div>
     </div>
+    </div><!-- /#panel-themes -->
 
-    <!-- ── Reading Recommendations (temporarily hidden) ── -->
-    <div class="section-row" id="recs-section" style="display:none;">
+    <div class="insight-panel" id="panel-recs" role="tabpanel" hidden>
+    <!-- ── Tip of the Day ── Its own section: it costs no web search, so it is
+         here on load while the list below waits for the button. -->
+    <div class="section-row">
+        <div>
+            <h3>Tip of the Day</h3>
+            <p>One thing to try today, drawn from what you have been working through</p>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px; flex-shrink:0;">
+            <button class="refresh-btn" id="tip-refresh-btn">New tip</button>
+        </div>
+    </div>
+    <div id="tip-wrap">
+        <div class="panel-empty"><div class="skeleton" style="width:200px; margin:0 auto;"></div></div>
+    </div>
+
+    <div class="panel-divider"></div>
+
+    <!-- ── Reading Recommendations ── -->
+    <div class="section-row" id="recs-section">
         <div>
             <h3>Recommended for You</h3>
             <p>Articles, books, videos, and lectures picked from what you talk about</p>
@@ -1018,10 +1139,10 @@
             <button class="refresh-btn" id="recs-refresh-btn">Find recommendations</button>
         </div>
     </div>
-    <div id="recs-wrap" style="display:none;">
+    <div id="recs-wrap">
         <div class="panel-empty"><div class="skeleton" style="width:200px; margin:0 auto;"></div></div>
     </div>
-    </div><!-- /#panel-themes -->
+    </div><!-- /#panel-recs -->
 
     <!-- ── Growth Snapshot ── -->
     <div class="insight-panel" id="panel-growth" role="tabpanel">
@@ -2249,11 +2370,32 @@
     // ── Reading recommendations ───────────────────────────────────────────────
 
     const REC_TYPES = {
-        article: { label: 'Article', cls: 'type-article', icon: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>' },
-        book:    { label: 'Book',    cls: 'type-book',    icon: '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>' },
-        video:   { label: 'Video',   cls: 'type-video',   icon: '<polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>' },
-        lecture: { label: 'Lecture', cls: 'type-lecture', icon: '<path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>' },
+        article: { label: 'Article', cls: 'rec-article', icon: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>' },
+        book:    { label: 'Book',    cls: 'rec-book',    icon: '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>' },
+        video:   { label: 'Video',   cls: 'rec-video',   icon: '<polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>' },
+        lecture: { label: 'Lecture', cls: 'rec-lecture', icon: '<path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>' },
     };
+
+    // A YouTube link is worth naming outright — "Video" leaves the user guessing
+    // whether the click opens a player or a paywalled course page.
+    const YT_ICON = '<path d="M22.5 6.5a2.8 2.8 0 0 0-2-2C18.8 4 12 4 12 4s-6.8 0-8.5.5a2.8 2.8 0 0 0-2 2C1 8.2 1 12 1 12s0 3.8.5 5.5a2.8 2.8 0 0 0 2 2C5.2 20 12 20 12 20s6.8 0 8.5-.5a2.8 2.8 0 0 0 2-2C23 15.8 23 12 23 12s0-3.8-.5-5.5z"/><polygon points="10 15.5 15.5 12 10 8.5"/>';
+    function isYouTube(url) {
+        return /(^|\.)(youtube\.com|youtu\.be)/i.test((url || '').replace(/^https?:\/\//, '').split('/')[0]);
+    }
+
+    // Pulls the 11-char id out of the shapes YouTube links actually come in:
+    // watch?v=, youtu.be/, /embed/, /shorts/, /live/. Returns null when the link
+    // is a channel or a search — those have nothing to embed.
+    function ytVideoId(url) {
+        if (!isYouTube(url)) return null;
+        let u;
+        try { u = new URL(url); } catch (_) { return null; }
+        const id = u.searchParams.get('v')
+            || (u.pathname.match(/^\/(?:embed|shorts|live|v)\/([\w-]{11})/) || [])[1]
+            || (/youtu\.be$/i.test(u.hostname) && (u.pathname.match(/^\/([\w-]{11})/) || [])[1])
+            || null;
+        return id && /^[\w-]{11}$/.test(id) ? id : null;
+    }
 
     let currentRecs = null;
     let recFilter = 'all';
@@ -2261,33 +2403,153 @@
     function recCardsHtml(items) {
         return items.map(r => {
             const t = REC_TYPES[r.type] || REC_TYPES.article;
+            const yt = isYouTube(r.url);
+            const vid = ytVideoId(r.url);
+            const label = yt ? 'YouTube' : t.label;
+            const icon = yt ? YT_ICON : t.icon;
             const foot = [r.length, r.verified === false ? 'link via search' : ''].filter(Boolean);
-            const tag = r.url ? 'a' : 'div';
-            const attrs = r.url
+            // An embedded player can't live inside an <a> — the anchor would
+            // swallow the click. Those cards become a div and hand the link to
+            // the title and the footer instead.
+            const tag = r.url && !vid ? 'a' : 'div';
+            const attrs = tag === 'a'
                 ? ` href="${escHtml(r.url)}" target="_blank" rel="noopener noreferrer"` : '';
-            return `<${tag} class="rec-card"${attrs}>
+            const media = vid ? `
+                <button type="button" class="rec-media" data-yt="${escHtml(vid)}"
+                        aria-label="Play ${escHtml(r.title)}">
+                    <img src="https://i.ytimg.com/vi/${escHtml(vid)}/hqdefault.jpg" alt="" loading="lazy">
+                    <span class="rec-play">
+                        <svg viewBox="0 0 68 48" aria-hidden="true">
+                            <path class="rec-play-bg" d="M66.5 7.7a8.1 8.1 0 0 0-5.7-5.7C55.8.6 34 .6 34 .6s-21.8 0-26.8 1.4a8.1 8.1 0 0 0-5.7 5.7A84.5 84.5 0 0 0 .1 24a84.5 84.5 0 0 0 1.4 16.3 8.1 8.1 0 0 0 5.7 5.7c5 1.4 26.8 1.4 26.8 1.4s21.8 0 26.8-1.4a8.1 8.1 0 0 0 5.7-5.7A84.5 84.5 0 0 0 67.9 24a84.5 84.5 0 0 0-1.4-16.3z"/>
+                            <path d="M27.2 34.2 45.3 24 27.2 13.8z" fill="#fff"/>
+                        </svg>
+                    </span>
+                </button>` : '';
+            const title = vid
+                ? `<a class="rec-title-link" href="${escHtml(r.url)}" target="_blank" rel="noopener noreferrer">${escHtml(r.title)}</a>`
+                : escHtml(r.title);
+            return `<${tag} class="rec-card ${t.cls}"${attrs}>
                 <div class="rec-card-top">
-                    <span class="rec-type ${t.cls}">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${t.icon}</svg>
-                        ${t.label}
+                    <span class="rec-type">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${icon}</svg>
+                        ${label}
                     </span>
                     ${r.topic ? `<span class="rec-topic">${escHtml(r.topic)}</span>` : ''}
                 </div>
+                ${media}
                 <div>
-                    <div class="rec-title">${escHtml(r.title)}</div>
+                    <div class="rec-title">${title}</div>
                     ${r.author ? `<div class="rec-author">${escHtml(r.author)}</div>` : ''}
                 </div>
                 ${r.description ? `<div class="rec-desc">${escHtml(r.description)}</div>` : ''}
                 <div class="rec-foot">
                     <span>${escHtml(foot.join(' · '))}</span>
-                    ${r.url ? `<span class="rec-open">Open
+                    ${r.url ? `<${vid ? `a class="rec-open rec-title-link" href="${escHtml(r.url)}" target="_blank" rel="noopener noreferrer"` : 'span class="rec-open"'}>${vid ? 'Watch on YouTube' : 'Open'}
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
-                        </svg></span>` : ''}
+                        </svg></${vid ? 'a' : 'span'}>` : ''}
                 </div>
             </${tag}>`;
         }).join('');
     }
+
+    // ── Tip of the day ────────────────────────────────────────────────────────
+    // One tip per day, written server-side and cached against the date. The
+    // button asks for a different one; generation is told what it has already
+    // said, so a new tip covers new ground.
+    let tipData = null;
+
+    function tipEmpty(message) {
+        document.getElementById('tip-refresh-btn').hidden = true;
+        document.getElementById('tip-wrap').innerHTML =
+            `<div class="panel-empty">${escHtml(message)}</div>`;
+    }
+
+    function renderTip(data) {
+        const wrap = document.getElementById('tip-wrap');
+        const btn = document.getElementById('tip-refresh-btn');
+        tipData = data;
+
+        const text = (data && data.tip) || '';
+        if (!text) {
+            tipEmpty('Nexa needs a little more conversation before it can write you a tip.');
+            return;
+        }
+
+        btn.hidden = false;
+        wrap.innerHTML = `<div class="tip-card">
+            <span class="tip-icon">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 18h6"/><path d="M10 22h4"/>
+                    <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/>
+                </svg>
+            </span>
+            <div>
+                ${data.topic ? `<div class="tip-topic">${escHtml(data.topic)}</div>` : ''}
+                ${data.headline ? `<div class="tip-headline">${escHtml(data.headline)}</div>` : ''}
+                <div class="tip-text">${escHtml(text)}</div>
+                ${data.try_today ? `<div class="tip-do">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                    <span><strong>Try today:</strong> ${escHtml(data.try_today)}</span>
+                </div>` : ''}
+            </div>
+        </div>`;
+    }
+
+    async function loadTip() {
+        let data;
+        try {
+            const res = await fetch('/api/my-tip', { headers: getAuthHeaders(), credentials: 'omit' });
+            if (res.status === 401 || res.status === 403) { window.location.href = '/'; return; }
+            if (!res.ok) {
+                console.error('Tip request failed', res.status);
+                tipEmpty('Could not load your tip right now. Please refresh.');
+                return;
+            }
+            data = await res.json();
+        } catch (e) {
+            console.error('Tip request failed', e);
+            tipEmpty('Could not load your tip right now. Please refresh.');
+            return;
+        }
+        // Rendering sits outside the fetch's try on purpose: a render error used
+        // to be caught there and reported as "not enough conversation".
+        if (data && data.error) {
+            console.error('Tip error', data.error);
+            tipEmpty('Could not load your tip right now. Please refresh.');
+            return;
+        }
+        renderTip(data);
+    }
+
+    document.getElementById('tip-refresh-btn').addEventListener('click', async () => {
+        const btn = document.getElementById('tip-refresh-btn');
+        const card = document.querySelector('#tip-wrap .tip-card');
+        if (card) card.classList.add('is-swapping');
+        btn.disabled = true;
+        btn.textContent = 'Thinking…';
+        try {
+            const res = await fetch('/api/my-tip/refresh',
+                { method: 'POST', headers: getAuthHeaders(), credentials: 'omit' });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.ok && data.data) {
+                renderTip(data.data);
+            } else {
+                // Nothing new to show — leave the tip they have rather than the
+                // card faded out mid-swap.
+                console.error('Tip refresh failed', data.error || res.status);
+                if (card) card.classList.remove('is-swapping');
+            }
+        } catch (e) {
+            console.error('Tip refresh failed', e);
+            if (card) card.classList.remove('is-swapping');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'New tip';
+        }
+    });
 
     function renderRecs(data) {
         const wrap = document.getElementById('recs-wrap');
@@ -2312,7 +2574,9 @@
         if (!present.includes(recFilter)) recFilter = 'all';
         const filters = ['all', ...present].map(k => {
             const label = k === 'all' ? `All (${items.length})` : REC_TYPES[k].label + 's';
-            return `<button class="rec-filter ${k === recFilter ? 'active' : ''}" data-rec-filter="${k}">${label}</button>`;
+            const dot = k === 'all' ? '' : '<span class="rec-filter-dot"></span>';
+            const cls = k === 'all' ? '' : ' ' + REC_TYPES[k].cls;
+            return `<button class="rec-filter${cls} ${k === recFilter ? 'active' : ''}" data-rec-filter="${k}">${dot}${label}</button>`;
         }).join('');
 
         const shown = recFilter === 'all' ? items : items.filter(r => r.type === recFilter);
@@ -2326,6 +2590,20 @@
             btn.addEventListener('click', () => {
                 recFilter = btn.dataset.recFilter;
                 renderRecs(currentRecs);
+            });
+        });
+
+        // First click swaps the thumbnail for the player, already playing —
+        // nocookie so watching from here doesn't follow the user around.
+        wrap.querySelectorAll('.rec-media[data-yt]').forEach(box => {
+            box.addEventListener('click', () => {
+                const id = encodeURIComponent(box.dataset.yt);
+                box.outerHTML =
+                    `<div class="rec-media"><iframe
+                        src="https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0"
+                        title="YouTube video player" allow="accelerometer; autoplay; clipboard-write;
+                        encrypted-media; gyroscope; picture-in-picture; web-share"
+                        referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>`;
             });
         });
     }
@@ -2494,10 +2772,10 @@
         growth:    () => loadGrowth(),
         themes:    () => {
             loadThemes();
-            // Temporarily hidden — skip the fetches so we don't spend model calls on them.
+            // Temporarily hidden — skip the fetch so we don't spend model calls on it.
             if (document.getElementById('digest-section')?.style.display !== 'none') loadDigest();
-            if (document.getElementById('recs-section')?.style.display !== 'none') loadRecs();
         },
+        recs:      () => { loadTip(); loadRecs(); },
         sentiment: () => loadSentiment(),
     };
     const DEFAULT_TAB = Object.keys(TAB_LOADERS)[0];

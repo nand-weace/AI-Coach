@@ -61,7 +61,7 @@
             My Insights
         </a>
 
-        {# The three reports on /my-insights. Its showTab() already keys off the
+        {# The reports on /my-insights. Its showTab() already keys off the
            URL hash, so these are plain links: from another page the hash lands
            with the navigation, and on the page itself it switches tab without a
            reload. header.js keeps the current one marked. #}
@@ -69,6 +69,7 @@
              {% if show_admin %}style="display:none;"{% endif %}>
             <a class="app-subtab" href="/my-insights#growth" data-subtab="growth">Growth Snapshot</a>
             <a class="app-subtab" href="/my-insights#themes" data-subtab="themes">Themes</a>
+            <a class="app-subtab" href="/my-insights#recs" data-subtab="recs">Recommendations</a>
             <a class="app-subtab" href="/my-insights#sentiment" data-subtab="sentiment">Sentiment Analysis</a>
         </div>
 
