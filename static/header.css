@@ -46,8 +46,41 @@ body {
     margin: 0;
 }
 
-.sidebar-footer {
+/* ── Privacy note ─────────────────────────────────────────────────────────
+   Sits in the empty stretch between the nav and the user chip: margin-top:auto
+   pushes it down there, and the footer below it keeps its own top border. */
+.sidebar-privacy {
     margin-top: auto;
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    flex-shrink: 0;
+    padding: 12px 12px 13px;
+    border-radius: 12px;
+    background: rgba(124, 58, 237, 0.06);
+    border: 1px solid rgba(124, 58, 237, 0.14);
+}
+.sidebar-privacy svg {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+    margin-top: 1px;
+    color: var(--primary-color);
+}
+.sidebar-privacy-title {
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: var(--text-main);
+    margin-bottom: 3px;
+}
+.sidebar-privacy p {
+    font-size: 0.7rem;
+    line-height: 1.5;
+    color: var(--text-muted);
+    margin: 0;
+}
+
+.sidebar-footer {
     padding-top: 14px;
     border-top: 1px solid var(--glass-border);
     flex-shrink: 0;

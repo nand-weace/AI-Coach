@@ -111,6 +111,21 @@
         </button>
     </nav>
 
+    {# Fills the gap between the nav and the user chip. The claim is deliberately
+       exact: org admins can see activity counts on the dashboard, never message
+       content or anyone's personal insights. #}
+    <div class="sidebar-privacy">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+        <div>
+            <div class="sidebar-privacy-title">Private to you</div>
+            <p>Your conversations with Nexa, and the insights drawn from them, are
+               visible only to you — never your manager, your team, or anyone at
+               your organisation.</p>
+        </div>
+    </div>
+
     <div class="sidebar-footer">
         <div class="user-chip-wrap" id="user-chip-wrap">
             <div class="user-chip" id="user-chip">

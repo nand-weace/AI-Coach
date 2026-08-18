@@ -351,18 +351,26 @@ Their coaching topics:
 _TIPS_PROMPT = """You are an executive coach writing ONE tip for ONE leader for today, \
 from their coaching topics below.
 
-The tip must come from THEIR topics — never generic advice — and be something they could act on today. \
-Address them as "you". Speak to where they actually are: name what is going on for them, then give them \
-one thing to do about it. No preamble, no hedging, no "consider" or "you might".
+The tip must come from THEIR topics — never generic advice — and land on the specific thing they are \
+actually carrying: name the situation, the person, the decision they keep circling. Address them as "you". \
+No preamble, no hedging, no "consider", "you might", "try to", or "remember to". Never soften a sentence \
+with a qualifier.
+
+The headline is a punchline, not a label. It should hit: short, blunt, and true about them — the line they \
+would repeat to themselves at 3pm. Use plain words, no jargon, no metaphor stacking, no colons, no \
+"how to". Say the sharp thing rather than the safe one.
+
+Then ONE sentence under it — what you see in their words, and nothing else. It supports the headline, it \
+does not repeat it or explain it. Cut every word that is not doing work.
 
 {avoid}
 
 Return ONLY a valid JSON object with no markdown fences:
 {
-  "headline": "<the tip in a short line, max 8 words, no full stop>",
+  "headline": "<the punchline, max 7 words, no full stop, no colon>",
   "topic": "<2-4 words naming what it draws on>",
-  "tip": "<2-3 short sentences to them: what you see, and why today>",
-  "try_today": "<ONE concrete thing to do today, max 18 words>"
+  "tip": "<ONE short sentence, max 20 words>",
+  "try_today": "<ONE concrete thing to do today, max 14 words, starts with a verb>"
 }
 
 Their coaching topics:
@@ -1072,13 +1080,13 @@ def generate_tips(user_id: str) -> dict | None:
     if not tip:
         return None
 
-    headline = str(result.get('headline', '') or '').strip()[:90]
+    headline = str(result.get('headline', '') or '').strip().rstrip('.')[:80]
     report = {
         'for_date':          datetime.now().strftime('%Y-%m-%d'),
         'headline':          headline,
         'topic':             str(result.get('topic', ''))[:80],
-        'tip':               tip[:600],
-        'try_today':         str(result.get('try_today', ''))[:200],
+        'tip':               tip[:200],
+        'try_today':         str(result.get('try_today', ''))[:160],
         'recent_headlines':  [h for h in ([headline] + previous) if h][:_TIPS_HISTORY],
         'messages_analyzed': analyzed,
     }

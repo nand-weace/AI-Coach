@@ -38,7 +38,7 @@
         }
 
         /* ── Page body ── */
-        .page { margin: 0 auto; padding: 32px 24px 64px; }
+        .page { margin: 0 auto; padding: 0px 15px 50px; }
         .page-title { margin-bottom: 8px; }
         .page-title h2 { font-size: 1.4rem; font-weight: 600; letter-spacing: -0.02em; }
         .page-title .org-badge {
@@ -53,64 +53,33 @@
         }
 
         /* ── Privacy note ── */
-        .privacy-note {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            background: rgba(124, 58, 237,0.06);
-            border: 1px solid rgba(124, 58, 237,0.14);
-            border-radius: 12px;
-            padding: 9px 16px;
-            font-size: 0.8rem;
-            color: var(--text-muted);
-            line-height: 1.5;
-        }
-        .privacy-note svg { color: var(--primary-color); flex-shrink: 0; }
 
         /* ── Stat cards ── */
+        /* They share a line with the tabs, so they are sized as trim readouts
+           rather than hero numbers — the tab row stays the loudest thing here. */
         .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 16px;
-            margin: 24px 0 32px;
+            display: flex; align-items: stretch; gap: 10px;
+            flex-wrap: wrap;
         }
         .stat-card {
             background: var(--glass-bg);
             border: 1px solid var(--glass-border);
-            border-radius: 16px;
-            padding: 20px 24px;
+            border-radius: 14px;
+            padding: 9px 16px;
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
         }
-        .stat-label { font-size: 0.78rem; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 8px; }
-        .stat-value { font-size: 2rem; font-weight: 600; letter-spacing: -0.03em; color: var(--text-main); }
+        .stat-label {
+            font-size: 0.64rem; color: var(--text-muted); font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 3px;
+            white-space: nowrap;
+        }
+        .stat-value {
+            font-size: 1.15rem; font-weight: 600; letter-spacing: -0.02em;
+            color: var(--text-main); line-height: 1.2; white-space: nowrap;
+        }
         .stat-value.loading { color: var(--glass-border); }
 
-        .table-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-        .date-range-wrap { display: flex; align-items: center; gap: 6px; }
-        .date-range-sep { font-size: 0.78rem; color: var(--text-muted); }
-        .date-input {
-            padding: 6px 10px;
-            border: 1px solid var(--glass-border);
-            border-radius: 999px;
-            background: rgba(240, 243, 254, 0.9);
-            font-family: inherit;
-            font-size: 0.82rem;
-            color: var(--text-main);
-            outline: none;
-            transition: border-color 0.2s, box-shadow 0.2s;
-            cursor: pointer;
-        }
-        .date-input:focus { border-color: rgba(139, 92, 246, 0.4); box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.15); }
-        .date-input::-webkit-calendar-picker-indicator { opacity: 0.5; cursor: pointer; }
-        .clear-dates-btn {
-            background: none; border: 1px solid var(--glass-border);
-            border-radius: 999px; padding: 5px 12px;
-            font-family: inherit; font-size: 0.78rem; color: var(--text-muted);
-            cursor: pointer; transition: all 0.2s; display: none;
-        }
-        .clear-dates-btn.visible { display: inline-block; }
-        .clear-dates-btn:hover { color: var(--primary-color); border-color: rgba(139, 92, 246, 0.3); }
         .skeleton { background: linear-gradient(90deg, #f3f0f8 25%, #e4dfec 50%, #f3f0f8 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 4px; height: 14px; }
         @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
@@ -433,6 +402,9 @@
         }
 
         /* ── Recurring themes ── */
+        /* The panel used to be four lines of prose per theme. Most of that is
+           now shape: a share bar for how often a theme comes up, a colour edge
+           for its tone, and the coaching question folded away until asked for. */
         .themes-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -442,17 +414,28 @@
         .theme-card {
             background: var(--glass-bg);
             border: 1px solid var(--glass-border);
+            border-left: 4px solid var(--tone-color, var(--primary-color));
             border-radius: 18px;
-            padding: 20px 22px;
+            padding: 18px 20px;
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 10px;
         }
+        /* Tone rides on the card edge and the chip together — never colour alone. */
+        .tone-positive    { --tone-color: #0a7d63; --tone-soft: rgba(10, 125, 99, 0.12); }
+        .tone-mixed       { --tone-color: #b45309; --tone-soft: rgba(180, 83, 9, 0.12); }
+        .tone-challenging { --tone-color: #7c3aed; --tone-soft: rgba(124, 58, 237, 0.12); }
+
         .theme-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
         .theme-label { font-size: 0.95rem; font-weight: 600; line-height: 1.3; }
-        .theme-summary { font-size: 0.82rem; color: var(--text-muted); line-height: 1.55; }
+        /* Two lines is the whole budget — the question underneath carries the rest. */
+        .theme-summary {
+            font-size: 0.82rem; color: var(--text-muted); line-height: 1.5;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
         .theme-pill {
             display: inline-flex; align-items: center; gap: 5px;
             font-size: 0.7rem; font-weight: 600; letter-spacing: 0.03em;
@@ -465,22 +448,54 @@
         .pill-rising { background: rgba(16, 163, 127, 0.12); color: #0e7c66; }
         .pill-steady { background: rgba(91, 86, 116, 0.10);  color: #5b5674; }
         .pill-fading { background: rgba(124, 58, 237, 0.12); color: #7c3aed; }
-        .theme-meta {
-            display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-            font-size: 0.75rem; color: var(--text-muted);
+
+        /* Share bar: one theme's mentions against the busiest theme's, so the
+           panel can be scanned for weight without reading a single count. */
+        .theme-bar-row { display: flex; align-items: center; gap: 10px; }
+        .theme-bar {
+            flex: 1; height: 6px; border-radius: 999px;
+            background: rgba(45, 32, 90, 0.08); overflow: hidden;
         }
-        .theme-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-        .dot-positive    { background: #6d28d9; }
-        .dot-mixed       { background: #a855f7; }
-        .dot-challenging { background: #d8b4fe; }
+        .theme-bar span {
+            display: block; height: 100%; border-radius: 999px;
+            background: var(--tone-color, var(--primary-color));
+        }
+        .theme-bar-value {
+            font-size: 0.74rem; color: var(--text-muted); font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+        }
+        .theme-meta {
+            display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+            font-size: 0.74rem; color: var(--text-muted);
+        }
+        .theme-meta svg { opacity: 0.7; flex-shrink: 0; }
+        .theme-tone {
+            display: inline-flex; align-items: center; gap: 5px;
+            font-size: 0.7rem; font-weight: 600; border-radius: 999px;
+            padding: 3px 9px; background: var(--tone-soft); color: var(--tone-color);
+        }
+        .theme-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+                     background: var(--tone-color); }
         .theme-meta-sep { opacity: 0.4; }
+
+        /* The coaching question is the longest line on a card and the one nobody
+           reads twice, so it starts folded. */
+        .theme-ask {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: none; border: 0; padding: 0; margin-top: 2px;
+            font-family: inherit; font-size: 0.76rem; font-weight: 600;
+            color: var(--primary-color); cursor: pointer;
+        }
+        .theme-ask svg { transition: transform 0.18s; }
+        .theme-ask[aria-expanded="true"] svg { transform: rotate(90deg); }
         .theme-prompt {
-            font-size: 0.8rem; color: var(--text-main); line-height: 1.55;
+            font-size: 0.8rem; color: var(--text-main); line-height: 1.5;
             background: rgba(124, 58, 237, 0.06);
             border-left: 2px solid rgba(124, 58, 237, 0.35);
             border-radius: 0 10px 10px 0;
             padding: 10px 14px;
         }
+        .theme-prompt[hidden] { display: none; }
         .theme-overview {
             font-size: 0.82rem; color: var(--text-muted); line-height: 1.6;
             margin-bottom: 16px;
@@ -490,13 +505,17 @@
         /* These switch the whole page, so they carry more weight than a filter
            row: solid white pill, a real border, and an active tab that reads as
            the primary control on screen. */
+        .tabs-row {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 16px; flex-wrap: wrap;
+            margin: 15px 0 6px;
+        }
         .insight-tabs {
             display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
             background: rgba(255, 255, 255, 0.92);
             border: 1px solid rgba(124, 58, 237, 0.18);
             border-radius: 999px;
             padding: 6px;
-            margin: 30px 0 6px;
             width: fit-content;
             max-width: 100%;
             box-shadow: 0 4px 18px rgba(109, 40, 217, 0.09);
@@ -525,9 +544,16 @@
             color: #fff;
             box-shadow: 0 4px 14px rgba(109, 40, 217, 0.35);
         }
+        @media (max-width: 1024px) {
+            /* Below this the two no longer fit side by side; the stats wrap to
+               their own line rather than squeezing the tabs. */
+            .tabs-row { justify-content: flex-start; }
+            .stats-grid { width: 100%; }
+        }
         @media (max-width: 640px) {
             .insight-tabs { width: 100%; justify-content: center; }
             .insight-tab { font-size: 0.86rem; padding: 10px 18px; }
+            .stat-card { flex: 1 1 auto; }
         }
         .insight-panel[hidden] { display: none; }
 
@@ -850,7 +876,7 @@
                         rgba(45, 32, 90, 0.14), rgba(45, 32, 90, 0.02));
         }
         .tip-card {
-            display: flex; gap: 14px; align-items: flex-start;
+            display: inline-flex; gap: 14px; align-items: flex-start;
             background: linear-gradient(135deg,
                         rgba(109, 40, 217, 0.10), rgba(109, 40, 217, 0.03));
             border: 1px solid color-mix(in srgb, var(--primary-color) 24%, transparent);
@@ -868,13 +894,19 @@
             font-size: 0.68rem; font-weight: 700; letter-spacing: 0.06em;
             text-transform: uppercase; color: var(--primary-color);
         }
+        /* The punchline is the card — it carries the weight, and the two
+           sentences under it are support, not the message. */
         .tip-headline {
-            font-size: 1rem; font-weight: 600; color: var(--text-main);
-            line-height: 1.35; margin-top: 5px;
+            font-size: 1.28rem; font-weight: 600; color: var(--text-main);
+            line-height: 1.25; letter-spacing: -0.02em; margin-top: 6px;
         }
+        /* Two lines is the ceiling — a longer reply is clipped rather than
+           allowed to bury the punchline above it. */
         .tip-text {
-            font-size: 0.88rem; color: var(--text-muted); line-height: 1.6;
-            margin-top: 6px;
+            font-size: 0.86rem; color: var(--text-muted); line-height: 1.55;
+            margin-top: 7px; max-width: 56ch;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+            overflow: hidden;
         }
         .tip-do {
             display: flex; align-items: flex-start; gap: 8px;
@@ -969,25 +1001,6 @@
 {% include '_header.html' %}
 
 <div class="page">
-    <div class="page-title" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
-        <div class="privacy-note">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-            </svg>
-            These insights are drawn from the language in your own coaching conversations, and are shown only to you.
-        </div>
-        <!-- Scopes the sentiment scores only, so showTab() reveals it on that
-             tab. Starts hidden now that Growth Snapshot opens the page. -->
-        <div class="table-controls" style="display:none;">
-            <div class="date-range-wrap">
-                <input type="date" class="date-input" id="filter-date-from" title="From date">
-                <span class="date-range-sep">–</span>
-                <input type="date" class="date-input" id="filter-date-to" title="To date">
-            </div>
-            <button class="clear-dates-btn" id="clear-dates-btn">Clear</button>
-        </div>
-    </div>
-
 
     <!-- Not-enough-data state -->
     <div id="no-data-screen">
@@ -1019,30 +1032,33 @@
     </div>
 
     <div id="main-dashboard-content">
-    <div class="stats-grid">
-        <div class="stat-card">
-            <div class="stat-label">My Sessions</div>
-            <div class="stat-value loading" id="stat-sessions">—</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-label">My Messages</div>
-            <div class="stat-value loading" id="stat-messages">—</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-label">Coaching Since</div>
-            <div class="stat-value loading" id="stat-since" style="font-size:1.3rem;">—</div>
-        </div>
-    </div>
-
     <!-- ── Tabs ──
          Each panel owns one report. Themes and the Growth Snapshot are generated
          on their first GET, so a panel's data is fetched when it is first opened
-         rather than on page load — an unopened tab costs no model call. -->
-    <div class="insight-tabs" role="tablist" aria-label="Insight sections">
-        <button class="insight-tab active" role="tab" aria-selected="true"  aria-controls="panel-growth"    data-panel="growth">Growth Snapshot</button>
-        <button class="insight-tab"        role="tab" aria-selected="false" aria-controls="panel-themes"    data-panel="themes">Themes</button>
-        <button class="insight-tab"        role="tab" aria-selected="false" aria-controls="panel-recs"      data-panel="recs">Recommendations</button>
-        <button class="insight-tab"        role="tab" aria-selected="false" aria-controls="panel-sentiment" data-panel="sentiment">Sentiment Analysis</button>
+         rather than on page load — an unopened tab costs no model call.
+         The headline stats share this row: they are page-wide context, not part
+         of any one panel, so they sit opposite the tabs rather than above them. -->
+    <div class="tabs-row">
+        <div class="insight-tabs" role="tablist" aria-label="Insight sections">
+            <button class="insight-tab active" role="tab" aria-selected="true"  aria-controls="panel-growth"    data-panel="growth">Growth Snapshot</button>
+            <button class="insight-tab"        role="tab" aria-selected="false" aria-controls="panel-themes"    data-panel="themes">Themes</button>
+            <button class="insight-tab"        role="tab" aria-selected="false" aria-controls="panel-recs"      data-panel="recs">Recommendations</button>
+            <button class="insight-tab"        role="tab" aria-selected="false" aria-controls="panel-sentiment" data-panel="sentiment">Sentiment Analysis</button>
+        </div>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">My Sessions</div>
+                <div class="stat-value loading" id="stat-sessions">—</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">My Messages</div>
+                <div class="stat-value loading" id="stat-messages">—</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Coaching Since</div>
+                <div class="stat-value loading" id="stat-since">—</div>
+            </div>
+        </div>
     </div>
 
     <!-- ── Sentiment Intelligence ── -->
@@ -1186,8 +1202,6 @@
     const MIN_SESSIONS = 2;
     const MIN_MESSAGES = 10;
 
-    let defaultsApplied = false;
-
     function getAuthHeaders(extra) {
         const token = localStorage.getItem('we_ace_access_token') || '';
         return Object.assign({ 'Authorization': `Bearer ${token}` }, extra || {});
@@ -1202,21 +1216,6 @@
         if (!dateStr) return '—';
         const d = new Date(dateStr);
         return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-    }
-
-    function getFilterParams() {
-        const from = document.getElementById('filter-date-from').value;
-        const to   = document.getElementById('filter-date-to').value;
-        const params = new URLSearchParams();
-        if (from) params.set('date_from', from);
-        if (to)   params.set('date_to',   to);
-        return params;
-    }
-
-    function updateClearBtn() {
-        const from = document.getElementById('filter-date-from').value;
-        const to   = document.getElementById('filter-date-to').value;
-        document.getElementById('clear-dates-btn').classList.toggle('visible', !!(from || to));
     }
 
     async function loadStats() {
@@ -1247,14 +1246,6 @@
                     Math.min(sessionPct, messagePct) + '%';
                 document.getElementById('no-data-progress-label').textContent =
                     `${sessions} session${sessions !== 1 ? 's' : ''} · ${messages} message${messages !== 1 ? 's' : ''} so far — need ${MIN_SESSIONS} sessions & ${MIN_MESSAGES} messages`;
-            }
-
-            // Default date range on first load: first session → today
-            if (!defaultsApplied && data.first_session_date) {
-                defaultsApplied = true;
-                document.getElementById('filter-date-from').value = data.first_session_date;
-                document.getElementById('filter-date-to').value   = new Date().toISOString().slice(0, 10);
-                updateClearBtn();
             }
         } catch (_) {}
     }
@@ -1836,10 +1827,8 @@
     }
 
     async function loadSentiment() {
-        const params = getFilterParams();
-        const qs = params.toString() ? '?' + params.toString() : '';
         try {
-            const res = await fetch('/api/my-sentiment' + qs, { headers: getAuthHeaders(), credentials: 'omit' });
+            const res = await fetch('/api/my-sentiment', { headers: getAuthHeaders(), credentials: 'omit' });
             if (res.status === 401 || res.status === 403) { window.location.href = '/'; return; }
             if (!res.ok) return;
             renderSentiment(await res.json());
@@ -2161,7 +2150,7 @@
         steady: { label: 'Steady',  cls: 'pill-steady', icon: '<line x1="3" y1="12" x2="21" y2="12"/>' },
         fading: { label: 'Fading',  cls: 'pill-fading', icon: '<polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/>' },
     };
-    const SENTIMENT_TONE = { positive: 'Positive tone', mixed: 'Mixed tone', challenging: 'Challenging tone' };
+    const SENTIMENT_TONE = { positive: 'Positive', mixed: 'Mixed', challenging: 'Challenging' };
 
     function renderThemes(data) {
         const wrap = document.getElementById('themes-wrap');
@@ -2185,16 +2174,21 @@
             return;
         }
 
-        const cards = themes.map(t => {
+        // The busiest theme sets the bar scale, so every card is read against
+        // the same reference rather than an absolute count nobody has a feel for.
+        const maxMentions = Math.max(...themes.map(t => Number(t.mentions) || 0), 1);
+
+        const CAL_ICON = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
+
+        const cards = themes.map((t, i) => {
             const m = MOMENTUM_META[t.momentum] || MOMENTUM_META.steady;
-            const tone = SENTIMENT_TONE[t.sentiment] || SENTIMENT_TONE.mixed;
+            const toneKey = SENTIMENT_TONE[t.sentiment] ? t.sentiment : 'mixed';
             const range = (t.first_seen && t.last_seen && t.first_seen !== t.last_seen)
                 ? `${formatDate(t.first_seen)} → ${formatDate(t.last_seen)}`
                 : (t.last_seen ? formatDate(t.last_seen) : '');
-            const mentions = t.mentions ? `${t.mentions} mention${t.mentions !== 1 ? 's' : ''}` : '';
-            const metaBits = [mentions, range].filter(Boolean)
-                .map(escHtml).join('<span class="theme-meta-sep">·</span>');
-            return `<div class="theme-card">
+            const mentions = Number(t.mentions) || 0;
+            const pct = Math.max(6, Math.round((mentions / maxMentions) * 100));
+            return `<div class="theme-card tone-${escHtml(toneKey)}">
                 <div class="theme-card-top">
                     <div class="theme-label">${escHtml(t.label)}</div>
                     <span class="theme-pill ${m.cls}">
@@ -2202,19 +2196,38 @@
                         ${m.label}
                     </span>
                 </div>
-                ${t.summary ? `<div class="theme-summary">${escHtml(t.summary)}</div>` : ''}
+                ${t.summary ? `<div class="theme-summary" title="${escHtml(t.summary)}">${escHtml(t.summary)}</div>` : ''}
+                ${mentions ? `<div class="theme-bar-row">
+                    <div class="theme-bar" role="img"
+                         aria-label="${mentions} mention${mentions !== 1 ? 's' : ''}, the most for any theme is ${maxMentions}">
+                        <span style="width:${pct}%"></span>
+                    </div>
+                    <span class="theme-bar-value">${mentions}×</span>
+                </div>` : ''}
                 <div class="theme-meta">
-                    <span class="theme-dot dot-${escHtml(t.sentiment || 'mixed')}"></span>
-                    <span>${escHtml(tone)}</span>
-                    ${metaBits ? `<span class="theme-meta-sep">·</span>${metaBits}` : ''}
+                    <span class="theme-tone"><span class="theme-dot"></span>${escHtml(SENTIMENT_TONE[toneKey])}</span>
+                    ${range ? `${CAL_ICON}<span>${escHtml(range)}</span>` : ''}
                 </div>
-                ${t.prompt ? `<div class="theme-prompt">${escHtml(t.prompt)}</div>` : ''}
+                ${t.prompt ? `<button class="theme-ask" type="button" aria-expanded="false" aria-controls="theme-q-${i}">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                        Ask yourself
+                    </button>
+                    <div class="theme-prompt" id="theme-q-${i}" hidden>${escHtml(t.prompt)}</div>` : ''}
             </div>`;
         }).join('');
 
         wrap.innerHTML =
             (data.overview ? `<div class="theme-overview">${escHtml(data.overview)}</div>` : '') +
             `<div class="themes-grid">${cards}</div>`;
+
+        wrap.querySelectorAll('.theme-ask').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const q = document.getElementById(btn.getAttribute('aria-controls'));
+                const open = btn.getAttribute('aria-expanded') === 'true';
+                btn.setAttribute('aria-expanded', open ? 'false' : 'true');
+                q.hidden = open;
+            });
+        });
     }
 
     async function loadThemes() {
@@ -2714,15 +2727,6 @@
         loadSentiment();
     }
 
-    document.getElementById('filter-date-from').addEventListener('change', () => { updateClearBtn(); loadSentiment(); });
-    document.getElementById('filter-date-to').addEventListener('change',   () => { updateClearBtn(); loadSentiment(); });
-    document.getElementById('clear-dates-btn').addEventListener('click', () => {
-        document.getElementById('filter-date-from').value = '';
-        document.getElementById('filter-date-to').value = '';
-        updateClearBtn();
-        loadSentiment();
-    });
-
     document.getElementById('sentiment-refresh-btn').addEventListener('click', async () => {
         const btn = document.getElementById('sentiment-refresh-btn');
         btn.disabled = true;
@@ -2791,9 +2795,6 @@
         document.querySelectorAll('.insight-panel').forEach(p => {
             p.hidden = p.id !== `panel-${name}`;
         });
-        // The date range only scopes the sentiment scores, so it follows that tab.
-        const controls = document.querySelector('.table-controls');
-        if (controls) controls.style.display = name === 'sentiment' ? '' : 'none';
         if (updateHash) history.replaceState(null, '', `#${name}`);
         // replaceState fires no hashchange, so the side panel's sub-nav is told
         // directly — otherwise it would keep marking the tab we just left.
