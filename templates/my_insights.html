@@ -1054,7 +1054,9 @@
             <button class="insight-tab"        role="tab" aria-selected="false" aria-controls="panel-sentiment" data-panel="sentiment">Sentiment Analysis</button>
         </div>
         <div class="stats-grid">
-            <div class="stat-card">
+            {# Temporarily hidden. The element stays so loadStats() and the
+               not-enough-data gate can keep reading the session count. #}
+            <div class="stat-card" id="stat-card-sessions" style="display:none;">
                 <div class="stat-label">My Sessions</div>
                 <div class="stat-value loading" id="stat-sessions">—</div>
             </div>
@@ -1189,7 +1191,7 @@
         <div class="trend-modal-meta"  id="trend-modal-meta"></div>
         <div class="trend-modal-score-row">
             <span class="trend-modal-score-num" id="trend-modal-score"></span>
-            <span class="trend-modal-score-sub">your score</span>
+            <span class="trend-modal-score-sub">your score, out of 10</span>
         </div>
         <div class="trend-chart-wrap" id="trend-modal-chart"></div>
         <div class="trend-modal-divider"></div>
@@ -1310,6 +1312,12 @@
         empathy:                   '#be123c',  // red
     };
 
+    // Scores are stored 0-100 so a reading stays comparable with every earlier
+    // run, but the page speaks in tenths — the scale the gauges already used.
+    // Everything shown to the user goes through these two.
+    const toTen     = score => (Math.round(score) / 10).toFixed(1);
+    const toTenAxis = v => String(v / 10);
+
     function scoreClasses(score, inverse) {
         const effective = inverse ? (100 - score) : score;
         if (effective >= 65) return { num: 'score-green', card: 'card-green' };
@@ -1336,7 +1344,7 @@
         const gridLines = [0, 25, 50, 75, 100].map(v => {
             const y = toY(v).toFixed(1);
             return `<line x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}" stroke="rgba(45, 32, 90, 0.10)" stroke-width="1"/>
-                    <text x="${padL - 6}" y="${y}" text-anchor="end" dominant-baseline="middle" font-size="10" fill="#7f78a0">${v}</text>`;
+                    <text x="${padL - 6}" y="${y}" text-anchor="end" dominant-baseline="middle" font-size="10" fill="#7f78a0">${toTenAxis(v)}</text>`;
         }).join('');
 
         const step = Math.max(1, Math.ceil(dates.length / 6));
@@ -1355,7 +1363,7 @@
             const isLast = i === values.length - 1;
             const cx = toX(i).toFixed(1), cy = toY(v).toFixed(1);
             const tip = isLast
-                ? `<text x="${cx}" y="${(+cy - 9).toFixed(1)}" text-anchor="middle" font-size="11" font-weight="600" fill="${color}">${v}</text>`
+                ? `<text x="${cx}" y="${(+cy - 9).toFixed(1)}" text-anchor="middle" font-size="11" font-weight="600" fill="${color}">${toTen(v)}</text>`
                 : '';
             return `<circle cx="${cx}" cy="${cy}" r="${isLast ? 5 : 3.5}" fill="${color}" ${!isLast ? 'opacity="0.6"' : ''}/>` + tip;
         }).join('');
@@ -1380,7 +1388,7 @@
         const color = BAND_COLORS[cls.num] || '#9333ea';
 
         document.getElementById('trend-modal-title').textContent = dim.label;
-        document.getElementById('trend-modal-score').textContent = score;
+        document.getElementById('trend-modal-score').textContent = toTen(score);
         document.getElementById('trend-modal-score').className = 'trend-modal-score-num ' + cls.num;
 
         const trend = entry.trend || [];
@@ -1432,7 +1440,7 @@
         const gridLines = [0, 25, 50, 75, 100].map(v => {
             const y = toY(v).toFixed(1);
             return `<line x1="${padL}" y1="${y}" x2="${padL + iW}" y2="${y}" stroke="rgba(45, 32, 90, 0.08)" stroke-width="1"/>
-                    <text x="${padL - 6}" y="${y}" text-anchor="end" dominant-baseline="middle" font-size="10" fill="#7f78a0">${v}</text>`;
+                    <text x="${padL - 6}" y="${y}" text-anchor="end" dominant-baseline="middle" font-size="10" fill="#7f78a0">${toTenAxis(v)}</text>`;
         }).join('');
 
         const step = Math.max(1, Math.ceil(n / 6));
@@ -1473,7 +1481,7 @@
             return `<div class="combo-legend-item" data-dim-key="${dim.key}">
                 <span class="combo-legend-line" style="background:${color}"></span>
                 <span class="combo-legend-name">${dim.label}</span>
-                <span class="combo-legend-score ${cls.num}">${score}</span>
+                <span class="combo-legend-score ${cls.num}">${toTen(score)}</span>
             </div>`;
         }).join('');
 
@@ -1537,7 +1545,7 @@
                 return `<div class="combo-tooltip-row">
                     <span class="combo-tooltip-swatch" style="background:${d.color}"></span>
                     <span class="combo-tooltip-label">${d.label}</span>
-                    <span class="combo-tooltip-val">${s}</span>
+                    <span class="combo-tooltip-val">${toTen(s)}</span>
                 </div>`;
             }).filter(Boolean).join('');
 
@@ -1635,7 +1643,7 @@
                 <div class="heat-row-icon">${svg}</div>
                 <div class="heat-row-label">${dim.label}</div>
                 <div class="heat-row-track"><div class="heat-row-fill" style="width:${score}%; background:${DIM_COLORS[dim.key] || '#7f78a0'}"></div></div>
-                <div class="heat-row-score" style="color:${BAND_COLORS[cls.num] || 'var(--text-muted)'}">${score}</div>
+                <div class="heat-row-score" style="color:${BAND_COLORS[cls.num] || 'var(--text-muted)'}">${toTen(score)}</div>
             </div>`;
         }).join('');
 
@@ -1692,7 +1700,7 @@
             const gOff = (-0.65 * arcLen).toFixed(2);
             const na   = (score / 100) * 180;
             const anV  = `0 ${cx} ${cy};${(na*1.13).toFixed(2)} ${cx} ${cy};${(na*0.92).toFixed(2)} ${cx} ${cy};${(na*1.04).toFixed(2)} ${cx} ${cy};${na.toFixed(2)} ${cx} ${cy}`;
-            const displayScore = (score / 10).toFixed(1);
+            const displayScore = toTen(score);
             const nLen = r - 10;
             const uid  = Math.random().toString(36).slice(2, 7);
 
@@ -2624,14 +2632,10 @@
     }
 
     let recsPollTimer = null;
-    // The job lives in one gunicorn worker's memory, so a poll can land on the
-    // other worker and see status 'idle' while the work is still going. Rather
-    // than share state, we watch for the report itself changing: remember what
-    // was on screen when we started, and keep polling until something newer
-    // arrives or we give up.
-    let recsBaselineAt = null;
-    let recsDeadline = 0;
-    const RECS_MAX_WAIT_MS = 180000;
+    // The run's status is stored server-side, so every worker gives the same
+    // answer and the page can simply believe it: poll while it says 'running',
+    // act on whatever it says next. A run whose worker died is aged out into
+    // 'error' server-side, so polling always terminates.
 
     function showRecsWaiting() {
         startWaiting('recs', 'recs-wrap');
@@ -2651,34 +2655,21 @@
             if (res.status === 401 || res.status === 403) { window.location.href = '/'; return; }
             if (!res.ok) { if (!poll) renderRecs(null); return; }
             const data = await res.json();
-            const isFresh = data.calculated_at && data.calculated_at !== recsBaselineAt;
-            const stillWaiting = poll && !isFresh && Date.now() < recsDeadline;
 
-            if (data.status === 'running' || stillWaiting) {
-                // A run is in flight — either we just started it, it was still
-                // going when the page was reloaded, or this poll hit the worker
-                // that isn't running it.
+            if (data.status === 'running') {
+                // Either we started it, or it was already going when the page
+                // loaded — a reload mid-run picks the wait back up here.
                 const btn = document.getElementById('recs-refresh-btn');
                 btn.disabled = true;
                 btn.textContent = 'Curating…';
-                if (!_waitTimers.recs) {
-                    // Picked up a run we didn't start (page reload mid-run).
-                    if (recsBaselineAt === null) recsBaselineAt = data.calculated_at || null;
-                    recsDeadline = Date.now() + RECS_MAX_WAIT_MS;
-                    showRecsWaiting();
-                }
+                if (!_waitTimers.recs) showRecsWaiting();
                 recsPollTimer = setTimeout(() => loadRecs({ poll: true }), 3000);
                 return;
             }
 
-            const gaveUp = poll && !isFresh && !(data.recommendations || []).length;
             stopRecsWaiting();
-            if (gaveUp) {
-                document.getElementById('recs-wrap').innerHTML =
-                    `<div class="panel-empty">${escHtml(data.error
-                        || 'That took longer than expected. Your list may still be finishing — reload in a moment.')}</div>`;
-                return;
-            }
+            // 'empty' and 'error' both carry the reason the run gave; anything
+            // already cached is still worth showing over a bare message.
             if ((data.recommendations || []).length) {
                 recFilter = 'all';
                 renderRecs(data);
@@ -2699,8 +2690,6 @@
         const btn = document.getElementById('recs-refresh-btn');
         btn.disabled = true;
         btn.textContent = 'Curating…';
-        recsBaselineAt = (currentRecs && currentRecs.calculated_at) || null;
-        recsDeadline = Date.now() + RECS_MAX_WAIT_MS;
         showRecsWaiting();
         try {
             const res = await fetch('/api/my-recommendations/refresh', { method: 'POST', headers: getAuthHeaders(), credentials: 'omit' });

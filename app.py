@@ -31,6 +31,7 @@ from database import (
     get_user_sentiment,
     get_user_sentiment_data,
     get_user_insight_report,
+    upsert_user_insight_report,
     get_user_stats,
     upsert_user_login,
     get_user_access_settings,
@@ -564,13 +565,45 @@ _LINKEDIN_URL_RE = re.compile(r'https?://[^\s"\'<>]*linkedin\.com/in/[^\s"\'<>,]
 LINKEDIN_WELCOME_WAIT = int(os.getenv('LINKEDIN_WELCOME_WAIT', '0'))
 
 
-def _extract_linkedin_url(profile: dict) -> str | None:
-    """Find the user's LinkedIn URL anywhere in the WeAce personal-info payload.
+# What personal-info actually puts in candidateProfile.linkedinProfile varies:
+# a full URL, one without the scheme, or a bare handle. All three name the same
+# profile, so they are normalised to one canonical URL before being stored.
+_LINKEDIN_HANDLE_RE = re.compile(r'^[A-Za-z0-9\-_%.]{3,100}$')
 
-    The field name isn't guaranteed across profile shapes, so rather than pinning
-    to one key this walks the payload for the first personal LinkedIn URL it
-    finds. Company pages (/company/...) are ignored by the pattern.
+
+def _normalise_linkedin(value) -> str | None:
+    """One canonical profile URL from whatever shape the field arrived in."""
+    text = (value or '').strip() if isinstance(value, str) else ''
+    if not text:
+        return None
+    match = _LINKEDIN_URL_RE.search(text)
+    if match:
+        return match.group(0).rstrip('/')
+    # No scheme — 'www.linkedin.com/in/jane' or 'linkedin.com/in/jane'
+    match = re.search(r'(?:[\w-]+\.)*linkedin\.com/in/[^\s"\'<>,]+', text, re.I)
+    if match:
+        return 'https://' + match.group(0).rstrip('/')
+    # A bare handle, which only means anything if it looks like one — anything
+    # with a space or a slash in it is some other kind of value.
+    if _LINKEDIN_HANDLE_RE.match(text):
+        return f'https://www.linkedin.com/in/{text}'
+    return None
+
+
+def _extract_linkedin_url(profile: dict) -> str | None:
+    """Find the user's LinkedIn URL in the WeAce personal-info payload.
+
+    candidateProfile.linkedinProfile is where it belongs, so that field wins.
+    Older or partial payloads do not always carry it, so anything else is found
+    by walking for the first personal LinkedIn URL in the payload. Company pages
+    (/company/...) are ignored by the pattern.
     """
+    candidate = (profile or {}).get('candidateProfile') or {}
+    if isinstance(candidate, dict):
+        url = _normalise_linkedin(candidate.get('linkedinProfile'))
+        if url:
+            return url
+
     found = []
 
     def walk(node, depth=0):
@@ -2015,23 +2048,41 @@ def my_digest_refresh():
         return jsonify({'error': str(e)}), 500
 
 
-# Recommendation runs, keyed by user_id. Building a list means one web search per
-# resource, which takes far longer than a request should sit open — so the work
-# happens on a background thread and the page polls for the result.
-_recs_jobs: dict[str, dict] = {}
-_recs_jobs_lock = threading.Lock()
-_RECS_JOB_STALE_SECS = 300   # a thread that outlives this is assumed dead
+# Recommendation runs. Building a list means one web search per resource, which
+# takes far longer than a request should sit open — so the work happens on a
+# background thread and the page polls for the result.
+#
+# The run's status is stored, not held in memory: gunicorn runs several workers,
+# and a poll routinely lands on a worker that is not the one running the job. An
+# in-memory dict made that worker answer 'idle' mid-run, so the page could not
+# trust status and had to guess from whether the report looked newer. A stored
+# status is the same answer from every worker, and survives a restart.
+_RECS_JOB_REPORT = 'recommendations_job'
+_RECS_JOB_STALE_SECS = 300   # a run that outlives this is assumed dead
 
 
-def _recs_job_running(user_id: str) -> bool:
-    with _recs_jobs_lock:
-        job = _recs_jobs.get(user_id)
-        if not job or job.get('status') != 'running':
-            return False
-        if time.time() - job.get('started', 0) > _RECS_JOB_STALE_SECS:
-            _recs_jobs.pop(user_id, None)
-            return False
-        return True
+def _recs_job_set(user_id: str, status: str, error: str | None = None):
+    upsert_user_insight_report(user_id, _RECS_JOB_REPORT, {
+        'status': status,
+        'error': error,
+        'started_at': time.time(),
+    })
+
+
+def _recs_job_state(user_id: str) -> dict:
+    """The run's status as any worker sees it: 'running', 'done', 'empty',
+    'error', or 'idle' when no run has ever been started.
+
+    A 'running' row older than the stale window is reported as an error rather
+    than kept alive — the thread that owned it is gone (worker restart, crash),
+    and nothing else will ever move it off 'running'.
+    """
+    job = get_user_insight_report(user_id, _RECS_JOB_REPORT) or {}
+    status = job.get('status') or 'idle'
+    if status == 'running' and time.time() - (job.get('started_at') or 0) > _RECS_JOB_STALE_SECS:
+        return {'status': 'error',
+                'error': 'That run stopped before it finished. Please try again.'}
+    return {'status': status, 'error': job.get('error')}
 
 
 def _run_recs_job(user_id: str):
@@ -2046,8 +2097,7 @@ def _run_recs_job(user_id: str):
     except Exception as e:
         status, error = 'error', str(e)
         print(f"Recommendation job failed for {user_id}: {e}")
-    with _recs_jobs_lock:
-        _recs_jobs[user_id] = {'status': status, 'error': error, 'started': time.time()}
+    _recs_job_set(user_id, status, error)
 
 
 @app.route('/api/my-tip')
@@ -2111,14 +2161,10 @@ def my_recommendations():
     user_id = g.user['user_id']
     try:
         report = get_user_insight_report(user_id, 'recommendations') or {'recommendations': []}
-        if _recs_job_running(user_id):
-            report['status'] = 'running'
-        else:
-            with _recs_jobs_lock:
-                job = _recs_jobs.get(user_id) or {}
-            report['status'] = job.get('status') or 'idle'
-            if job.get('error'):
-                report['error'] = job['error']
+        job = _recs_job_state(user_id)
+        report['status'] = job['status']
+        if job['error']:
+            report['error'] = job['error']
         return jsonify(report)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -2131,10 +2177,11 @@ def my_recommendations_refresh():
     if not g.user:
         return jsonify({'error': 'Session not initialised — call /session first'}), 401
     user_id = g.user['user_id']
-    if _recs_job_running(user_id):
+    # A second click while one is in flight joins the run already going rather
+    # than starting a competing one.
+    if _recs_job_state(user_id)['status'] == 'running':
         return jsonify({'ok': True, 'status': 'running'})
-    with _recs_jobs_lock:
-        _recs_jobs[user_id] = {'status': 'running', 'error': None, 'started': time.time()}
+    _recs_job_set(user_id, 'running')
     threading.Thread(target=_run_recs_job, args=(user_id,), daemon=True).start()
     return jsonify({'ok': True, 'status': 'running'})
 
