@@ -18,31 +18,54 @@ import logging
 from email.message import EmailMessage
 from pathlib import Path
 
+from dotenv import ipython
+
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
 SMTP_HOST = "smtp.office365.com"
 SMTP_PORT = 587                  # 587 = STARTTLS, 465 = SSL
-SMTP_USER = "info@we-ace.com"
-SMTP_PASSWORD = "d-Wurij16376Clou@#$"   # Use an app password, not your login password
+SMTP_USER = "leadership.development@Emeritus.org"
+SMTP_PASSWORD = "Zukq9312"   # Use an app password, not your login password
 USE_SSL = False                  # True for port 465, False for 587 STARTTLS
 
-FROM_ADDRESS = "info@we-ace.com"
-FROM_NAME = "Info Weace"
+FROM_ADDRESS = "leadership.development@Emeritus.org"
+FROM_NAME = "Emeritus Leadership Development Team"
 
-CSV_FILE = "recipients.csv"
-EMAIL_COLUMN = "email"           # which CSV column holds the address
+CSV_FILE = "BPCL-Assessment.csv"  # path to CSV file with recipients
+EMAIL_COLUMN = "Receipient Email ID"           # which CSV column holds the address
+Assessment_LINK = "Typeform Link"  # which CSV column holds the assessment link
+PARTICIPANT_NAME_COLUMN = "Participant Name"
 
-SUBJECT_TEMPLATE = "Hi {name}, a quick note for {company}"
+SUBJECT_TEMPLATE = "BPCL eXcelerator: 360° Leadership Assessment Link"
 BODY_TEMPLATE = """\
-Hi {name},
+Dear {name},
 
-I'm reaching out because I thought this might be relevant to your work at {company}.
+Please find below the link to access your 360° leadership assessment:
 
-[Your message here.]
+Click on the link below to begin your 360°-assessment.
 
-Best,
-{from_name}
+360°-assessment link: {assessment_link}
+
+Before you start, kindly ensure that you:
+
+· Read the instructions carefully.
+
+· Complete all required questions before submitting the 360°-assessment.
+
+· Have approximately 10 minutes available to complete the 360°-assessment.
+
+· Click submit once you have completed the 360°-assessment.
+
+360°-assessment closing date: 7th September 2026
+
+Please note that no login credentials are required to access the assessment.
+
+If you face any difficulty accessing the assessment or have any queries, please write to leadership.development@emeritus.org. Our team will respond to your query within 24 hours.
+
+We wish you all the very best as you continue your leadership development journey.
+
+Warm Regards, Team Emeritus
 """
 
 # Optional HTML version (set to None to send plain text only)
@@ -66,18 +89,19 @@ logging.basicConfig(
 log = logging.getLogger("mailer")
 
 
-def build_message(row: dict) -> EmailMessage:
+def build_message(to_addr, to_name, assessment_link) -> EmailMessage:
     """Build an EmailMessage from a CSV row using the configured templates."""
-    fields = {**row, "from_name": FROM_NAME}
+    fields = {
+        "name": to_name,
+        "from_name": FROM_NAME,
+        "assessment_link": assessment_link
+    }
 
     msg = EmailMessage()
     msg["From"] = f"{FROM_NAME} <{FROM_ADDRESS}>"
-    msg["To"] = row[EMAIL_COLUMN]
+    msg["To"] = to_addr
     msg["Subject"] = SUBJECT_TEMPLATE.format(**fields)
     msg.set_content(BODY_TEMPLATE.format(**fields))
-
-    if HTML_TEMPLATE:
-        msg.add_alternative(HTML_TEMPLATE.format(**fields), subtype="html")
     return msg
 
 
@@ -107,9 +131,6 @@ def send_all():
         log.warning("CSV is empty, nothing to send.")
         return
 
-    if EMAIL_COLUMN not in reader[0]:
-        raise KeyError(f"CSV must contain a '{EMAIL_COLUMN}' column")
-
     log.info("Sending to %d recipients via %s:%s", len(reader), SMTP_HOST, SMTP_PORT)
 
     sent, failed = 0, 0
@@ -121,13 +142,15 @@ def send_all():
         try:
             for i, row in enumerate(reader, 1):
                 to_addr = (row.get(EMAIL_COLUMN) or "").strip()
+                to_name = (row.get(PARTICIPANT_NAME_COLUMN) or "").strip()
+                assessment_link = (row.get(Assessment_LINK) or "").strip()
                 if not to_addr:
                     log.warning("Row %d: missing email, skipping", i)
                     writer.writerow(["", "skipped", "no email"])
                     continue
 
                 try:
-                    msg = build_message(row)
+                    msg = build_message(to_addr, to_name, assessment_link)
                     smtp.send_message(msg)
                     log.info("[%d/%d] sent to %s", i, len(reader), to_addr)
                     writer.writerow([to_addr, "sent", ""])
