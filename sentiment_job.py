@@ -50,7 +50,7 @@ _MAX_USERS = 30       # cap to avoid excessive API calls on large orgs
 _THEMES_MAX_CHARS = 9_000   # recurring-theme prompt cap
 _THEMES_MSG_LIMIT = 150     # messages read per run
 _THEMES_MSG_CHARS = 240     # per-message truncation
-_THEMES_COUNT = 4           # themes returned per run
+_THEMES_COUNT = 2           # themes returned per run
 _MIN_THEME_MESSAGES = 8     # a theme needs a few mentions before it recurs
 _DIGEST_MAX_CHARS = 8_000   # weekly digest prompt cap
 _DIGEST_MSG_CHARS = 240     # per-message truncation
@@ -64,7 +64,7 @@ _GROWTH_MAX_CHARS = 13_000  # growth snapshot prompt cap
 _GROWTH_MSG_LIMIT = 180     # messages read per run
 _GROWTH_MSG_CHARS = 320     # per-message truncation
 _MIN_GROWTH_MESSAGES = 8    # below this there is no trajectory to read
-_GROWTH_ITEMS = 3           # items asked for per quadrant
+_GROWTH_ITEMS = 2           # items asked for per quadrant
 _GROWTH_TRAJECTORIES = ('improving', 'steady', 'newly surfaced', 'needs attention')
 
 # Recommendations are the most expensive report on the page (web search + a long

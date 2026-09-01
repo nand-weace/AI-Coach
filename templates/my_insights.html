@@ -30,10 +30,9 @@
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             font-family: 'Inter', sans-serif;
-            background-color: var(--bg-color);
+            background-color: oklch(94.7% .018 290);
             color: var(--text-main);
             min-height: 100vh;
-            background-image: var(--bg-gradient);
             background-attachment: fixed;
         }
 
@@ -476,104 +475,86 @@
         }
 
         /* ── Recurring themes ── */
-        /* The panel used to be four lines of prose per theme. Most of that is
-           now shape: a share bar for how often a theme comes up, a colour edge
-           for its tone, and the coaching question folded away until asked for. */
+        /* The whole section sits on one deep-violet panel and the themes read as
+           plain white cards on it. What used to be shape — a share bar, a tone
+           rail, a momentum pill, a date range — is gone: a theme is its name,
+           one sentence, and the question to sit with, which is now open on the
+           card instead of folded behind a button. */
+        .themes-panel {
+            background: linear-gradient(160deg, #33206f 0%, #2a1a5e 100%);
+            border-radius: 26px;
+            padding: 28px 32px 32px;
+            margin-top: 24px;
+        }
+        .themes-panel .section-row { margin: 0 0 22px; }
+        .themes-panel .section-row h3 { color: #fff; font-size: 1.35rem; font-weight: 700; letter-spacing: -0.02em; }
+        .themes-panel .section-row p  { color: rgba(255, 255, 255, 0.6); font-size: 0.85rem; }
+        .themes-panel .section-meta   { color: rgba(255, 255, 255, 0.5); }
+        .themes-panel .refresh-btn {
+            border-color: rgba(255, 255, 255, 0.3);
+            color: rgba(255, 255, 255, 0.85);
+        }
+        .themes-panel .refresh-btn:hover:not(:disabled) {
+            background: rgba(255, 255, 255, 0.14);
+            border-color: rgba(255, 255, 255, 0.55);
+            color: #fff;
+        }
+        /* Loading, empty and error states land inside the panel too */
+        .themes-panel .panel-empty {
+            background: rgba(255, 255, 255, 0.06);
+            border-color: rgba(255, 255, 255, 0.22);
+            color: rgba(255, 255, 255, 0.75);
+        }
+        .themes-panel .panel-waiting-line { color: #fff; }
+        .themes-panel .panel-waiting-sub  { color: rgba(255, 255, 255, 0.6); }
+        .themes-panel .skeleton {
+            background: linear-gradient(90deg, rgba(255,255,255,0.10) 25%,
+                        rgba(255,255,255,0.22) 50%, rgba(255,255,255,0.10) 75%);
+            background-size: 200% 100%;
+        }
+        @media (max-width: 620px) {
+            .themes-panel { padding: 22px 18px 24px; border-radius: 20px; }
+        }
+
+        .theme-overview {
+            font-size: 0.85rem; color: rgba(255, 255, 255, 0.72);
+            line-height: 1.6; margin-bottom: 18px;
+        }
         .themes-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 18px;
-            margin-bottom: 8px;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
         }
         .theme-card {
-            background: var(--glass-bg);
-            border: 1px solid var(--glass-border);
-            border-left: 4px solid var(--tone-color, var(--primary-color));
-            border-radius: 18px;
-            padding: 18px 20px;
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
+            background: #fff;
+            border-radius: 20px;
+            padding: 22px 24px;
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 12px;
+            box-shadow: 0 14px 34px -22px rgba(10, 4, 34, 0.85);
         }
-        /* Tone rides on the card edge and the chip together — never colour alone. */
-        .tone-positive    { --tone-color: #0a7d63; --tone-soft: rgba(10, 125, 99, 0.12); }
-        .tone-mixed       { --tone-color: #b45309; --tone-soft: rgba(180, 83, 9, 0.12); }
-        .tone-challenging { --tone-color: #7c3aed; --tone-soft: rgba(124, 58, 237, 0.12); }
-
-        .theme-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-        .theme-label { font-size: 0.95rem; font-weight: 600; line-height: 1.3; }
-        /* Two lines is the whole budget — the question underneath carries the rest. */
+        .theme-label {
+            font-size: 1rem; font-weight: 700; line-height: 1.3;
+            color: var(--text-main); letter-spacing: -0.01em;
+        }
         .theme-summary {
-            font-size: 0.82rem; color: var(--text-muted); line-height: 1.5;
-            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-            overflow: hidden;
+            font-size: 0.88rem; color: var(--text-muted); line-height: 1.65;
+            display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3;
+            -webkit-box-orient: vertical; overflow: hidden;
         }
-        .theme-pill {
-            display: inline-flex; align-items: center; gap: 5px;
-            font-size: 0.7rem; font-weight: 600; letter-spacing: 0.03em;
-            text-transform: uppercase; border-radius: 999px;
-            padding: 4px 10px; white-space: nowrap; flex-shrink: 0;
-        }
-        /* Direction pills carried three shades of the same violet, so the state
-           had to be read from the word alone. Hue now does that work: green for
-           moving up, violet for easing off, neutral for holding. */
-        .pill-rising { background: rgba(16, 163, 127, 0.12); color: #0e7c66; }
-        .pill-steady { background: rgba(91, 86, 116, 0.10);  color: #5b5674; }
-        .pill-fading { background: rgba(124, 58, 237, 0.12); color: #7c3aed; }
-
-        /* Share bar: one theme's mentions against the busiest theme's, so the
-           panel can be scanned for weight without reading a single count. */
-        .theme-bar-row { display: flex; align-items: center; gap: 10px; }
-        .theme-bar {
-            flex: 1; height: 6px; border-radius: 999px;
-            background: rgba(45, 32, 90, 0.08); overflow: hidden;
-        }
-        .theme-bar span {
-            display: block; height: 100%; border-radius: 999px;
-            background: var(--tone-color, var(--primary-color));
-        }
-        .theme-bar-value {
-            font-size: 0.74rem; color: var(--text-muted); font-variant-numeric: tabular-nums;
-            white-space: nowrap;
-        }
-        .theme-meta {
-            display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
-            font-size: 0.74rem; color: var(--text-muted);
-        }
-        .theme-meta svg { opacity: 0.7; flex-shrink: 0; }
-        .theme-tone {
-            display: inline-flex; align-items: center; gap: 5px;
-            font-size: 0.7rem; font-weight: 600; border-radius: 999px;
-            padding: 3px 9px; background: var(--tone-soft); color: var(--tone-color);
-        }
-        .theme-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
-                     background: var(--tone-color); }
-        .theme-meta-sep { opacity: 0.4; }
-
-        /* The coaching question is the longest line on a card and the one nobody
-           reads twice, so it starts folded. */
-        .theme-ask {
-            display: inline-flex; align-items: center; gap: 6px;
-            background: none; border: 0; padding: 0; margin-top: 2px;
-            font-family: inherit; font-size: 0.76rem; font-weight: 600;
-            color: var(--primary-color); cursor: pointer;
-        }
-        .theme-ask svg { transition: transform 0.18s; }
-        .theme-ask[aria-expanded="true"] svg { transform: rotate(90deg); }
+        /* The question sits at the foot of every card, on the same line whatever
+           the summary's length, so a row of cards reads as one block. */
         .theme-prompt {
-            font-size: 0.8rem; color: var(--text-main); line-height: 1.5;
-            background: rgba(124, 58, 237, 0.06);
-            border-left: 2px solid rgba(124, 58, 237, 0.35);
-            border-radius: 0 10px 10px 0;
-            padding: 10px 14px;
+            display: flex; align-items: flex-start; gap: 9px;
+            margin-top: auto;
+            background: #fdeae7;
+            border-radius: 14px;
+            padding: 13px 15px;
+            font-size: 0.86rem; font-style: italic; line-height: 1.55;
+            color: #4a3f5c;
         }
-        .theme-prompt[hidden] { display: none; }
-        .theme-overview {
-            font-size: 0.82rem; color: var(--text-muted); line-height: 1.6;
-            margin-bottom: 16px;
-        }
+        .theme-prompt svg { flex-shrink: 0; margin-top: 2px; opacity: 0.5; }
 
         /* ── Insight tabs ── */
         /* These switch the whole page, so they carry more weight than a filter
@@ -633,106 +614,76 @@
 
         /* ── Growth Snapshot (GROW-aligned four quadrants) ── */
         /* Two by two, always — the four quadrants are read as a pair of pairs, so
-           auto-fit is wrong here: a three-across row breaks the reading. */
+           auto-fit is wrong here: a three-across row breaks the reading.
+           The quadrant itself is no longer a card: its heading sits straight on
+           the page and each item is its own white block, so the eye counts
+           items rather than panels. */
         .growth-grid {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 18px;
+            gap: 34px 40px;
         }
         @media (max-width: 1000px) {
             .growth-grid { grid-template-columns: 1fr; }
         }
-        .growth-quad {
-            background: var(--glass-bg);
-            border: 1px solid var(--glass-border);
-            border-radius: 18px;
-            padding: 22px 24px;
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
+        .growth-quad { display: flex; flex-direction: column; gap: 18px; }
+        .growth-quad-title { font-size: 1.3rem; font-weight: 700; letter-spacing: -0.02em; line-height: 1.25; }
+        .growth-quad-sub { font-size: 0.88rem; color: var(--text-muted); line-height: 1.5; margin-top: 5px; }
+        .growth-items { display: flex; flex-direction: column; gap: 22px; }
+        .growth-item {
+            background: #fff;
+            border-radius: 20px;
+            padding: 22px 26px;
             display: flex;
             flex-direction: column;
-            gap: 16px;
+            gap: 10px;
+            box-shadow: 0 14px 32px -24px rgba(24, 12, 60, 0.5);
         }
-        .growth-quad-head { display: flex; align-items: flex-start; gap: 11px; }
-        .growth-quad-icon {
-            width: 30px; height: 30px; border-radius: 9px; flex-shrink: 0;
-            display: flex; align-items: center; justify-content: center;
-            background: rgba(124, 58, 237, 0.10); color: var(--primary-color);
-        }
-        .growth-quad-title { font-size: 0.95rem; font-weight: 600; line-height: 1.3; }
-        .growth-quad-sub { font-size: 0.75rem; color: var(--text-muted); line-height: 1.45; margin-top: 2px; }
-        .growth-items { display: flex; flex-direction: column; gap: 16px; }
-        .growth-item { display: flex; flex-direction: column; gap: 8px; }
-        .growth-item + .growth-item { border-top: 1px solid var(--glass-border); padding-top: 16px; }
-        .growth-item-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
-        .growth-item-label { font-size: 0.86rem; font-weight: 600; line-height: 1.35; }
-        .growth-item-summary { font-size: 0.8rem; color: var(--text-muted); line-height: 1.55; }
-        .growth-pills { display: flex; flex-wrap: wrap; gap: 6px; }
-        .growth-pill {
-            display: inline-flex; align-items: center; gap: 5px;
-            font-size: 0.68rem; font-weight: 600; letter-spacing: 0.03em;
-            text-transform: uppercase; border-radius: 999px;
-            padding: 3px 9px; white-space: nowrap; flex-shrink: 0;
-        }
-        .pill-dim { background: rgba(91, 86, 116, 0.10); color: var(--text-muted); }
-        /* Same reasoning as the theme pills: four trajectories, four hues, so
-           "needs attention" is visible without reading it. Amber, not red —
-           these are skills in progress, not failures. */
-        .pill-improving   { background: rgba(16, 163, 127, 0.12); color: #0e7c66; }
-        .pill-steady-t    { background: rgba(91, 86, 116, 0.10);  color: #5b5674; }
-        .pill-surfaced    { background: rgba(79, 70, 229, 0.12);  color: #4338ca; }
-        .pill-attention   { background: rgba(217, 119, 6, 0.14);  color: #b45309; }
-        /* Their own words, quoted back — verified verbatim before it renders. */
-        .growth-quote {
-            font-size: 0.8rem; color: var(--text-main); line-height: 1.6;
-            font-style: italic;
-            border-left: 2px solid rgba(124, 58, 237, 0.35);
-            padding: 2px 0 2px 12px;
-        }
+        .growth-item-label { font-size: 1.02rem; font-weight: 700; line-height: 1.3; letter-spacing: -0.01em; }
+        .growth-item-summary { font-size: 0.9rem; color: var(--text-main); line-height: 1.6; }
+        /* Quote, practice, next step, question: one shape, four tints, so the
+           kind of line is legible before it is read. The avatar sits beside it,
+           not under it — the callout and the invitation are one gesture. */
+        .growth-note-row { display: flex; align-items: center; gap: 14px; margin-top: 4px; }
         .growth-note {
-            display: flex; align-items: flex-start; gap: 7px;
-            font-size: 0.78rem; color: var(--text-main); line-height: 1.55;
-            background: rgba(124, 58, 237, 0.06);
-            border-radius: 10px; padding: 9px 12px;
+            flex: 1;
+            display: flex; align-items: flex-start; gap: 8px;
+            font-size: 0.88rem; font-style: italic; line-height: 1.55;
+            color: #3f3652;
+            border-radius: 12px; padding: 12px 15px;
+            background: var(--note-bg, rgba(124, 58, 237, 0.06));
         }
-        .growth-note svg { color: var(--primary-color); flex-shrink: 0; margin-top: 3px; }
-        .growth-meta {
-            display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-            font-size: 0.74rem; color: var(--text-muted);
-        }
-        .growth-meta strong { color: var(--text-main); font-weight: 600; }
-        .growth-quad-empty { font-size: 0.8rem; color: var(--text-muted); line-height: 1.55; }
-        /* "Work on this" — takes a single growth area into a fresh coaching
-           session rather than leaving it as something to read and forget. */
+        .growth-note-icon { flex-shrink: 0; font-style: normal; line-height: 1.5; }
+        .note-quote    { --note-bg: #eef8ee; }
+        .note-practice { --note-bg: #fdf6e0; }
+        .note-step     { --note-bg: #e9f1fb; }
+        .note-prompt   { --note-bg: #fdeae7; }
+        .note-prompt .growth-note-icon { color: #e11d48; }
+        /* "Ask me" / "Work with me" — Nexa's own face, because the next move is a
+           conversation with her, not a button that files something away. */
         .growth-action {
-            align-self: flex-start;
-            display: inline-flex; align-items: center; gap: 8px;
-            background: var(--accent-gradient); border: none;
-            border-radius: 999px; padding: 10px 20px;
-            margin-top: 4px;
-            font-family: inherit; font-size: 0.82rem; font-weight: 600;
-            letter-spacing: -0.01em;
-            color: #fff; cursor: pointer;
-            box-shadow: 0 3px 12px rgba(109, 40, 217, 0.28);
-            transition: transform 0.16s ease, box-shadow 0.18s ease, opacity 0.18s ease;
+            flex-shrink: 0;
+            display: flex; flex-direction: column; align-items: center; gap: 5px;
+            background: none; border: 0; padding: 0;
+            font-family: inherit; font-size: 0.76rem; color: var(--text-muted);
+            cursor: pointer;
+            transition: transform 0.16s ease, opacity 0.18s ease;
         }
-        .growth-action:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 6px 18px rgba(109, 40, 217, 0.38);
+        .growth-action img {
+            width: 46px; height: 46px; border-radius: 50%;
+            display: block; object-fit: cover;
         }
+        .growth-action:hover { transform: translateY(-2px); }
         .growth-action:active { transform: translateY(0); }
-        .growth-action:focus-visible {
-            outline: 2px solid var(--primary-color);
-            outline-offset: 2px;
-        }
-        .growth-action:disabled { opacity: 0.65; cursor: default; transform: none; }
-        .growth-action svg { flex-shrink: 0; }
+        .growth-action:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 3px; border-radius: 12px; }
+        .growth-action:disabled { opacity: 0.6; cursor: default; transform: none; }
         @media (prefers-reduced-motion: reduce) {
             .growth-action, .growth-action:hover { transition: none; transform: none; }
         }
-        .growth-overview {
-            font-size: 0.82rem; color: var(--text-muted); line-height: 1.6;
-            margin-bottom: 16px;
+        .growth-quad-empty {
+            font-size: 0.86rem; color: var(--text-muted); line-height: 1.55;
+            background: rgba(255, 255, 255, 0.55);
+            border-radius: 16px; padding: 18px 20px;
         }
         .growth-credit {
             display: inline-flex; align-items: center; gap: 6px;
@@ -936,11 +887,6 @@
         @keyframes recFadeIn { from { opacity: 0; } to { opacity: 1; } }
         .panel-waiting-sub { font-size: 0.78rem; color: var(--text-muted); }
 
-        .rec-overview {
-            font-size: 0.82rem; color: var(--text-muted); line-height: 1.6;
-            margin-bottom: 16px;
-        }
-
         /* Tip of the day — a two-line strip above the reading list, not a panel
            of its own: one line for the punchline, one for the action. The
            supporting sentence lives in the headline's tooltip. */
@@ -951,8 +897,7 @@
         }
         .tip-card {
             display: flex; align-items: center; gap: 12px;
-            background: linear-gradient(135deg,
-                        rgba(109, 40, 217, 0.10), rgba(109, 40, 217, 0.03));
+            background: white;
             border: 1px solid color-mix(in srgb, var(--primary-color) 24%, transparent);
             border-radius: 14px;
             padding: 10px 14px;
@@ -1122,9 +1067,8 @@
          of any one panel, so they sit opposite the tabs rather than above them. -->
     <div class="tabs-row">
         <div class="insight-tabs" role="tablist" aria-label="Insight sections">
-            <button class="insight-tab"        role="tab" aria-selected="false" aria-controls="panel-growth"    data-panel="growth">Growth Snapshot</button>
-            <button class="insight-tab"        role="tab" aria-selected="false" aria-controls="panel-themes"    data-panel="themes">Themes</button>
-            <button class="insight-tab"        role="tab" aria-selected="false" aria-controls="panel-recs"      data-panel="recs">Recommendations</button>
+            <button class="insight-tab"        role="tab" aria-selected="false" aria-controls="panel-growth"    data-panel="growth">Growth Mirror</button>
+            <button class="insight-tab"        role="tab" aria-selected="false" aria-controls="panel-recs"      data-panel="recs">Resources</button>
             <button class="insight-tab active" role="tab" aria-selected="true"  aria-controls="panel-sentiment" data-panel="sentiment">Sentiment Analysis</button>
         </div>
         <div class="stats-grid">
@@ -1177,39 +1121,6 @@
     </div>
     </div><!-- /#panel-sentiment -->
 
-    <!-- ── Themes ── -->
-    <div class="insight-panel" id="panel-themes" role="tabpanel" hidden>
-    <!-- ── Recurring Theme Detection ── -->
-    <div class="section-row">
-        <div>
-            <h3>Recurring Themes</h3>
-            <p>What you keep coming back to across your sessions</p>
-        </div>
-        <div style="display:flex; align-items:center; gap:10px; flex-shrink:0;">
-            <span class="section-meta" id="themes-updated"></span>
-            <button class="refresh-btn" id="themes-refresh-btn">Detect themes</button>
-        </div>
-    </div>
-    <div id="themes-wrap">
-        <div class="panel-empty"><div class="skeleton" style="width:200px; margin:0 auto;"></div></div>
-    </div>
-
-    <!-- ── Weekly Reflection Digest (temporarily hidden) ── -->
-    <div class="section-row" id="digest-section" style="display:none;">
-        <div>
-            <h3>Weekly Reflection Digest</h3>
-            <p>A read-back of your last seven days of coaching</p>
-        </div>
-        <div style="display:flex; align-items:center; gap:10px; flex-shrink:0;">
-            <span class="section-meta" id="digest-updated"></span>
-            <button class="refresh-btn" id="digest-refresh-btn">Write digest</button>
-        </div>
-    </div>
-    <div id="digest-wrap" style="display:none;">
-        <div class="panel-empty"><div class="skeleton" style="width:200px; margin:0 auto;"></div></div>
-    </div>
-    </div><!-- /#panel-themes -->
-
     <div class="insight-panel" id="panel-recs" role="tabpanel" hidden>
     <!-- ── Tip of the Day ── Its own section: it costs no web search, so it is
          here on load while the list below waits for the button. The tip itself
@@ -1217,7 +1128,6 @@
     <div class="section-row tip-row">
         <div>
             <h3>Tip of the Day</h3>
-            <p>One thing to try today, drawn from what you have been working through</p>
         </div>
     </div>
     <div id="tip-wrap"></div>
@@ -1226,7 +1136,6 @@
     <div class="section-row" id="recs-section">
         <div>
             <h3>Recommended for You</h3>
-            <p>Articles, books, videos, and lectures picked from what you talk about</p>
         </div>
         <div style="display:flex; align-items:center; gap:10px; flex-shrink:0;">
             <span class="section-meta" id="recs-updated"></span>
@@ -1240,17 +1149,49 @@
 
     <!-- ── Growth Snapshot ── -->
     <div class="insight-panel" id="panel-growth" role="tabpanel" hidden>
-    <div class="section-row">
-        <div>
-            <h3>Growth Snapshot</h3>
-            <p>A GROW-aligned read of where you are, drawn from your own words</p>
-        </div>
+    <!-- No heading on this panel any more, so the meta and its button are the
+         only thing in the row — pushed to the right edge rather than left. -->
+    <div class="section-row" style="justify-content:flex-end;">
         <div style="display:flex; align-items:center; gap:10px; flex-shrink:0;">
             <span class="section-meta" id="growth-updated"></span>
             <button class="refresh-btn" id="growth-refresh-btn">Rebuild snapshot</button>
         </div>
     </div>
     <div id="growth-wrap">
+        <div class="panel-empty"><div class="skeleton" style="width:200px; margin:0 auto;"></div></div>
+    </div>
+
+    <!-- ── Recurring Theme Detection ── Sits under the snapshot rather than in a
+         tab of its own: the themes are the raw material the snapshot reads, so
+         they belong at the end of the same story. -->
+    <section class="themes-panel">
+        <div class="section-row">
+            <div>
+                <h3>Recurring Themes</h3>
+                <p>What you keep coming back to across your sessions</p>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px; flex-shrink:0;">
+                <span class="section-meta" id="themes-updated"></span>
+                <button class="refresh-btn" id="themes-refresh-btn">Detect themes</button>
+            </div>
+        </div>
+        <div id="themes-wrap">
+            <div class="panel-empty"><div class="skeleton" style="width:200px; margin:0 auto;"></div></div>
+        </div>
+    </section>
+
+    <!-- ── Weekly Reflection Digest (temporarily hidden) ── -->
+    <div class="section-row" id="digest-section" style="display:none;">
+        <div>
+            <h3>Weekly Reflection Digest</h3>
+            <p>A read-back of your last seven days of coaching</p>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px; flex-shrink:0;">
+            <span class="section-meta" id="digest-updated"></span>
+            <button class="refresh-btn" id="digest-refresh-btn">Write digest</button>
+        </div>
+    </div>
+    <div id="digest-wrap" style="display:none;">
         <div class="panel-empty"><div class="skeleton" style="width:200px; margin:0 auto;"></div></div>
     </div>
     </div><!-- /#panel-growth -->
@@ -2017,88 +1958,66 @@
 
     const DIM_LABEL = Object.fromEntries(ALL_SENTIMENT_DIMS.map(d => [d.key, d.label]));
 
-    const TRAJECTORY_META = {
-        'improving':       { label: 'Improving',       cls: 'pill-improving' },
-        'steady':          { label: 'Steady',          cls: 'pill-steady-t' },
-        'newly surfaced':  { label: 'Newly surfaced',  cls: 'pill-surfaced' },
-        'needs attention': { label: 'Needs attention', cls: 'pill-attention' },
-    };
-
-    const ICON_LIGHTBULB = '<path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/>';
+    // Kept in step with sentiment_job._GROWTH_ITEMS. New snapshots arrive already
+    // trimmed; this also caps ones cached before the limit came down.
+    const MAX_GROWTH_ITEMS = 2;
 
     const GROWTH_QUADS = [
         {
             key: 'strengths', title: 'Strengths', sub: 'What your own words already show you doing well',
-            icon: '<circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/>',
             empty: 'No evidenced strengths yet — a few more sessions and your own words will supply them.',
             item: s => `
-                <div class="growth-item-top">
-                    <div class="growth-item-label">${escHtml(s.label)}</div>
-                    ${s.dimension ? `<span class="growth-pill pill-dim">${escHtml(DIM_LABEL[s.dimension] || s.dimension)}</span>` : ''}
-                </div>
+                <div class="growth-item-label">${escHtml(s.label)}</div>
                 ${s.summary ? `<div class="growth-item-summary">${escHtml(s.summary)}</div>` : ''}
-                ${s.quote ? `<div class="growth-quote">“${escHtml(s.quote)}”</div>` : ''}`,
+                ${s.quote ? noteRow('quote', '💬', `“${escHtml(s.quote)}”`) : ''}`,
         },
         {
             key: 'growth_areas', title: 'Growth Areas', sub: 'Skills in progress, and which way each is moving',
-            icon: '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>',
             empty: 'Nothing to flag as a skill in progress yet.',
-            item: g => {
-                const t = TRAJECTORY_META[g.trajectory] || TRAJECTORY_META.steady;
-                return `
-                <div class="growth-item-top">
-                    <div class="growth-item-label">${escHtml(g.label)}</div>
-                    <span class="growth-pill ${t.cls}">${t.label}</span>
-                </div>
+            item: g => `
+                <div class="growth-item-label">${escHtml(g.label)}</div>
                 ${g.summary ? `<div class="growth-item-summary">${escHtml(g.summary)}</div>` : ''}
-                ${g.dimension ? `<div class="growth-pills"><span class="growth-pill pill-dim">${escHtml(DIM_LABEL[g.dimension] || g.dimension)}</span></div>` : ''}
-                ${g.practice ? `<div class="growth-note">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICON_LIGHTBULB}</svg>
-                    <span>${escHtml(g.practice)}</span></div>` : ''}
-                <button type="button" class="growth-action" data-focus-label="${escHtml(g.label || '')}"
-                        data-focus-summary="${escHtml(g.summary || '')}"
-                        data-focus-practice="${escHtml(g.practice || '')}"
-                        data-focus-dimension="${escHtml(DIM_LABEL[g.dimension] || g.dimension || '')}">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                    <span>Work on this with Nexa</span>
-                </button>`;
-            },
+                ${g.practice ? noteRow('practice', '💡', escHtml(g.practice),
+                    askButton('Ask me', g.label, g.summary, g.practice, g.dimension)) : ''}`,
         },
         {
             key: 'opportunities', title: 'Opportunities', sub: 'Situations you have raised where your strengths apply',
-            icon: '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
             empty: 'No specific openings mentioned yet — they tend to appear as you talk through real situations.',
             item: o => `
-                <div class="growth-item-top">
-                    <div class="growth-item-label">${escHtml(o.label)}</div>
-                </div>
+                <div class="growth-item-label">${escHtml(o.label)}</div>
                 ${o.summary ? `<div class="growth-item-summary">${escHtml(o.summary)}</div>` : ''}
-                ${o.strength ? `<div class="growth-meta">Draws on <strong>${escHtml(o.strength)}</strong></div>` : ''}
-                ${o.step ? `<div class="growth-note">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-                    <span>${escHtml(o.step)}</span></div>` : ''}`,
+                ${o.step ? noteRow('step', '💡', escHtml(o.step),
+                    askButton('Work with me', o.label, o.summary, o.step, '')) : ''}`,
         },
         {
-            key: 'patterns', title: 'Patterns to Watch', sub: 'Recurring triggers worth noticing, not worrying about',
-            icon: '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>',
+            key: 'patterns', title: 'Patterns to watch', sub: 'Recurring triggers worth noticing, not worrying about',
             empty: 'No recurring triggers stand out yet.',
-            item: (p, data) => {
-                const total = data.sessions_analyzed || 0;
-                const seen = (p.sessions_seen && total)
-                    ? `Came up in <strong>${p.sessions_seen} of your last ${total} sessions</strong>` : '';
-                const bits = [p.trigger ? `Trigger: ${escHtml(p.trigger)}` : '', seen].filter(Boolean);
-                return `
-                <div class="growth-item-top">
-                    <div class="growth-item-label">${escHtml(p.label)}</div>
-                </div>
+            item: p => `
+                <div class="growth-item-label">${escHtml(p.label)}</div>
                 ${p.summary ? `<div class="growth-item-summary">${escHtml(p.summary)}</div>` : ''}
-                ${bits.length ? `<div class="growth-meta">${bits.join('<span class="theme-meta-sep">·</span>')}</div>` : ''}
-                ${p.prompt ? `<div class="growth-note">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                    <span>${escHtml(p.prompt)}</span></div>` : ''}`;
-            },
+                ${p.prompt ? noteRow('prompt', '❓', escHtml(p.prompt),
+                    askButton('Ask me', p.label, p.summary, p.prompt, '')) : ''}`,
         },
     ];
+
+    // text is already escaped by the caller — the quote wraps it in curly quotes.
+    function noteRow(kind, icon, text, action = '') {
+        return `<div class="growth-note-row">
+            <div class="growth-note note-${kind}"><span class="growth-note-icon">${icon}</span><span>${text}</span></div>
+            ${action}
+        </div>`;
+    }
+
+    function askButton(label, focusLabel, summary, practice, dimension) {
+        return `<button type="button" class="growth-action"
+                    data-focus-label="${escHtml(focusLabel || '')}"
+                    data-focus-summary="${escHtml(summary || '')}"
+                    data-focus-practice="${escHtml(practice || '')}"
+                    data-focus-dimension="${escHtml(DIM_LABEL[dimension] || dimension || '')}">
+                <img src="/static/nexa-avatar.png" alt="" />
+                <span>${escHtml(label)}</span>
+            </button>`;
+    }
 
     function renderGrowth(data) {
         const wrap = document.getElementById('growth-wrap');
@@ -2123,32 +2042,21 @@
         }
 
         const quads = GROWTH_QUADS.map(q => {
-            const items = data[q.key] || [];
+            const items = (data[q.key] || []).slice(0, MAX_GROWTH_ITEMS);
             const body = items.length
                 ? `<div class="growth-items">${items.map(it =>
-                       `<div class="growth-item">${q.item(it, data)}</div>`).join('')}</div>`
+                       `<div class="growth-item">${q.item(it)}</div>`).join('')}</div>`
                 : `<div class="growth-quad-empty">${escHtml(q.empty)}</div>`;
             return `<div class="growth-quad">
                 <div class="growth-quad-head">
-                    <div class="growth-quad-icon">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${q.icon}</svg>
-                    </div>
-                    <div>
-                        <div class="growth-quad-title">${escHtml(q.title)}</div>
-                        <div class="growth-quad-sub">${escHtml(q.sub)}</div>
-                    </div>
+                    <div class="growth-quad-title">${escHtml(q.title)}</div>
+                    <div class="growth-quad-sub">${escHtml(q.sub)}</div>
                 </div>
                 ${body}
             </div>`;
         }).join('');
 
-        wrap.innerHTML =
-            (data.overview ? `<div class="growth-overview">${escHtml(data.overview)}</div>` : '') +
-            `<div class="growth-grid">${quads}</div>` +
-            `<div class="growth-credit">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>
-                <span>Framed on the GROW coaching model, in partnership with i-Coach Academy</span>
-            </div>`;
+        wrap.innerHTML = `<div class="growth-grid">${quads}</div>`;
     }
 
     async function loadGrowth() {
@@ -2237,16 +2145,14 @@
 
     // ── Recurring theme detection ─────────────────────────────────────────────
 
-    const MOMENTUM_META = {
-        rising: { label: 'Rising',  cls: 'pill-rising', icon: '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>' },
-        steady: { label: 'Steady',  cls: 'pill-steady', icon: '<line x1="3" y1="12" x2="21" y2="12"/>' },
-        fading: { label: 'Fading',  cls: 'pill-fading', icon: '<polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/>' },
-    };
-    const SENTIMENT_TONE = { positive: 'Positive', mixed: 'Mixed', challenging: 'Challenging' };
+    // Kept in step with sentiment_job._THEMES_COUNT. New reports arrive already
+    // trimmed; this also caps reports cached before the limit came down, so a
+    // stale one does not render more cards than the current limit allows.
+    const MAX_THEMES = 2;
 
     function renderThemes(data) {
         const wrap = document.getElementById('themes-wrap');
-        const themes = (data && data.themes) || [];
+        const themes = ((data && data.themes) || []).slice(0, MAX_THEMES);
 
         const updatedEl = document.getElementById('themes-updated');
         if (data && data.calculated_at) {
@@ -2266,60 +2172,19 @@
             return;
         }
 
-        // The busiest theme sets the bar scale, so every card is read against
-        // the same reference rather than an absolute count nobody has a feel for.
-        const maxMentions = Math.max(...themes.map(t => Number(t.mentions) || 0), 1);
+        // A circled question mark, so the prompt reads as a question to sit with
+        // rather than another line of the summary.
+        const ASK_ICON = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.2 9.2a2.9 2.9 0 0 1 5.6 1c0 1.9-2.8 2.4-2.8 2.4"/><line x1="12" y1="17" x2="12" y2="17"/></svg>';
 
-        const CAL_ICON = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
-
-        const cards = themes.map((t, i) => {
-            const m = MOMENTUM_META[t.momentum] || MOMENTUM_META.steady;
-            const toneKey = SENTIMENT_TONE[t.sentiment] ? t.sentiment : 'mixed';
-            const range = (t.first_seen && t.last_seen && t.first_seen !== t.last_seen)
-                ? `${formatDate(t.first_seen)} → ${formatDate(t.last_seen)}`
-                : (t.last_seen ? formatDate(t.last_seen) : '');
-            const mentions = Number(t.mentions) || 0;
-            const pct = Math.max(6, Math.round((mentions / maxMentions) * 100));
-            return `<div class="theme-card tone-${escHtml(toneKey)}">
-                <div class="theme-card-top">
-                    <div class="theme-label">${escHtml(t.label)}</div>
-                    <span class="theme-pill ${m.cls}">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">${m.icon}</svg>
-                        ${m.label}
-                    </span>
-                </div>
+        const cards = themes.map(t => `<div class="theme-card">
+                <div class="theme-label">${escHtml(t.label)}</div>
                 ${t.summary ? `<div class="theme-summary" title="${escHtml(t.summary)}">${escHtml(t.summary)}</div>` : ''}
-                ${mentions ? `<div class="theme-bar-row">
-                    <div class="theme-bar" role="img"
-                         aria-label="${mentions} mention${mentions !== 1 ? 's' : ''}, the most for any theme is ${maxMentions}">
-                        <span style="width:${pct}%"></span>
-                    </div>
-                    <span class="theme-bar-value">${mentions}×</span>
-                </div>` : ''}
-                <div class="theme-meta">
-                    <span class="theme-tone"><span class="theme-dot"></span>${escHtml(SENTIMENT_TONE[toneKey])}</span>
-                    ${range ? `${CAL_ICON}<span>${escHtml(range)}</span>` : ''}
-                </div>
-                ${t.prompt ? `<button class="theme-ask" type="button" aria-expanded="false" aria-controls="theme-q-${i}">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-                        Ask yourself
-                    </button>
-                    <div class="theme-prompt" id="theme-q-${i}" hidden>${escHtml(t.prompt)}</div>` : ''}
-            </div>`;
-        }).join('');
+                ${t.prompt ? `<div class="theme-prompt">${ASK_ICON}<span>${escHtml(t.prompt)}</span></div>` : ''}
+            </div>`).join('');
 
         wrap.innerHTML =
             (data.overview ? `<div class="theme-overview">${escHtml(data.overview)}</div>` : '') +
             `<div class="themes-grid">${cards}</div>`;
-
-        wrap.querySelectorAll('.theme-ask').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const q = document.getElementById(btn.getAttribute('aria-controls'));
-                const open = btn.getAttribute('aria-expanded') === 'true';
-                btn.setAttribute('aria-expanded', open ? 'false' : 'true');
-                q.hidden = open;
-            });
-        });
     }
 
     async function loadThemes() {
@@ -2687,7 +2552,6 @@
         const shown = recFilter === 'all' ? items : items.filter(r => r.type === recFilter);
 
         wrap.innerHTML =
-            (data.overview ? `<div class="rec-overview">${escHtml(data.overview)}</div>` : '') +
             `<div class="rec-filters">${filters}</div>` +
             `<div class="rec-grid">${recCardsHtml(shown)}</div>`;
 
@@ -2846,8 +2710,10 @@
 
     // Order here is the tab order; DEFAULT_TAB below picks which one opens.
     const TAB_LOADERS = {
-        growth:    () => loadGrowth(),
-        themes:    () => {
+        growth:    () => {
+            loadGrowth();
+            // Recurring Themes now sits at the bottom of this panel, so it loads
+            // with it rather than on a tab of its own.
             loadThemes();
             // Temporarily hidden — skip the fetch so we don't spend model calls on it.
             if (document.getElementById('digest-section')?.style.display !== 'none') loadDigest();
@@ -2855,6 +2721,10 @@
         recs:      () => { loadTip(); loadRecs(); },
         sentiment: () => loadSentiment(),
     };
+
+    // '#themes' was its own tab before the section moved into Growth Mirror —
+    // old links and bookmarks still land on it.
+    const TAB_ALIASES = { themes: 'growth' };
     // Sentiment Analysis opens by default — it is the report users come back
     // for most, and it reads from stored scores rather than generating one.
     // The markup above must mark the same tab/panel so nothing flashes before
@@ -2863,6 +2733,7 @@
     const loadedTabs = new Set();
 
     function showTab(name, { updateHash = true } = {}) {
+        name = TAB_ALIASES[name] || name;
         if (!TAB_LOADERS[name]) name = DEFAULT_TAB;
         document.querySelectorAll('.insight-tab').forEach(btn => {
             const on = btn.dataset.panel === name;

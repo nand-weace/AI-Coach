@@ -44,15 +44,13 @@
 
 body {
     font-family: 'Inter', sans-serif;
-    background-color: var(--bg-color);
+    background-color: oklch(94.7% .018 290);
     color: var(--text-main);
     height: 100vh;
     display: flex;
     justify-content: center;
     align-items: center;
     overflow: hidden;
-    background-image: var(--bg-gradient);
-    background-attachment: fixed;
 }
 
 /* Shell = the chat card, centred in whatever the side panel leaves over.
