@@ -39,6 +39,7 @@ from database import (
     get_user_identity,
     get_all_users_admin,
     get_all_orgs,
+    get_usage_trend,
     get_user_language,
     set_user_language,
     get_user_mode,
@@ -2202,6 +2203,29 @@ def admin():
         # shared header (_header.html) — show_admin collapses the bar to the
         # Admin tab; Nexa Insights still shows if they also hold the org role.
         active_tab='admin',
+        active_subtab='platform',
+        show_org_tabs=_has_role(session.get('role'), 'corporate_super_admin'),
+        show_admin=True,
+    )
+
+
+@app.route('/admin/cost')
+def admin_cost():
+    """Cost Analysis — Anthropic API spend, split out of the Platform Admin page
+    because it is billing data rather than product usage."""
+    if 'user_id' not in session:
+        return redirect('/')
+    if not _has_role(session.get('role'), 'weace_super_admin'):
+        return redirect('/')
+    name = session['user_name']
+    initials = ''.join(w[0].upper() for w in name.split()[:2])
+    return render_template('admin_cost.html',
+        user_name=name,
+        initials=initials,
+        profile_image=session.get('profile_image', ''),
+        refresh_token=session.get('refresh_token', ''),
+        active_tab='admin',
+        active_subtab='cost',
         show_org_tabs=_has_role(session.get('role'), 'corporate_super_admin'),
         show_admin=True,
     )
@@ -2308,6 +2332,188 @@ def admin_refresh_linkedin():
     return jsonify({'ok': True, 'user_id': target_id, 'linkedin_url': url, 'status': 'pending'})
 
 
+# ── Claude API spend ─────────────────────────────────────────────────────────
+# The admin page reports what the organisation spends on the Anthropic API.
+# Figures come from the Usage & Cost Admin API, which needs an admin key
+# (sk-ant-admin…) — the ordinary model key is rejected there. Anthropic exposes
+# no balance endpoint, so the remaining balance is derived: a top-up recorded in
+# the environment (CLAUDE_CREDIT_BALANCE_USD as of CLAUDE_CREDIT_BALANCE_DATE,
+# YYYY-MM-DD) minus everything spent since that date.
+_CLAUDE_COST_TTL = 300  # seconds — Anthropic asks for at most one poll a minute
+_claude_cost_cache: dict = {}  # 'summary' -> (expires_at, payload)
+
+
+def _claude_cost_buckets(starting_at: str, ending_at: str) -> list:
+    """Daily cost buckets from the Admin API, following pagination.
+
+    Returns [{'date': 'YYYY-MM-DD', 'amount': <USD float>}] oldest first. The
+    API reports amounts as decimal strings in cents, so they are divided here.
+    """
+    api_key = (os.getenv('CLAUDE_ADMIN_API_KEY') or '').strip()
+    if not api_key:
+        raise RuntimeError('CLAUDE_ADMIN_API_KEY is not configured')
+
+    buckets, page = [], None
+    for _ in range(20):  # pagination guard — 20 pages of 31 covers a long window
+        params = {'starting_at': starting_at, 'ending_at': ending_at, 'limit': 31}
+        if page:
+            params['page'] = page
+        resp = http_requests.get(
+            'https://api.anthropic.com/v1/organizations/cost_report',
+            params=params,
+            headers={'x-api-key': api_key, 'anthropic-version': '2023-06-01'},
+            timeout=20,
+        )
+        resp.raise_for_status()
+        payload = resp.json()
+        for bucket in payload.get('data', []):
+            cents = sum(float(r.get('amount') or 0) for r in bucket.get('results', []))
+            buckets.append({
+                'date': (bucket.get('starting_at') or '')[:10],
+                'amount': round(cents / 100.0, 4),
+            })
+        if not payload.get('has_more'):
+            break
+        page = payload.get('next_page')
+        if not page:
+            break
+    buckets.sort(key=lambda b: b['date'])
+    return buckets
+
+
+# How far back the trend windows reach: 30 daily points, 12 weekly points, and
+# 6 calendar months. One fetch covers all three — the client toggles between the
+# series without hitting Anthropic again.
+_CLAUDE_DAILY_POINTS = 30
+_CLAUDE_WEEKLY_POINTS = 12
+_CLAUDE_MONTHLY_POINTS = 6
+
+
+def _claude_spend_summary() -> dict:
+    """Spend trends (daily, weekly, monthly), month to date, and the balance."""
+    from datetime import date, datetime, timedelta, timezone
+
+    today = datetime.now(timezone.utc).date()
+    month_start = today.replace(day=1)
+    week_start = today - timedelta(days=today.weekday())  # Monday-anchored weeks
+
+    # Optional balance baseline. A malformed value is treated as unset rather
+    # than failing the whole card — the spend figures are still useful.
+    baseline_date, baseline_usd = None, None
+    raw_amount = (os.getenv('CLAUDE_CREDIT_BALANCE_USD') or '').strip()
+    raw_date = (os.getenv('CLAUDE_CREDIT_BALANCE_DATE') or '').strip()
+    if raw_amount and raw_date:
+        try:
+            baseline_usd = float(raw_amount)
+            baseline_date = date.fromisoformat(raw_date)
+        except ValueError:
+            baseline_date, baseline_usd = None, None
+
+    # The window has to reach back far enough for whichever trend goes deepest,
+    # and for the balance baseline if that is older still.
+    oldest_month = month_start
+    for _ in range(_CLAUDE_MONTHLY_POINTS - 1):
+        oldest_month = (oldest_month - timedelta(days=1)).replace(day=1)
+    year_start = date(today.year, 1, 1)
+    start = min(
+        year_start,
+        oldest_month,
+        today - timedelta(days=_CLAUDE_DAILY_POINTS),  # one extra: the average
+                                                       # runs over complete days
+        week_start - timedelta(weeks=_CLAUDE_WEEKLY_POINTS - 1),
+        baseline_date or month_start,
+    )
+    buckets = _claude_cost_buckets(
+        start.isoformat() + 'T00:00:00Z',
+        (today + timedelta(days=1)).isoformat() + 'T00:00:00Z',
+    )
+    by_date = {b['date']: b['amount'] for b in buckets}
+
+    def spend_between(from_date, to_date):
+        """Total over [from_date, to_date] inclusive."""
+        total, day = 0.0, from_date
+        while day <= to_date:
+            total += by_date.get(day.isoformat(), 0.0)
+            day += timedelta(days=1)
+        return round(total, 4)
+
+    # Daily and weekly series share the chart on the admin page. Zero buckets are
+    # real points, not gaps — a quiet day should read as a dip, not vanish.
+    daily = [
+        {'period': (today - timedelta(days=offset)).isoformat(),
+         'cost': by_date.get((today - timedelta(days=offset)).isoformat(), 0.0)}
+        for offset in range(_CLAUDE_DAILY_POINTS - 1, -1, -1)
+    ]
+    weekly = []
+    for offset in range(_CLAUDE_WEEKLY_POINTS - 1, -1, -1):
+        wk = week_start - timedelta(weeks=offset)
+        weekly.append({'period': wk.isoformat(),
+                       'cost': spend_between(wk, min(wk + timedelta(days=6), today))})
+
+    # Calendar months, oldest first, each with the month's full total.
+    months, cursor = [], oldest_month
+    while cursor <= month_start:
+        nxt = (cursor + timedelta(days=32)).replace(day=1)
+        months.append({
+            'period': cursor.isoformat(),
+            'label': cursor.strftime('%b %Y'),
+            'cost': spend_between(cursor, min(nxt - timedelta(days=1), today)),
+            'partial': cursor == month_start,
+        })
+        cursor = nxt
+
+    # Average over the last complete days — today is still filling and would drag
+    # the figure down for most of the working day.
+    avg_window_end = today - timedelta(days=1)
+    avg_window_start = avg_window_end - timedelta(days=_CLAUDE_DAILY_POINTS - 1)
+    avg_daily = round(spend_between(avg_window_start, avg_window_end) / _CLAUDE_DAILY_POINTS, 4)
+
+    balance = None
+    if baseline_date is not None:
+        balance = round(baseline_usd - spend_between(baseline_date, today), 4)
+
+    return {
+        'currency': 'USD',
+        'today': by_date.get(today.isoformat(), 0.0),
+        'yesterday': by_date.get((today - timedelta(days=1)).isoformat(), 0.0),
+        'month_to_date': spend_between(month_start, today),
+        'year_to_date': spend_between(year_start, today),
+        'year': today.year,
+        'avg_daily': avg_daily,
+        'avg_daily_days': _CLAUDE_DAILY_POINTS,
+        'last_month': months[-2]['cost'] if len(months) > 1 else 0.0,
+        'daily': daily,
+        'weekly': weekly,
+        'months': months,
+        'balance': balance,
+        'balance_as_of': baseline_date.isoformat() if baseline_date else None,
+        'as_of': datetime.now(timezone.utc).isoformat(timespec='seconds'),
+    }
+
+
+@app.route('/api/admin/claude-cost', methods=['GET'])
+@require_weace_token
+def admin_claude_cost():
+    """Anthropic API spend for the platform admin page. weace_super_admin only —
+    this is organisation-wide billing data, not scoped to any one org."""
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    if not _has_role(g.user.get('role'), 'weace_super_admin'):
+        return jsonify({'error': 'Forbidden'}), 403
+
+    now = time.time()
+    cached = _claude_cost_cache.get('summary')
+    if cached and cached[0] > now:
+        return jsonify(cached[1])
+    try:
+        summary = _claude_spend_summary()
+    except Exception as e:
+        logging.warning('Claude cost report failed: %s', e)
+        return jsonify({'error': str(e)}), 502
+    _claude_cost_cache['summary'] = (now + _CLAUDE_COST_TTL, summary)
+    return jsonify(summary)
+
+
 @app.route('/api/admin/linkedin-backfill', methods=['GET'])
 @require_weace_token
 def admin_linkedin_backfill_status():
@@ -2391,6 +2597,40 @@ def admin_user_details():
     logger.info("[user_details] user_id=%s updated by admin user_id=%s (%d chars)",
                 target_id, g.user.get('user_id'), len(details))
     return jsonify({'ok': True, 'user_id': target_id, 'additional_details': details})
+
+
+@app.route('/api/admin/usage-trend')
+@require_weace_token
+def admin_usage_trend():
+    """Message volume per day or per week, for the admin usage trend chart.
+
+    Mirrors /api/admin/users on scoping: weace_super_admin can pick any
+    organisation (or all), corporate super admins only ever see their own.
+    """
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    if not _has_role(g.user.get('role'), 'corporate_super_admin', 'weace_super_admin'):
+        return jsonify({'error': 'Forbidden'}), 403
+
+    if _has_role(g.user.get('role'), 'weace_super_admin'):
+        req_org = request.args.get('org_slug', '').strip()
+        org_slug = None if req_org in ('', 'all', '__all__') else req_org
+    else:
+        org_slug = (g.user.get('org_id') or '').strip() or None
+
+    granularity = 'week' if request.args.get('granularity') == 'week' else 'day'
+    # Defaults chosen so both views cover a comparable stretch of history:
+    # 30 days, or 12 weeks.
+    default_points = 12 if granularity == 'week' else 30
+    try:
+        points = int(request.args.get('points') or default_points)
+    except ValueError:
+        points = default_points
+
+    try:
+        return jsonify(get_usage_trend(org_slug, granularity, points))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/api/admin/orgs')

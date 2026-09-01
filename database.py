@@ -2,7 +2,7 @@ import json
 import logging
 import os
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 import pymysql
 import pymysql.cursors
 
@@ -1830,3 +1830,83 @@ def get_all_users_admin(org_slug=None) -> list:
             return users
     finally:
         conn.close()
+
+
+def get_usage_trend(org_slug=None, granularity: str = 'day', points: int = 30) -> dict:
+    """Message volume and active users over time, for the admin usage chart.
+
+    Buckets every message into a day or an ISO week (Monday-start) and returns
+    the last `points` buckets, gaps filled with zeros so the line keeps a real
+    time axis instead of skipping quiet days. `active_users` is the distinct
+    people who sent or received a message inside the bucket — daily actives on
+    the day view, weekly actives on the week view. Pass org_slug to scope to one
+    organisation; None counts every org.
+    """
+    granularity = 'week' if granularity == 'week' else 'day'
+    points = max(2, min(int(points or 30), 180))
+
+    # Widen the SQL window to whole buckets: the earliest bucket must start on a
+    # Monday for weeks, otherwise its count would be a partial week.
+    today = datetime.now().date()
+    if granularity == 'week':
+        end_start = today - timedelta(days=today.weekday())     # Monday of this week
+        start = end_start - timedelta(weeks=points - 1)
+        buckets = [start + timedelta(weeks=i) for i in range(points)]
+    else:
+        start = today - timedelta(days=points - 1)
+        buckets = [start + timedelta(days=i) for i in range(points)]
+
+    # Bucket in SQL rather than summing days afterwards, so COUNT(DISTINCT …)
+    # is a true count of the people and sessions in each bucket — a user active
+    # on three days of one week counts once for that week, not three times.
+    bucket_expr = ("DATE(m.created_at - INTERVAL WEEKDAY(m.created_at) DAY)"
+                   if granularity == 'week' else "DATE(m.created_at)")
+
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            join = where = ""
+            params: list = [start]
+            if org_slug:
+                join = "JOIN ai_coach_sessions s ON s.session_id = m.session_id"
+                where = " AND s.org_slug = %s"
+                params.append(org_slug)
+            _execute(cur, f"""
+                SELECT
+                    {bucket_expr} AS bucket,
+                    COUNT(*) AS total_messages,
+                    SUM(CASE WHEN m.role = 'user' THEN 1 ELSE 0 END) AS user_messages,
+                    COUNT(DISTINCT m.user_id) AS active_users,
+                    COUNT(DISTINCT m.session_id) AS sessions
+                FROM ai_coach_messages m
+                {join}
+                WHERE m.created_at >= %s{where}
+                GROUP BY bucket
+            """, params)
+            rows = cur.fetchall()
+    finally:
+        conn.close()
+
+    tally = {b: {'total_messages': 0, 'user_messages': 0, 'active_users': 0, 'sessions': 0}
+             for b in buckets}
+    for r in rows:
+        slot = tally.get(r['bucket'])
+        if slot is None:
+            continue
+        slot['total_messages'] = int(r['total_messages'] or 0)
+        slot['user_messages']  = int(r['user_messages'] or 0)
+        slot['active_users']   = int(r['active_users'] or 0)
+        slot['sessions']       = int(r['sessions'] or 0)
+
+    series = [{'period': b.isoformat(), **tally[b]} for b in buckets]
+    return {
+        'granularity': granularity,
+        'org_slug': org_slug,
+        'points': len(series),
+        'total_messages': sum(p['total_messages'] for p in series),
+        # Average actives per bucket, for the chart's summary line. Rounded to
+        # one place — over a month of days it is rarely a whole number.
+        'avg_active_users': round(sum(p['active_users'] for p in series) / len(series), 1) if series else 0,
+        'peak_active_users': max((p['active_users'] for p in series), default=0),
+        'series': series,
+    }

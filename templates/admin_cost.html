@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexa - Cost Analysis</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ asset('header.css') }}">
+    <link rel="icon" type="image/png" href="/static/favicon-wit.png">
+    <style>
+        :root {
+            --bg-color: #e2e6fc;
+            --bg-gradient: linear-gradient(100deg, #dfeafd 0%, #e2e2fb 30%, #ece2fb 52%, #e0e6fc 74%, #dcebfd 100%);
+            --glass-bg: rgba(255, 255, 255, 0.78);
+            --glass-border: rgba(76, 59, 138, 0.14);
+            --primary-color: #6d28d9;
+            --primary-hover: #5b21b6;
+            --text-main: #1e1b33;
+            --text-muted: #5b5674;
+            --accent-gradient: linear-gradient(135deg, #5b21b6 0%, #7c3aed 52%, #a855f7 100%);
+            /* Tinted fills and elevation, so shadows and hovers belong to the
+               palette instead of greying the page down. */
+            --primary-soft: rgba(109, 40, 217, 0.09);
+            --primary-ring: rgba(109, 40, 217, 0.30);
+            --surface: rgba(255, 255, 255, 0.92);
+            --card-shadow: 0 12px 32px -14px rgba(49, 32, 110, 0.30);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            background-image: var(--bg-gradient);
+            background-attachment: fixed;
+        }
+
+        /* ── Page body ── */
+        .page { margin: 0 auto; padding: 32px 24px 64px; }
+
+        .page-title { margin-bottom: 8px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .page-title h2 { font-size: 1.4rem; font-weight: 600; letter-spacing: -0.02em; }
+
+        .page-title .admin-badge {
+            display: inline-block; margin-top: 4px; font-size: 0.8rem;
+            color: var(--primary-color); background: rgba(124, 58, 237, 0.08);
+            border-radius: 999px; padding: 2px 10px; font-weight: 500;
+        }
+
+        /* ── Stat cards ── */
+        .stats-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px; margin: 24px 0 32px;
+        }
+        .stat-card {
+            background: var(--glass-bg); border: 1px solid var(--glass-border);
+            border-radius: 16px; padding: 20px 24px;
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+        }
+        .stat-label { font-size: 0.78rem; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 8px; }
+        .stat-value { font-size: 2rem; font-weight: 600; letter-spacing: -0.03em; color: var(--text-main); }
+        .stat-value.loading { color: var(--glass-border); }
+        .stat-sub { font-size: 0.75rem; color: var(--text-muted); margin-top: 6px; }
+
+        /* ── Monthly cost list ── */
+        .cost-month-list { display: flex; flex-direction: column; gap: 12px; padding: 6px 2px 2px; }
+        .cost-month-row {
+            display: grid; grid-template-columns: 78px 1fr 88px;
+            align-items: center; gap: 12px; font-size: 0.85rem;
+        }
+        .cost-month-label { color: var(--text-muted); white-space: nowrap; }
+        .cost-month-bar { height: 8px; border-radius: 999px; background: rgba(45, 32, 90, 0.08); overflow: hidden; }
+        .cost-month-bar span { display: block; height: 100%; border-radius: 999px; background: #6d28d9; }
+        .cost-month-val { text-align: right; font-weight: 600; color: var(--text-main); }
+        .cost-month-row.partial .cost-month-bar span { background: #a855f7; }
+        .cost-month-row.partial .cost-month-val { font-weight: 500; color: var(--text-muted); }
+
+        .skeleton { background: linear-gradient(90deg, #f3f0f8 25%, #e4dfec 50%, #f3f0f8 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 4px; height: 14px; }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+        .section-row {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            margin: 36px 0 16px;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .section-row h3 { font-size: 1rem; font-weight: 600; margin-bottom: 3px; }
+        .section-row p { font-size: 0.8rem; color: var(--text-muted); }
+
+        .heat-title-wrap { display: flex; align-items: center; gap: 10px; }
+        .heat-num {
+            width: 26px; height: 26px; border-radius: 50%;
+            border: 1.5px solid var(--glass-border);
+            font-size: 0.72rem; font-weight: 600; color: var(--text-muted);
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+        .heat-title-wrap h3 { font-size: 0.95rem; font-weight: 600; }
+
+        .combo-chart-card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 18px;
+            padding: 22px 26px 18px;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            margin-bottom: 24px;
+        }
+        .combo-chart-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+
+        .combo-chart-body { margin-bottom: 14px; position: relative; }
+        .combo-tooltip {
+            display: none;
+            position: absolute;
+            background: #fff;
+            border: 1px solid rgba(0,0,0,0.08);
+            border-radius: 10px;
+            padding: 10px 12px;
+            box-shadow: 0 4px 20px rgba(49, 32, 110,0.12);
+            pointer-events: none;
+            min-width: 190px;
+            z-index: 10;
+            font-family: inherit;
+        }
+        .combo-tooltip-date { font-size: 0.72rem; font-weight: 600; color: var(--text-muted); margin-bottom: 7px; }
+        .combo-tooltip-row { display: flex; align-items: center; gap: 6px; font-size: 0.75rem; padding: 1px 0; }
+        .combo-tooltip-swatch { width: 10px; height: 3px; border-radius: 99px; flex-shrink: 0; }
+        .combo-tooltip-label { color: #3c3350; flex: 1; }
+        .combo-tooltip-val { font-weight: 600; color: var(--text-main); font-variant-numeric: tabular-nums; }
+
+        /* ── Usage Trend (messages per day / week) ── */
+        .usage-toggle {
+            display: inline-flex; gap: 2px; padding: 2px;
+            background: rgba(45, 32, 90, 0.06); border-radius: 999px;
+        }
+        .usage-toggle button {
+            font-family: inherit; font-size: 0.75rem; font-weight: 500;
+            color: var(--text-muted); background: transparent; border: none;
+            padding: 5px 14px; border-radius: 999px; cursor: pointer;
+            transition: background 0.15s ease, color 0.15s ease;
+        }
+        .usage-toggle button:hover { color: var(--primary-color); }
+        .usage-toggle button.active {
+            background: #fff; color: var(--primary-color);
+            box-shadow: 0 1px 3px rgba(49, 32, 110, 0.12);
+        }
+        .usage-row { margin-top: 14px; }
+        .usage-total { font-size: 0.78rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+        .usage-total strong { color: var(--text-main); font-weight: 600; }
+        .usage-empty { font-size: 0.82rem; color: var(--text-muted); text-align: center; padding: 40px 0; }
+
+        .insight-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            gap: 20px;
+            align-items: stretch;
+            margin-bottom: 24px;
+        }
+        .insight-row > div { min-width: 0; display: flex; }
+        .insight-row .heat-card,
+        .insight-row .combo-chart-card { margin-bottom: 0; width: 100%; }
+        /* half-width columns: tighten the heat rows so the bar keeps its room */
+        .insight-row .heat-row {
+            grid-template-columns: 18px minmax(96px, 1.1fr) 2.4fr 28px;
+            gap: 10px;
+        }
+        /* if either half has nothing to show (e.g. too little history for a
+           trend line), let the surviving card take the full width */
+        .insight-row:has(> #heat-wrap:empty),
+        .insight-row:has(> #trends-wrap:empty) { grid-template-columns: 1fr; }
+        .insight-row:has(> #trends-wrap:empty) .heat-row {
+            grid-template-columns: 18px minmax(160px, 1.2fr) 3fr 32px;
+            gap: 14px;
+        }
+        @media (max-width: 1000px) {
+            .insight-row { grid-template-columns: 1fr; gap: 0; margin-bottom: 0; }
+            .insight-row .heat-card,
+            .insight-row .combo-chart-card { margin-bottom: 24px; }
+            .insight-row .heat-row {
+                grid-template-columns: 18px minmax(160px, 1.2fr) 3fr 32px;
+                gap: 14px;
+            }
+        }
+
+        /* ── Page transitions ── */
+        body { animation: pageIn 0.22s ease both; }
+        @keyframes pageIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+{% include '_header.html' %}
+
+<div class="page">
+    <div class="page-title">
+        <h2>Cost Analysis</h2>
+        <span class="admin-badge">weace_super_admin</span>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-label">Avg Daily Claude Cost</div>
+            <div class="stat-value loading" id="stat-claude-avg">&mdash;</div>
+            <div class="stat-sub" id="stat-claude-avg-sub"></div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Month to Date</div>
+            <div class="stat-value loading" id="stat-claude-mtd">&mdash;</div>
+            <div class="stat-sub" id="stat-claude-mtd-sub"></div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Last Month</div>
+            <div class="stat-value loading" id="stat-claude-last">&mdash;</div>
+            <div class="stat-sub">Full calendar month</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Year to Date</div>
+            <div class="stat-value loading" id="stat-claude-ytd">&mdash;</div>
+            <div class="stat-sub" id="stat-claude-ytd-sub"></div>
+        </div>
+    </div>
+
+    <!-- ── Claude API Cost ── -->
+    <div class="section-row">
+        <div>
+            <h3>Claude API Cost</h3>
+            <p>Anthropic spend across the platform &mdash; organisation-wide, not filtered by org</p>
+        </div>
+        <div style="display:flex; align-items:center; gap:14px; flex-shrink:0; flex-wrap:wrap;">
+            <span class="usage-total" id="cost-total"></span>
+            <div class="usage-toggle" id="cost-toggle">
+                <button data-granularity="day" class="active">Daily</button>
+                <button data-granularity="week">Weekly</button>
+            </div>
+        </div>
+    </div>
+    <div class="insight-row usage-row">
+        <div id="cost-trend-wrap"></div>
+        <div id="cost-months-wrap"></div>
+    </div>
+</div>
+
+<script src="{{ asset('header.js') }}"></script>
+<script src="{{ asset('usage-chart.js') }}"></script>
+<script>
+    function getAuthHeaders(extra) {
+        const token = localStorage.getItem('we_ace_access_token') || '';
+        return Object.assign({ 'Authorization': `Bearer ${token}` }, extra || {});
+    }
+
+    function escHtml(str) {
+        return String(str ?? '').replace(/[&<>"']/g, c =>
+            ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    // ── Anthropic API spend ──────────────────────────────────────────────────
+    // Organisation-wide, so it ignores the org filter.
+    function usd(amount) {
+        return '$' + Number(amount || 0).toLocaleString('en-US',
+            { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    let costGranularity = 'day';
+    let claudeCost = null;   // last payload — the toggle re-renders from it
+
+    document.getElementById('cost-toggle').querySelectorAll('button').forEach(btn => {
+        btn.addEventListener('click', () => {
+            if (btn.dataset.granularity === costGranularity) return;
+            costGranularity = btn.dataset.granularity;
+            document.getElementById('cost-toggle').querySelectorAll('button')
+                .forEach(b => b.classList.toggle('active', b === btn));
+            renderCostTrend(claudeCost);
+        });
+    });
+
+    // Calendar-month totals, oldest first. The current month is still filling,
+    // so it is drawn muted rather than reading as a collapse in spend.
+    function renderCostMonths(data) {
+        const wrap = document.getElementById('cost-months-wrap');
+        const months = (data && data.months) || [];
+        if (!months.length) {
+            wrap.innerHTML = usageCard('Monthly Total', '<div class="usage-empty">No cost data available.</div>');
+            return;
+        }
+        const peak = Math.max(...months.map(m => m.cost), 0.01);
+        const rows = months.map(m => `<div class="cost-month-row${m.partial ? ' partial' : ''}">
+                <span class="cost-month-label">${escHtml(m.label)}${m.partial ? ' ·' : ''}</span>
+                <span class="cost-month-bar"><span style="width:${Math.max(2, (m.cost / peak) * 100).toFixed(1)}%"></span></span>
+                <span class="cost-month-val">${usd(m.cost)}</span>
+            </div>`).join('');
+        wrap.innerHTML = usageCard('Monthly Total',
+            `<div class="cost-month-list">${rows}</div>`);
+    }
+
+    function renderCostTrend(data) {
+        const weekly = costGranularity === 'week';
+        const series = (data && (weekly ? data.weekly : data.daily)) || [];
+
+        const totalEl = document.getElementById('cost-total');
+        if (series.length) {
+            const total = series.reduce((a, p) => a + p.cost, 0);
+            totalEl.innerHTML = `<strong>${usd(total)}</strong> over the last ${series.length} ` +
+                `${weekly ? 'weeks' : 'days'} · <strong>${usd(data.month_to_date)}</strong> month to date`;
+        } else {
+            totalEl.textContent = '';
+        }
+
+        renderUsageChart({
+            wrapId: 'cost-trend-wrap',
+            title: weekly ? 'Weekly Cost' : 'Daily Cost',
+            series, granularity: weekly ? 'week' : 'day', key: 'cost', color: '#6d28d9',
+            rows: [['#6d28d9', weekly ? 'Weekly cost' : 'Daily cost', 'cost']],
+            fmt: usd,
+            fmtAxis: v => '$' + (v >= 10 ? Math.round(v) : Math.round(v * 100) / 100),
+        });
+        renderCostMonths(data);
+    }
+
+    async function loadClaudeCost() {
+        const avgEl     = document.getElementById('stat-claude-avg');
+        const avgSub    = document.getElementById('stat-claude-avg-sub');
+        const mtdEl     = document.getElementById('stat-claude-mtd');
+        const mtdSub    = document.getElementById('stat-claude-mtd-sub');
+        const lastEl    = document.getElementById('stat-claude-last');
+        const ytdEl     = document.getElementById('stat-claude-ytd');
+        const ytdSub    = document.getElementById('stat-claude-ytd-sub');
+        const skeleton  = '<div class="usage-empty"><div class="skeleton" style="width:180px; margin:0 auto;"></div></div>';
+        document.getElementById('cost-trend-wrap').innerHTML = usageCard('Daily Cost', skeleton);
+        document.getElementById('cost-months-wrap').innerHTML = usageCard('Monthly Total', skeleton);
+        try {
+            const res = await fetch('/api/admin/claude-cost', { headers: getAuthHeaders() });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Request failed');
+            claudeCost = data;
+
+            avgEl.classList.remove('loading');
+            avgEl.textContent = usd(data.avg_daily);
+            avgSub.textContent = `Last ${data.avg_daily_days} days · Today ${usd(data.today)}`;
+
+            mtdEl.classList.remove('loading');
+            mtdEl.textContent = usd(data.month_to_date);
+            mtdSub.textContent = `Yesterday ${usd(data.yesterday)}`;
+
+            lastEl.classList.remove('loading');
+            lastEl.textContent = usd(data.last_month);
+
+            ytdEl.classList.remove('loading');
+            ytdEl.textContent = usd(data.year_to_date);
+            ytdSub.textContent = `${data.year} so far`;
+            renderCostTrend(data);
+        } catch (err) {
+            [avgEl, mtdEl, lastEl, ytdEl].forEach(el => {
+                el.classList.remove('loading');
+                el.textContent = '—';
+            });
+            avgSub.textContent = escHtml(err.message || 'Unavailable');
+            mtdSub.textContent = '';
+            ytdSub.textContent = '';
+            document.getElementById('cost-total').textContent = '';
+            document.getElementById('cost-trend-wrap').innerHTML =
+                usageCard('Daily Cost', `<div class="usage-empty">${escHtml(err.message || 'Cost data unavailable.')}</div>`);
+            document.getElementById('cost-months-wrap').innerHTML =
+                usageCard('Monthly Total', '<div class="usage-empty">Cost data unavailable.</div>');
+        }
+    }
+    // Tabs, user chip and logout all come from the shared header.
+    NexaHeader.init();
+
+    loadClaudeCost();
+</script>
+</body>
+</html>

@@ -75,12 +75,14 @@ const NexaHeader = (() => {
     // ── My Insights sub-nav ─────────────────────────────────────────────────
     // The reports are addressed by URL hash, so the highlight follows the hash
     // rather than a click: it also has to be right after a back/forward or a
-    // tab switched from inside the page itself. 'growth' is the report
-    // my_insights.html opens on when the hash is empty.
-    const DEFAULT_SUBTAB = 'growth';
+    // tab switched from inside the page itself. 'sentiment' is the report
+    // my_insights.html opens on when the hash is empty (its DEFAULT_TAB).
+    const DEFAULT_SUBTAB = 'sentiment';
 
     function syncSubnav() {
-        const subs = document.querySelectorAll('.app-subtab');
+        // Scoped to My Insights: the Admin sub-nav is server-rendered and marks
+        // its own current page, so clearing every .app-subtab would unmark it.
+        const subs = document.querySelectorAll('#my-insights-subnav .app-subtab');
         if (!subs.length) return;
         const onPage = window.location.pathname.replace(/\/+$/, '') === '/my-insights';
         const current = onPage ? (window.location.hash.slice(1) || DEFAULT_SUBTAB) : null;
@@ -350,6 +352,7 @@ const NexaHeader = (() => {
         show('language-menu-wrap', !isWeaceAdmin);
         show('my-insights-link', !isWeaceAdmin);
         show('my-insights-subnav', !isWeaceAdmin);
+        show('admin-subnav', isWeaceAdmin);
         show('btn-corp-content', isOrgAdmin && !isWeaceAdmin);
         show('dashboard-link', isOrgAdmin);
         show('tab-admin', isWeaceAdmin);

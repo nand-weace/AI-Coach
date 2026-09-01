@@ -105,6 +105,18 @@
         }
         tbody tr:last-child td { border-bottom: none; }
         tbody tr:hover { background: rgba(139, 92, 246, 0.03); }
+        /* Sortable column headers */
+        th.sortable { cursor: pointer; user-select: none; transition: color 0.15s ease; }
+        th.sortable:hover { color: var(--primary-color); }
+        th.sortable:focus-visible { outline: 2px solid var(--primary-ring); outline-offset: -2px; }
+        th.sortable .sort-arrow {
+            display: inline-block; margin-left: 5px; font-size: 0.7rem;
+            opacity: 0.28; transition: opacity 0.15s ease;
+        }
+        th.sortable:hover .sort-arrow { opacity: 0.6; }
+        th.sorted { color: var(--primary-color); }
+        th.sorted .sort-arrow { opacity: 1; }
+
         .cell-name { font-weight: 500; }
         .cell-muted { color: var(--text-muted); font-size: 0.82rem; }
         .empty-row td { text-align: center; color: var(--text-muted); padding: 40px; }
@@ -403,6 +415,28 @@
         .combo-legend-name { color: var(--text-main); }
         .combo-legend-score { font-weight: 600; font-variant-numeric: tabular-nums; }
 
+
+        /* ── Usage Trend (messages per day / week) ── */
+        .usage-toggle {
+            display: inline-flex; gap: 2px; padding: 2px;
+            background: rgba(45, 32, 90, 0.06); border-radius: 999px;
+        }
+        .usage-toggle button {
+            font-family: inherit; font-size: 0.75rem; font-weight: 500;
+            color: var(--text-muted); background: transparent; border: none;
+            padding: 5px 14px; border-radius: 999px; cursor: pointer;
+            transition: background 0.15s ease, color 0.15s ease;
+        }
+        .usage-toggle button:hover { color: var(--primary-color); }
+        .usage-toggle button.active {
+            background: #fff; color: var(--primary-color);
+            box-shadow: 0 1px 3px rgba(49, 32, 110, 0.12);
+        }
+        .usage-row { margin-top: 14px; }
+        .usage-total { font-size: 0.78rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+        .usage-total strong { color: var(--text-main); font-weight: 600; }
+        .usage-empty { font-size: 0.82rem; color: var(--text-muted); text-align: center; padding: 40px 0; }
+
         /* ── Heat Analysis + Trend Over Time side by side ── */
         .insight-row {
             display: grid;
@@ -485,6 +519,25 @@
         </div> -->
     </div>
 
+    <!-- ── Usage Trend ── -->
+    <div class="section-row">
+        <div>
+            <h3>Usage Trend</h3>
+            <p>Message volume and active users over time</p>
+        </div>
+        <div style="display:flex; align-items:center; gap:14px; flex-shrink:0; flex-wrap:wrap;">
+            <span class="usage-total" id="usage-total"></span>
+            <div class="usage-toggle" id="usage-toggle">
+                <button data-granularity="day" class="active">Daily</button>
+                <button data-granularity="week">Weekly</button>
+            </div>
+        </div>
+    </div>
+    <div class="insight-row usage-row">
+        <div id="usage-messages-wrap"></div>
+        <div id="usage-actives-wrap"></div>
+    </div>
+
     <!-- ── Sentiment Intelligence ── -->
     <div class="section-row">
         <div>
@@ -516,15 +569,15 @@
         </div>
         <table>
             <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Email</th>
-                    <th>Active Since</th>
-                    <th>Last Login</th>
-                    <th>Sessions</th>
-                    <th>Chats</th>
-                    <th>Nexa Access</th>
-                    <th>Details</th>
+                <tr id="user-table-head">
+                    <th class="sortable" data-sort-key="user_name">Name<span class="sort-arrow"></span></th>
+                    <th class="sortable" data-sort-key="email">Email<span class="sort-arrow"></span></th>
+                    <th class="sortable" data-sort-key="first_login">Active Since<span class="sort-arrow"></span></th>
+                    <th class="sortable" data-sort-key="last_login">Last Login<span class="sort-arrow"></span></th>
+                    <th class="sortable" data-sort-key="session_count">Sessions<span class="sort-arrow"></span></th>
+                    <th class="sortable" data-sort-key="chat_count">Chats<span class="sort-arrow"></span></th>
+                    <th class="sortable" data-sort-key="nexa_access">Nexa Access<span class="sort-arrow"></span></th>
+                    <th class="sortable" data-sort-key="details">Details<span class="sort-arrow"></span></th>
                 </tr>
             </thead>
             <tbody id="user-table-body">
@@ -578,6 +631,7 @@
 </div>
 
 <script src="{{ asset('header.js') }}"></script>
+<script src="{{ asset('usage-chart.js') }}"></script>
 <script>
     let allUsers = [];
     // Rows currently rendered in the All Users table (after org filter + search).
@@ -612,6 +666,83 @@
         if (!str) return '—';
         return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
+
+    // ── Column sorting ────────────────────────────────────────────────────────
+    // Sorted client-side over the rows already loaded for the selected org, so
+    // a click reorders instantly without another round trip. 'Active Since' and
+    // 'Details' sort on the underlying value (first login date, whether notes
+    // exist), not on the text the cell happens to render.
+    const SORT_COLUMNS = {
+        user_name:     { get: u => (u.user_name || '').toLowerCase(), type: 'text' },
+        email:         { get: u => (u.email || '').toLowerCase(),     type: 'text' },
+        first_login:   { get: u => u.first_login ? Date.parse(u.first_login) : null, type: 'num' },
+        last_login:    { get: u => u.last_login  ? Date.parse(u.last_login)  : null, type: 'num' },
+        session_count: { get: u => u.session_count || 0, type: 'num' },
+        chat_count:    { get: u => u.chat_count || 0,    type: 'num' },
+        nexa_access:   { get: u => (u.nexa_access ? 1 : 0), type: 'num' },
+        details:       { get: u => ((u.additional_details || '').trim() ? 1 : 0), type: 'num' },
+    };
+    // Matches the order the API returns: most recently seen users first.
+    let sortState = { key: 'last_login', dir: 'desc' };
+
+    function sortUsers(users) {
+        const col = SORT_COLUMNS[sortState.key];
+        if (!col) return users;
+        const sign = sortState.dir === 'asc' ? 1 : -1;
+        return users.slice().sort((a, b) => {
+            const va = col.get(a), vb = col.get(b);
+            // Users with nothing recorded sit at the bottom either way, rather
+            // than crowding the top of an ascending sort.
+            const na = va === null || va === undefined || va === '';
+            const nb = vb === null || vb === undefined || vb === '';
+            if (na || nb) return na && nb ? 0 : (na ? 1 : -1);
+            if (col.type === 'text') return sign * String(va).localeCompare(String(vb));
+            return sign * (va - vb);
+        });
+    }
+
+    function updateSortHeaders() {
+        document.querySelectorAll('#user-table-head th.sortable').forEach(th => {
+            const active = th.dataset.sortKey === sortState.key;
+            th.classList.toggle('sorted', active);
+            th.setAttribute('aria-sort', active
+                ? (sortState.dir === 'asc' ? 'ascending' : 'descending') : 'none');
+            th.querySelector('.sort-arrow').textContent = active
+                ? (sortState.dir === 'asc' ? '▲' : '▼') : '⇅';
+        });
+    }
+
+    // Search filter + current sort, applied together — the single path that
+    // decides which rows the table (and the CSV export) shows.
+    function applyUserFilters() {
+        const q = (document.getElementById('search-input').value || '').toLowerCase();
+        const filtered = q ? allUsers.filter(u =>
+            (u.user_name || '').toLowerCase().includes(q) ||
+            (u.email || '').toLowerCase().includes(q) ||
+            (u.org_name || '').toLowerCase().includes(q)
+        ) : allUsers;
+        renderTable(sortUsers(filtered));
+    }
+
+    document.querySelectorAll('#user-table-head th.sortable').forEach(th => {
+        th.tabIndex = 0;
+        const sort = () => {
+            const key = th.dataset.sortKey;
+            if (sortState.key === key) {
+                sortState.dir = sortState.dir === 'asc' ? 'desc' : 'asc';
+            } else {
+                // Names and emails read best A→Z; counts and dates are more
+                // useful with the largest or most recent first.
+                sortState = { key, dir: SORT_COLUMNS[key].type === 'text' ? 'asc' : 'desc' };
+            }
+            updateSortHeaders();
+            applyUserFilters();
+        };
+        th.addEventListener('click', sort);
+        th.addEventListener('keydown', e => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); sort(); }
+        });
+    });
 
     function renderTable(users) {
         visibleUsers = users;
@@ -774,7 +905,9 @@
             if (!res.ok) throw new Error(data.error || 'Failed to save');
             const user = allUsers.find(u => u.user_id === userId);
             if (user) user.additional_details = details;
-            renderTable(visibleUsers);
+            // Re-run the filters rather than repainting the old rows: saving
+            // notes can move a user when the table is sorted by Details.
+            applyUserFilters();
             setDetailsStatus('Saved');
             setTimeout(() => { if (detailsUserId === userId) closeDetailsModal(); }, 600);
         } catch (err) {
@@ -813,21 +946,14 @@
             document.getElementById('stat-chats').textContent = totalChats;
             document.querySelectorAll('.stat-card:not(.nexa-stat) .stat-value').forEach(el => el.classList.remove('loading'));
 
-            renderTable(allUsers);
+            applyUserFilters();
         } catch (_) {
             document.getElementById('user-table-body').innerHTML =
                 '<tr class="empty-row"><td colspan="8">Failed to load data. Please refresh.</td></tr>';
         }
     }
 
-    document.getElementById('search-input').addEventListener('input', (e) => {
-        const q = e.target.value.toLowerCase();
-        renderTable(allUsers.filter(u =>
-            (u.user_name || '').toLowerCase().includes(q) ||
-            (u.email || '').toLowerCase().includes(q) ||
-            (u.org_name || '').toLowerCase().includes(q)
-        ));
-    });
+    document.getElementById('search-input').addEventListener('input', applyUserFilters);
 
     // ── Nexa next/used counts (live from the WeAce users API, per organisation) ──
     async function loadNexaCounts() {
@@ -891,6 +1017,7 @@
     // come from the shared header.
     NexaHeader.init();
 
+    updateSortHeaders();
     loadUsers();
     loadNexaCounts();
     const SENTIMENT_DIMS = [
@@ -1381,6 +1508,72 @@
         renderTrendsSection(data);
     }
 
+    // ── Usage Trend ───────────────────────────────────────────────────────────
+    // Two charts on one row over the same buckets: total messages (user + Nexa)
+    // and active people. They share the Daily/Weekly toggle in the section
+    // header. Zero-days are real points, not gaps, so a quiet stretch reads as a
+    // dip rather than a straight line across it.
+    let usageGranularity = 'day';
+
+    document.getElementById('usage-toggle').querySelectorAll('button').forEach(btn => {
+        btn.addEventListener('click', () => {
+            if (btn.dataset.granularity === usageGranularity) return;
+            usageGranularity = btn.dataset.granularity;
+            document.getElementById('usage-toggle').querySelectorAll('button')
+                .forEach(b => b.classList.toggle('active', b === btn));
+            loadUsageTrend();
+        });
+    });
+
+    function renderUsageTrend(data) {
+        const series = (data && data.series) || [];
+        const granularity = (data && data.granularity) || usageGranularity;
+        const weekly = granularity === 'week';
+        const n = series.length;
+
+        if (n) {
+            const total = data.total_messages ?? series.reduce((a, p) => a + p.total_messages, 0);
+            const avgUsers = data.avg_active_users ??
+                Math.round(series.reduce((a, p) => a + p.active_users, 0) / n * 10) / 10;
+            document.getElementById('usage-total').innerHTML =
+                `<strong>${total.toLocaleString('en-GB')}</strong> messages · ` +
+                `<strong>${avgUsers.toLocaleString('en-GB')}</strong> avg active users · ` +
+                `last ${n} ${weekly ? 'weeks' : 'days'}`;
+        } else {
+            document.getElementById('usage-total').textContent = '';
+        }
+
+        renderUsageChart({
+            wrapId: 'usage-messages-wrap', title: 'Total Messages',
+            series, granularity, key: 'total_messages', color: '#6d28d9',
+            rows: [['#6d28d9', 'Total messages', 'total_messages'],
+                   ['#a855f7', 'From users',     'user_messages'],
+                   ['#7f78a0', 'Sessions',       'sessions']],
+        });
+        renderUsageChart({
+            wrapId: 'usage-actives-wrap', title: weekly ? 'Weekly Active Users' : 'Daily Active Users',
+            series, granularity, key: 'active_users', color: '#0d9488',
+            rows: [['#0d9488', weekly ? 'Weekly active users' : 'Daily active users', 'active_users'],
+                   ['#7f78a0', 'Sessions',       'sessions'],
+                   ['#a855f7', 'Messages',       'total_messages']],
+        });
+    }
+
+    async function loadUsageTrend() {
+        const skeleton = '<div class="usage-empty"><div class="skeleton" style="width:180px; margin:0 auto;"></div></div>';
+        document.getElementById('usage-total').textContent = '';
+        document.getElementById('usage-messages-wrap').innerHTML = usageCard('Total Messages', skeleton);
+        document.getElementById('usage-actives-wrap').innerHTML =
+            usageCard(usageGranularity === 'week' ? 'Weekly Active Users' : 'Daily Active Users', skeleton);
+        const params = new URLSearchParams({ granularity: usageGranularity });
+        if (currentOrgSlug !== ALL_ORGS) params.set('org_slug', currentOrgSlug);
+        try {
+            const res = await fetch('/api/admin/usage-trend?' + params.toString(), { headers: getAuthHeaders() });
+            if (!res.ok) { renderUsageTrend(null); return; }
+            renderUsageTrend(await res.json());
+        } catch (_) { renderUsageTrend(null); }
+    }
+
     // ── Sentiment Intelligence (per-organisation) ─────────────────────────────
     async function loadOrgs() {
         try {
@@ -1424,6 +1617,7 @@
         updateRecalcState();
         loadUsers();
         loadNexaCounts();
+        loadUsageTrend();
         loadSentiment();
     });
 
@@ -1470,6 +1664,7 @@
 
     loadOrgs();
     updateRecalcState();
+    loadUsageTrend();
     loadSentiment();
     loadLinkedInEnriched();
 

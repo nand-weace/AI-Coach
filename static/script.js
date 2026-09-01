@@ -298,6 +298,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
         if (!res.ok) return null;
         const data = await res.json();
+        console.log('Session established:', data);
         persistSessionData(data);
         return data;
     }

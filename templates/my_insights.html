@@ -180,6 +180,80 @@
         }
         .sentiment-card-header { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
         .sentiment-label { font-size: 0.88rem; font-weight: 600; color: var(--text-main); line-height: 1.3; }
+        /* What the dimension actually measures, on the label itself — the
+           gauge means nothing until you know what is being scored. Hover or
+           keyboard focus opens it; the card's click-to-modal still works
+           through it. */
+        .sentiment-label-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+        .dim-info {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 15px; height: 15px;
+            flex-shrink: 0;
+            border-radius: 50%;
+            border: 1px solid rgba(107, 100, 132, 0.35);
+            color: var(--text-muted);
+            font-size: 0.6rem;
+            font-weight: 700;
+            font-style: normal;
+            line-height: 1;
+            cursor: help;
+        }
+        .dim-info:hover, .dim-info:focus-visible {
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+            outline: none;
+        }
+        .dim-tip {
+            position: absolute;
+            top: calc(100% + 8px);
+            left: -8px;
+            width: max-content;
+            max-width: 205px;
+            background: #2d205a;
+            color: #fff;
+            font-size: 0.74rem;
+            font-weight: 500;
+            font-style: normal;
+            line-height: 1.5;
+            letter-spacing: 0;
+            padding: 8px 11px;
+            border-radius: 9px;
+            box-shadow: 0 10px 26px -12px rgba(24, 12, 60, 0.75);
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-3px);
+            transition: opacity 0.14s, transform 0.14s, visibility 0.14s;
+            pointer-events: none;
+            z-index: 30;
+        }
+        .dim-tip::before {
+            content: '';
+            position: absolute;
+            bottom: 100%; left: 11px;
+            border: 5px solid transparent;
+            border-bottom-color: #2d205a;
+        }
+        .dim-info:hover .dim-tip,
+        .dim-info:focus-visible .dim-tip {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+        /* lift the hovered card so its tooltip is not painted over by the next
+           card in the grid */
+        .sentiment-card:hover, .sentiment-card:focus-within { z-index: 5; }
+        /* on narrow screens the card is barely wider than the tip — flip it so
+           it opens leftward instead of off the edge of the page */
+        @media (max-width: 560px) {
+            .dim-tip { left: auto; right: -8px; }
+            .dim-tip::before { left: auto; right: 11px; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .dim-tip { transition: none; }
+        }
         .sentiment-score-block { flex-shrink: 0; }
         /* clamped to keep every card the same height — the modal has the full text */
         .sentiment-insight {
@@ -1048,10 +1122,10 @@
          of any one panel, so they sit opposite the tabs rather than above them. -->
     <div class="tabs-row">
         <div class="insight-tabs" role="tablist" aria-label="Insight sections">
-            <button class="insight-tab active" role="tab" aria-selected="true"  aria-controls="panel-growth"    data-panel="growth">Growth Snapshot</button>
+            <button class="insight-tab"        role="tab" aria-selected="false" aria-controls="panel-growth"    data-panel="growth">Growth Snapshot</button>
             <button class="insight-tab"        role="tab" aria-selected="false" aria-controls="panel-themes"    data-panel="themes">Themes</button>
             <button class="insight-tab"        role="tab" aria-selected="false" aria-controls="panel-recs"      data-panel="recs">Recommendations</button>
-            <button class="insight-tab"        role="tab" aria-selected="false" aria-controls="panel-sentiment" data-panel="sentiment">Sentiment Analysis</button>
+            <button class="insight-tab active" role="tab" aria-selected="true"  aria-controls="panel-sentiment" data-panel="sentiment">Sentiment Analysis</button>
         </div>
         <div class="stats-grid">
             {# Temporarily hidden. The element stays so loadStats() and the
@@ -1072,7 +1146,7 @@
     </div>
 
     <!-- ── Sentiment Intelligence ── -->
-    <div class="insight-panel" id="panel-sentiment" role="tabpanel" hidden>
+    <div class="insight-panel" id="panel-sentiment" role="tabpanel">
     <div class="section-row">
         <div>
             <h3>My Sentiment Intelligence</h3>
@@ -1165,7 +1239,7 @@
     </div><!-- /#panel-recs -->
 
     <!-- ── Growth Snapshot ── -->
-    <div class="insight-panel" id="panel-growth" role="tabpanel">
+    <div class="insight-panel" id="panel-growth" role="tabpanel" hidden>
     <div class="section-row">
         <div>
             <h3>Growth Snapshot</h3>
@@ -1256,7 +1330,7 @@
 
     // ── Sentiment Intelligence ────────────────────────────────────────────────
 
-    const SENTIMENT_DIMS = [
+    const ALL_SENTIMENT_DIMS = [
         { key: 'growth_mindset', label: 'Growth Mindset', desc: 'How you frame effort and setbacks', inverse: false, theme: 'growth',
           interp: { high: 'You consistently treat challenges as chances to learn and keep improving.', mid: 'Growth framing shows up often, alongside moments where setbacks read as fixed limits.', low: 'Setbacks tend to be framed as limitations — reframing them as data to learn from could shift a lot.' } },
         { key: 'job_satisfaction', label: 'Job Satisfaction', desc: 'Your sense of meaning and engagement at work', inverse: false, theme: 'growth',
@@ -1274,6 +1348,12 @@
         { key: 'empathy', label: 'Empathy', desc: "Attention to others' perspectives and emotions", inverse: false, theme: 'interpersonal',
           interp: { high: 'You regularly take others\' perspectives and name their experience explicitly.', mid: 'Awareness of others is present, with room to deepen how you read the room.', low: 'Conversations centre mostly on you or the task; others\' feelings rarely feature.' } },
     ];
+
+    // Scored and stored as usual, just not shown on this page. Kept in
+    // ALL_SENTIMENT_DIMS so Growth Snapshot can still label a pill that comes
+    // back tagged with one of them.
+    const HIDDEN_DIMS = new Set(['psychological_safety', 'empathy']);
+    const SENTIMENT_DIMS = ALL_SENTIMENT_DIMS.filter(d => !HIDDEN_DIMS.has(d.key));
 
     const SENTIMENT_THEMES = [
         { key: 'growth',        label: 'Growth & Development' },
@@ -1777,15 +1857,17 @@
         function buildCard(dim, entry) {
             const score = Math.max(0, Math.min(100, entry.score || 0));
             const cls = scoreClasses(score, dim.inverse);
-            const effective = dim.inverse ? (100 - score) : score;
-            const tier = effective >= 70 ? 'high' : effective >= 40 ? 'mid' : 'low';
-            const interp = dim.interp ? dim.interp[tier] : '';
             const gaugeColor = GAUGE_COLORS[cls.num];
-            // Compact card: label + gauge + a clamped insight. The description and
-            // the tier meaning live in the modal, which opens on click.
-            return `<div class="sentiment-card ${cls.card}" data-dim-key="${dim.key}" title="${escHtml(interp || dim.desc)}">
+            // Compact card: label + what the dimension measures (the info
+            // tooltip) + gauge + a clamped insight. The tier meaning and the
+            // full text live in the modal, which opens on click.
+            return `<div class="sentiment-card ${cls.card}" data-dim-key="${dim.key}">
                 <div class="sentiment-card-header">
-                    <div class="sentiment-label">${dim.label}</div>
+                    <div class="sentiment-label-row">
+                        <div class="sentiment-label">${dim.label}</div>
+                        <i class="dim-info" tabindex="0" role="note"
+                           aria-label="${escHtml(dim.label)}: ${escHtml(dim.desc)}">i<span class="dim-tip">${escHtml(dim.desc)}</span></i>
+                    </div>
                     <div class="sentiment-score-block">${buildGauge(score, gaugeColor, dim.inverse)}</div>
                 </div>
                 <div class="sentiment-insight">${escHtml(entry.insight || '')}</div>
@@ -1933,7 +2015,7 @@
     // rest of this page uses, opportunities they have actually mentioned, and
     // patterns to watch — recurring triggers, counted across sessions.
 
-    const DIM_LABEL = Object.fromEntries(SENTIMENT_DIMS.map(d => [d.key, d.label]));
+    const DIM_LABEL = Object.fromEntries(ALL_SENTIMENT_DIMS.map(d => [d.key, d.label]));
 
     const TRAJECTORY_META = {
         'improving':       { label: 'Improving',       cls: 'pill-improving' },
@@ -2762,7 +2844,7 @@
     // the user never looks at. The chosen tab lives in the URL hash so a refresh
     // (and the browser back button) lands where they were.
 
-    // Order here is the tab order, and the first key is the default.
+    // Order here is the tab order; DEFAULT_TAB below picks which one opens.
     const TAB_LOADERS = {
         growth:    () => loadGrowth(),
         themes:    () => {
@@ -2773,7 +2855,11 @@
         recs:      () => { loadTip(); loadRecs(); },
         sentiment: () => loadSentiment(),
     };
-    const DEFAULT_TAB = Object.keys(TAB_LOADERS)[0];
+    // Sentiment Analysis opens by default — it is the report users come back
+    // for most, and it reads from stored scores rather than generating one.
+    // The markup above must mark the same tab/panel so nothing flashes before
+    // this script runs.
+    const DEFAULT_TAB = 'sentiment';
     const loadedTabs = new Set();
 
     function showTab(name, { updateHash = true } = {}) {

@@ -4,6 +4,8 @@
 
   Params:
     active_tab     'talk' | 'sentiment' | 'my-insights' | 'admin'
+    active_subtab  'platform' | 'cost' — which Admin page is open, for the
+                   sub-nav under the Admin tab.
     show_org_tabs  true to render Sentiment Analysis / Corporate Knowledge as
                    visible (the dashboard, which is role-gated server-side).
                    The chat page leaves them hidden and lets script.js reveal
@@ -101,6 +103,16 @@
             </svg>
             Admin
         </a>
+
+        {# Admin's own sections. Server-rendered pages, so the current one is
+           marked from `active_subtab` rather than by header.js. #}
+        <div class="app-subnav" id="admin-subnav"
+             {% if not show_admin %}style="display:none;"{% endif %}>
+            <a class="app-subtab{% if active_subtab == 'platform' %} active{% endif %}"
+               href="/admin">Platform</a>
+            <a class="app-subtab{% if active_subtab == 'cost' %} active{% endif %}"
+               href="/admin/cost">Cost Analysis</a>
+        </div>
 
         <button type="button" class="app-tab" id="btn-weace-coaching">
             <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
