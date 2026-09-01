@@ -887,62 +887,6 @@
         @keyframes recFadeIn { from { opacity: 0; } to { opacity: 1; } }
         .panel-waiting-sub { font-size: 0.78rem; color: var(--text-muted); }
 
-        /* Tip of the day — a two-line strip above the reading list, not a panel
-           of its own: one line for the punchline, one for the action. The
-           supporting sentence lives in the headline's tooltip. */
-        .panel-divider {
-            height: 1px; margin: 26px 0 0;
-            background: linear-gradient(90deg,
-                        rgba(45, 32, 90, 0.14), rgba(45, 32, 90, 0.02));
-        }
-        .tip-card {
-            display: flex; align-items: center; gap: 12px;
-            background: white;
-            border: 1px solid color-mix(in srgb, var(--primary-color) 24%, transparent);
-            border-radius: 14px;
-            padding: 10px 14px;
-            transition: opacity 0.18s;
-        }
-        .tip-card.is-swapping { opacity: 0.35; }
-        .tip-icon {
-            flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            background: rgba(109, 40, 217, 0.12); color: var(--primary-color);
-        }
-        /* min-width:0 so the two lines can ellipsis instead of stretching the
-           strip into a paragraph. */
-        .tip-body { min-width: 0; flex: 1; }
-        .tip-headline {
-            font-size: 0.92rem; font-weight: 600; color: var(--text-main);
-            line-height: 1.35;
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-        }
-        .tip-do {
-            font-size: 0.78rem; color: var(--text-muted); line-height: 1.4;
-            margin-top: 2px;
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-        }
-        .tip-do strong { font-weight: 600; color: var(--primary-color); }
-        .tip-new {
-            display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;
-            background: rgba(255, 255, 255, 0.75);
-            border: 1px solid color-mix(in srgb, var(--primary-color) 26%, transparent);
-            border-radius: 999px; padding: 5px 12px;
-            font-family: inherit; font-size: 0.74rem; font-weight: 600;
-            color: var(--primary-color); cursor: pointer;
-            transition: background 0.18s, box-shadow 0.18s;
-        }
-        .tip-new:hover:not(:disabled) {
-            background: #fff; box-shadow: 0 2px 10px rgba(109, 40, 217, 0.16);
-        }
-        .tip-new:disabled { opacity: 0.6; cursor: default; }
-        /* One muted line, so a tipless state costs no more room than a tip. */
-        .tip-note {
-            font-size: 0.8rem; color: var(--text-muted);
-            padding: 4px 2px;
-        }
-        .tip-row { margin: 24px 0 12px; }
-
 
         .panel-empty {
             background: var(--glass-bg);
@@ -1122,16 +1066,6 @@
     </div><!-- /#panel-sentiment -->
 
     <div class="insight-panel" id="panel-recs" role="tabpanel" hidden>
-    <!-- ── Tip of the Day ── Its own section: it costs no web search, so it is
-         here on load while the list below waits for the button. The tip itself
-         stays a two line strip — the reading list below is what the tab is for. -->
-    <div class="section-row tip-row">
-        <div>
-            <h3>Tip of the Day</h3>
-        </div>
-    </div>
-    <div id="tip-wrap"></div>
-
     <!-- ── Reading Recommendations ── -->
     <div class="section-row" id="recs-section">
         <div>
@@ -2423,104 +2357,6 @@
         }).join('');
     }
 
-    // ── Tip of the day ────────────────────────────────────────────────────────
-    // One tip per day, written server-side and cached against the date. The
-    // button asks for a different one; generation is told what it has already
-    // said, so a new tip covers new ground.
-    let tipData = null;
-
-    function tipEmpty(message) {
-        document.getElementById('tip-wrap').innerHTML =
-            `<div class="tip-note">${escHtml(message)}</div>`;
-    }
-
-    function renderTip(data) {
-        const wrap = document.getElementById('tip-wrap');
-        tipData = data;
-
-        const text = (data && data.tip) || '';
-        if (!text) {
-            tipEmpty('Nexa needs a little more conversation before it can write you a tip.');
-            return;
-        }
-
-        wrap.innerHTML = `<div class="tip-card">
-            <span class="tip-icon">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M9 18h6"/><path d="M10 22h4"/>
-                    <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/>
-                </svg>
-            </span>
-            <div class="tip-body">
-                <div class="tip-headline" title="${escHtml(text)}">${escHtml(data.headline || text)}</div>
-                ${data.try_today ? `<div class="tip-do"><strong>Try today:</strong> ${escHtml(data.try_today)}</div>` : ''}
-            </div>
-            <button type="button" class="tip-new" id="tip-refresh-btn" title="Write me a different tip">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <polyline points="23 4 23 10 17 10"/>
-                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
-                </svg>
-                New tip
-            </button>
-        </div>`;
-    }
-
-    async function loadTip() {
-        let data;
-        try {
-            const res = await fetch('/api/my-tip', { headers: getAuthHeaders(), credentials: 'omit' });
-            if (res.status === 401 || res.status === 403) { window.location.href = '/'; return; }
-            if (!res.ok) {
-                console.error('Tip request failed', res.status);
-                tipEmpty('Could not load your tip right now. Please refresh.');
-                return;
-            }
-            data = await res.json();
-        } catch (e) {
-            console.error('Tip request failed', e);
-            tipEmpty('Could not load your tip right now. Please refresh.');
-            return;
-        }
-        // Rendering sits outside the fetch's try on purpose: a render error used
-        // to be caught there and reported as "not enough conversation".
-        if (data && data.error) {
-            console.error('Tip error', data.error);
-            tipEmpty('Could not load your tip right now. Please refresh.');
-            return;
-        }
-        renderTip(data);
-    }
-
-    document.getElementById('tip-wrap').addEventListener('click', async e => {
-        const btn = e.target.closest('#tip-refresh-btn');
-        if (!btn) return;
-        const card = document.querySelector('#tip-wrap .tip-card');
-        if (card) card.classList.add('is-swapping');
-        const label = btn.lastChild;
-        btn.disabled = true;
-        label.textContent = ' Thinking…';
-        try {
-            const res = await fetch('/api/my-tip/refresh',
-                { method: 'POST', headers: getAuthHeaders(), credentials: 'omit' });
-            const data = await res.json().catch(() => ({}));
-            if (res.ok && data.ok && data.data) {
-                renderTip(data.data);
-            } else {
-                // Nothing new to show — leave the tip they have rather than the
-                // card faded out mid-swap.
-                console.error('Tip refresh failed', data.error || res.status);
-                if (card) card.classList.remove('is-swapping');
-            }
-        } catch (e) {
-            console.error('Tip refresh failed', e);
-            if (card) card.classList.remove('is-swapping');
-        } finally {
-            // The card may have been re-rendered under us, taking this button
-            // with it — only reset the one still on screen.
-            if (btn.isConnected) { btn.disabled = false; label.textContent = ' New tip'; }
-        }
-    });
-
     function renderRecs(data) {
         const wrap = document.getElementById('recs-wrap');
         currentRecs = data;
@@ -2718,7 +2554,7 @@
             // Temporarily hidden — skip the fetch so we don't spend model calls on it.
             if (document.getElementById('digest-section')?.style.display !== 'none') loadDigest();
         },
-        recs:      () => { loadTip(); loadRecs(); },
+        recs:      () => loadRecs(),
         sentiment: () => loadSentiment(),
     };
 

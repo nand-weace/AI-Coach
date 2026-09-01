@@ -121,6 +121,28 @@
             WeAce Platform
         </button>
     </nav>
+    
+    {# Tip of the day — moved out of My Insights so it is there on every page.
+       header.js fills it in after load and leaves the block hidden when there
+       is no session yet, no tip, or the request fails. #}
+    <div class="sidebar-tip" id="sidebar-tip" hidden>
+        <div class="sidebar-tip-head">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M9 18h6"/><path d="M10 22h4"/>
+                <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/>
+            </svg>
+            <span>Tip of the day</span>
+            <button type="button" class="sidebar-tip-new" id="sidebar-tip-refresh"
+                    title="Write me a different tip" aria-label="Write me a different tip">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <polyline points="23 4 23 10 17 10"/>
+                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+                </svg>
+            </button>
+        </div>
+        <div class="sidebar-tip-headline" id="sidebar-tip-headline"></div>
+        <div class="sidebar-tip-do" id="sidebar-tip-do"></div>
+    </div>
 
     {# Fills the gap between the nav and the user chip. The claim is deliberately
        exact: org admins can see activity counts on the dashboard, never message

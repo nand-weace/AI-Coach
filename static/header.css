@@ -27,6 +27,8 @@ body {
     flex-direction: column;
     padding: 18px 14px;
     gap: 18px;
+    /* the tip block can push the panel past a short viewport */
+    overflow-y: auto;
     background: #fff;
     border-right: 1px solid var(--glass-border);
 }
@@ -79,6 +81,71 @@ body {
     color: var(--text-muted);
     margin: 0;
 }
+
+/* ── Tip of the day ───────────────────────────────────────────────────────
+   Sits between the privacy note and the user chip. The panel is 248px wide, so
+   the tip wraps over a few lines rather than truncating the way it did as a
+   strip on My Insights. */
+.sidebar-tip {
+    flex-shrink: 0;
+    padding: 12px 12px 13px;
+    border-radius: 12px;
+    background: rgba(124, 58, 237, 0.06);
+    border: 1px solid rgba(124, 58, 237, 0.14);
+    transition: opacity 0.18s;
+}
+.sidebar-tip[hidden] { display: none; }
+.sidebar-tip.is-swapping { opacity: 0.4; }
+.sidebar-tip-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--primary-color);
+}
+.sidebar-tip-head svg { width: 14px; height: 14px; flex-shrink: 0; }
+.sidebar-tip-new {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    flex-shrink: 0;
+    border: 0;
+    border-radius: 50%;
+    background: none;
+    color: var(--primary-color);
+    cursor: pointer;
+    transition: background 0.18s, transform 0.4s;
+}
+.sidebar-tip-new svg { width: 13px; height: 13px; }
+.sidebar-tip-new:hover:not(:disabled) { background: rgba(124, 58, 237, 0.14); }
+.sidebar-tip-new:disabled { opacity: 0.5; cursor: default; }
+.sidebar-tip-new.is-spinning svg { animation: tipSpin 0.9s linear infinite; }
+@keyframes tipSpin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+    .sidebar-tip-new.is-spinning svg { animation: none; }
+}
+.sidebar-tip-headline {
+    font-size: 0.78rem;
+    font-weight: 600;
+    line-height: 1.45;
+    color: var(--text-main);
+}
+.sidebar-tip-do {
+    font-size: 0.71rem;
+    line-height: 1.5;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+.sidebar-tip-do:empty { display: none; }
+.sidebar-tip-do strong { font-weight: 600; color: var(--primary-color); }
 
 .sidebar-footer {
     padding-top: 14px;

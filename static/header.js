@@ -210,6 +210,68 @@ const NexaHeader = (() => {
         overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
     }
 
+    // ── Tip of the day ──────────────────────────────────────────────────────
+    // One tip per day, written server-side and cached against the date. It used
+    // to live at the top of My Insights' Resources tab; in the panel it is on
+    // every page, so the block stays hidden unless a tip actually comes back —
+    // no session (the sign-in page), a WeAce admin, or too little conversation
+    // all just leave the panel as it was.
+    const escText = str => String(str == null ? '' : str);
+
+    function renderTip(data) {
+        const box = $('sidebar-tip');
+        if (!box) return;
+        const text = (data && (data.headline || data.tip)) || '';
+        if (!text) { box.hidden = true; return; }
+        $('sidebar-tip-headline').textContent = escText(text);
+        const doEl = $('sidebar-tip-do');
+        // textContent for the tip itself; the label is the only markup here.
+        doEl.textContent = '';
+        if (data.try_today) {
+            const strong = document.createElement('strong');
+            strong.textContent = 'Try today: ';
+            doEl.appendChild(strong);
+            doEl.appendChild(document.createTextNode(escText(data.try_today)));
+        }
+        if (data.tip) $('sidebar-tip-headline').title = escText(data.tip);
+        box.hidden = false;
+        box.classList.remove('is-swapping');
+    }
+
+    async function loadTip() {
+        if (!$('sidebar-tip') || !accessToken()) return;
+        try {
+            const res = await fetch('/api/my-tip', { headers: authHeaders(), credentials: 'omit' });
+            if (!res.ok) return;
+            const data = await res.json();
+            if (!data || data.error) return;
+            renderTip(data);
+        } catch (_) { /* the panel simply keeps no tip */ }
+    }
+
+    function initTip() {
+        const btn = $('sidebar-tip-refresh');
+        if (!btn) return;
+        btn.addEventListener('click', async () => {
+            const box = $('sidebar-tip');
+            btn.disabled = true;
+            btn.classList.add('is-spinning');
+            box.classList.add('is-swapping');
+            try {
+                const res = await fetch('/api/my-tip/refresh',
+                    { method: 'POST', headers: authHeaders(), credentials: 'omit' });
+                const data = await res.json().catch(() => ({}));
+                if (res.ok && data.ok && data.data) renderTip(data.data);
+            } catch (_) { /* keep the tip they have */ }
+            finally {
+                btn.disabled = false;
+                btn.classList.remove('is-spinning');
+                box.classList.remove('is-swapping');
+            }
+        });
+        loadTip();
+    }
+
     // ── Wiring ──────────────────────────────────────────────────────────────
     function init(opts = {}) {
         const chipWrap = $('user-chip-wrap');
@@ -329,6 +391,7 @@ const NexaHeader = (() => {
         });
 
         initCorpContent();
+        initTip();
         renderLanguageMenu();
     }
 
@@ -356,6 +419,7 @@ const NexaHeader = (() => {
         show('btn-corp-content', isOrgAdmin && !isWeaceAdmin);
         show('dashboard-link', isOrgAdmin);
         show('tab-admin', isWeaceAdmin);
+        if (isWeaceAdmin) { const t = $('sidebar-tip'); if (t) t.hidden = true; }
     }
 
     function setNexaAccess(allowed) {
@@ -366,7 +430,7 @@ const NexaHeader = (() => {
     }
 
     return { init, applyRoles, setNexaAccess, renderLanguageMenu, getLanguage, hasRole,
-             closeMenus, setDrawer, syncSubnav };
+             closeMenus, setDrawer, syncSubnav, loadTip };
 })();
 
 window.NexaHeader = NexaHeader;
