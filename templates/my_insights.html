@@ -692,57 +692,6 @@
         }
         .growth-credit svg { color: var(--primary-color); flex-shrink: 0; }
 
-        /* ── Weekly reflection digest ── */
-        .digest-card {
-            background: var(--glass-bg);
-            border: 1px solid var(--glass-border);
-            border-radius: 18px;
-            padding: 24px 26px;
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            margin-bottom: 24px;
-        }
-        .digest-headline { font-size: 1.05rem; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 6px; }
-        .digest-period { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 14px; }
-        .digest-summary { font-size: 0.86rem; color: var(--text-main); line-height: 1.65; margin-bottom: 22px; }
-        .digest-cols {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 20px;
-            margin-bottom: 22px;
-        }
-        .digest-col-title {
-            display: flex; align-items: center; gap: 7px;
-            font-size: 0.7rem; font-weight: 600; letter-spacing: 0.09em;
-            text-transform: uppercase; color: var(--text-muted); margin-bottom: 10px;
-        }
-        .digest-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
-        .digest-list li {
-            font-size: 0.82rem; color: var(--text-muted); line-height: 1.55;
-            padding-left: 14px; position: relative;
-        }
-        .digest-list li::before {
-            content: ''; position: absolute; left: 0; top: 8px;
-            width: 5px; height: 5px; border-radius: 50%; background: rgba(124, 58, 237, 0.45);
-        }
-        .digest-questions {
-            border-top: 1px solid rgba(45, 32, 90, 0.10);
-            padding-top: 18px;
-            display: flex; flex-direction: column; gap: 10px;
-        }
-        .digest-question {
-            font-size: 0.85rem; color: var(--text-main); line-height: 1.55;
-            background: rgba(124, 58, 237, 0.06);
-            border-radius: 12px; padding: 11px 16px;
-        }
-        .digest-focus {
-            display: flex; align-items: flex-start; gap: 9px;
-            margin-top: 18px; padding-top: 16px;
-            border-top: 1px solid rgba(45, 32, 90, 0.10);
-            font-size: 0.85rem; color: var(--text-main); line-height: 1.55;
-        }
-        .digest-focus svg { color: var(--primary-color); flex-shrink: 0; margin-top: 2px; }
-
         /* ── Reading recommendations ── */
         .rec-filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
         .rec-filter {
@@ -866,7 +815,7 @@
             font-size: 0.75rem; color: var(--text-muted);
             display: inline-flex; align-items: center; gap: 6px;
         }
-        /* ── Shared "still working" state (themes, digest, recommendations) ── */
+        /* ── Shared "still working" state (themes, recommendations) ── */
         .panel-waiting { display: flex; flex-direction: column; align-items: center; gap: 10px; }
         .panel-waiting-dots { display: flex; gap: 6px; margin-bottom: 2px; }
         .panel-waiting-dots span {
@@ -1114,20 +1063,6 @@
         </div>
     </section>
 
-    <!-- ── Weekly Reflection Digest (temporarily hidden) ── -->
-    <div class="section-row" id="digest-section" style="display:none;">
-        <div>
-            <h3>Weekly Reflection Digest</h3>
-            <p>A read-back of your last seven days of coaching</p>
-        </div>
-        <div style="display:flex; align-items:center; gap:10px; flex-shrink:0;">
-            <span class="section-meta" id="digest-updated"></span>
-            <button class="refresh-btn" id="digest-refresh-btn">Write digest</button>
-        </div>
-    </div>
-    <div id="digest-wrap" style="display:none;">
-        <div class="panel-empty"><div class="skeleton" style="width:200px; margin:0 auto;"></div></div>
-    </div>
     </div><!-- /#panel-growth -->
     </div><!-- /#main-dashboard-content -->
 </div>
@@ -1832,16 +1767,6 @@
                 'Almost there — checking every quote is really yours…',
             ],
         },
-        digest: {
-            sub: 'Reading your week properly, not just skimming it.',
-            lines: [
-                'Gathering up your week…',
-                'Working out what actually mattered…',
-                'Finding the wins you moved straight past…',
-                'Drafting a couple of questions worth sitting with…',
-                'Almost done — just tightening the wording…',
-            ],
-        },
         recs: {
             sub: 'Curating a proper list takes a moment — this keeps going if you look away.',
             lines: [
@@ -2165,112 +2090,6 @@
         }
     });
 
-    // ── Weekly reflection digest ──────────────────────────────────────────────
-
-    const DIGEST_COLS = [
-        { key: 'wins',       label: 'Wins',      icon: '<polyline points="20 6 9 17 4 12"/>' },
-        { key: 'challenges', label: 'Challenges', icon: '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>' },
-        { key: 'patterns',   label: 'Patterns',  icon: '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>' },
-    ];
-
-    function renderDigest(data) {
-        const wrap = document.getElementById('digest-wrap');
-        const updatedEl = document.getElementById('digest-updated');
-
-        if (!data || (!data.summary && !data.headline)) {
-            updatedEl.textContent = '';
-            wrap.innerHTML = '<div class="panel-empty">No digest yet — chat with Nexa this week, then click “Write digest”.</div>';
-            return;
-        }
-
-        if (data.calculated_at) {
-            const d = new Date(data.calculated_at);
-            let meta = `Written ${d.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' })}`;
-            if (data.messages_analyzed) meta += ` · ${data.messages_analyzed} message${data.messages_analyzed !== 1 ? 's' : ''}`;
-            updatedEl.textContent = meta;
-        } else {
-            updatedEl.textContent = '';
-        }
-
-        const cols = DIGEST_COLS.map(col => {
-            const items = data[col.key] || [];
-            if (!items.length) return '';
-            return `<div>
-                <div class="digest-col-title">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${col.icon}</svg>
-                    ${col.label}
-                </div>
-                <ul class="digest-list">${items.map(i => `<li>${escHtml(i)}</li>`).join('')}</ul>
-            </div>`;
-        }).join('');
-
-        const questions = (data.questions || []).map(q =>
-            `<div class="digest-question">${escHtml(q)}</div>`).join('');
-
-        const period = (data.period_from && data.period_to)
-            ? `${formatDate(data.period_from)} – ${formatDate(data.period_to)}`
-            : '';
-
-        wrap.innerHTML = `<div class="digest-card">
-            ${data.headline ? `<div class="digest-headline">${escHtml(data.headline)}</div>` : ''}
-            ${period ? `<div class="digest-period">${escHtml(period)}</div>` : ''}
-            ${data.summary ? `<div class="digest-summary">${escHtml(data.summary)}</div>` : ''}
-            ${cols ? `<div class="digest-cols">${cols}</div>` : ''}
-            ${questions ? `<div class="digest-questions">
-                <div class="digest-col-title">Sit with these</div>
-                ${questions}
-            </div>` : ''}
-            ${data.focus ? `<div class="digest-focus">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>
-                </svg>
-                <span>${escHtml(data.focus)}</span>
-            </div>` : ''}
-        </div>`;
-    }
-
-    async function loadDigest() {
-        startWaiting('digest', 'digest-wrap', { delay: 1200 });
-        try {
-            const res = await fetch('/api/my-digest', { headers: getAuthHeaders(), credentials: 'omit' });
-            stopWaiting('digest');
-            if (res.status === 401 || res.status === 403) { window.location.href = '/'; return; }
-            if (!res.ok) { renderDigest(null); return; }
-            renderDigest(await res.json());
-        } catch (_) {
-            stopWaiting('digest');
-            document.getElementById('digest-wrap').innerHTML =
-                '<div class="panel-empty">Failed to load your digest. Please refresh.</div>';
-        }
-    }
-
-    document.getElementById('digest-refresh-btn').addEventListener('click', async () => {
-        const btn = document.getElementById('digest-refresh-btn');
-        btn.disabled = true;
-        btn.textContent = 'Writing…';
-        startWaiting('digest', 'digest-wrap');
-        try {
-            const res = await fetch('/api/my-digest/refresh', { method: 'POST', headers: getAuthHeaders(), credentials: 'omit' });
-            const payload = await res.json();
-            stopWaiting('digest');
-            if (payload.ok && payload.data) {
-                payload.data.calculated_at = new Date().toISOString();
-                renderDigest(payload.data);
-            } else {
-                document.getElementById('digest-wrap').innerHTML =
-                    `<div class="panel-empty">${escHtml(payload.error || 'Could not write a digest. Try again later.')}</div>`;
-            }
-        } catch (_) {
-            stopWaiting('digest');
-            document.getElementById('digest-wrap').innerHTML =
-                '<div class="panel-empty">Request failed. Please try again.</div>';
-        } finally {
-            stopWaiting('digest');
-            btn.disabled = false;
-            btn.textContent = 'Write digest';
-        }
-    });
-
     // ── Reading recommendations ───────────────────────────────────────────────
 
     const REC_TYPES = {
@@ -2551,8 +2370,6 @@
             // Recurring Themes now sits at the bottom of this panel, so it loads
             // with it rather than on a tab of its own.
             loadThemes();
-            // Temporarily hidden — skip the fetch so we don't spend model calls on it.
-            if (document.getElementById('digest-section')?.style.display !== 'none') loadDigest();
         },
         recs:      () => loadRecs(),
         sentiment: () => loadSentiment(),

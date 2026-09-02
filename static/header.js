@@ -57,6 +57,9 @@ const NexaHeader = (() => {
 
     // Marks the next page load as an in-app tab switch. sessionStorage is
     // per browser tab and survives the navigation; script.js reads it once.
+    // Exported as well as used here: a page can have its own link back to the
+    // chat (Daily Pulse's "Back to Chat"), and one that skips this marker sends
+    // the user into a brand-new conversation instead of the one they left.
     function markTabNav() {
         try { sessionStorage.setItem('we_ace_tab_nav', String(Date.now())); } catch (_) {}
     }
@@ -397,9 +400,12 @@ const NexaHeader = (() => {
 
     // Chat page calls this once /session reports the user's roles. Mirrors the
     // server-rendered gating in _header.html — keep the two in step.
-    function applyRoles(role) {
+    // `opts.pulseAccess` is the org's licence, not a role — Daily Pulse ships
+    // with Nexa Pro, so a Regular org never sees the tab whatever its roles.
+    function applyRoles(role, opts) {
         const isOrgAdmin = hasRole(role, 'corporate_super_admin');
         const isWeaceAdmin = hasRole(role, 'weace_super_admin');
+        const hasPulse = !!(opts && opts.pulseAccess);
 
         // '' drops the inline override so each element falls back to its own
         // stylesheet display — flex for a tab, block for the language wrapper.
@@ -414,6 +420,7 @@ const NexaHeader = (() => {
         show('tab-talk', !isWeaceAdmin);
         show('language-menu-wrap', !isWeaceAdmin);
         show('my-insights-link', !isWeaceAdmin);
+        show('pulse-link', !isWeaceAdmin && hasPulse);
         show('my-insights-subnav', !isWeaceAdmin);
         show('admin-subnav', isWeaceAdmin);
         show('btn-corp-content', isOrgAdmin && !isWeaceAdmin);
@@ -430,7 +437,7 @@ const NexaHeader = (() => {
     }
 
     return { init, applyRoles, setNexaAccess, renderLanguageMenu, getLanguage, hasRole,
-             closeMenus, setDrawer, syncSubnav, loadTip };
+             closeMenus, setDrawer, syncSubnav, loadTip, markTabNav };
 })();
 
 window.NexaHeader = NexaHeader;

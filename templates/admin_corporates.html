@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexa - Corporates</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ asset('header.css') }}">
+    <link rel="icon" type="image/png" href="/static/favicon-wit.png">
+    <style>
+        :root {
+            --bg-color: #e2e6fc;
+            --bg-gradient: linear-gradient(100deg, #dfeafd 0%, #e2e2fb 30%, #ece2fb 52%, #e0e6fc 74%, #dcebfd 100%);
+            --glass-bg: rgba(255, 255, 255, 0.78);
+            --glass-border: rgba(76, 59, 138, 0.14);
+            --primary-color: #6d28d9;
+            --text-main: #1e1b33;
+            --text-muted: #5b5674;
+            --primary-ring: rgba(109, 40, 217, 0.30);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            background-image: var(--bg-gradient);
+            background-attachment: fixed;
+            animation: pageIn 0.22s ease both;
+        }
+        @keyframes pageIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .page { margin: 0 auto; padding: 32px 24px 64px; }
+        .page-title { margin-bottom: 8px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .page-title h2 { font-size: 1.4rem; font-weight: 600; letter-spacing: -0.02em; }
+        .page-title .admin-badge {
+            display: inline-block; font-size: 0.8rem;
+            color: var(--primary-color); background: rgba(124, 58, 237, 0.08);
+            border-radius: 999px; padding: 2px 10px; font-weight: 500;
+        }
+        .page-sub { font-size: 0.85rem; color: var(--text-muted); }
+
+        /* ── Stat cards ── */
+        .stats-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px; margin: 24px 0 32px;
+        }
+        .stat-card {
+            background: var(--glass-bg); border: 1px solid var(--glass-border);
+            border-radius: 16px; padding: 20px 24px;
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+        }
+        .stat-label { font-size: 0.78rem; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 8px; }
+        .stat-value { font-size: 2rem; font-weight: 600; letter-spacing: -0.03em; color: var(--text-main); }
+        .stat-value.loading { color: var(--glass-border); }
+        .stat-sub { font-size: 0.75rem; color: var(--text-muted); margin-top: 6px; }
+
+        /* ── Table ── */
+        .table-card {
+            background: var(--glass-bg); border: 1px solid var(--glass-border);
+            border-radius: 16px; backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px); overflow: hidden;
+        }
+        .table-header {
+            padding: 16px 24px; border-bottom: 1px solid var(--glass-border);
+            display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+        }
+        .table-header h3 { font-size: 0.95rem; font-weight: 600; }
+        .table-search {
+            padding: 6px 14px; border: 1px solid var(--glass-border);
+            border-radius: 999px; background: rgba(240, 243, 254, 0.9);
+            font-family: inherit; font-size: 0.85rem; color: var(--text-main);
+            outline: none; transition: border-color 0.2s, box-shadow 0.2s; width: 220px;
+        }
+        .table-search:focus { border-color: rgba(139, 92, 246, 0.4); box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.15); }
+        .table-search::placeholder { color: var(--text-muted); }
+        .table-scroll { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; }
+        thead tr { background: rgba(240, 243, 254, 0.6); }
+        th {
+            padding: 12px 16px; text-align: left; font-size: 0.75rem;
+            font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
+            color: var(--text-muted); border-bottom: 1px solid var(--glass-border);
+            white-space: nowrap;
+        }
+        td {
+            padding: 13px 16px; font-size: 0.875rem;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.04); color: var(--text-main);
+        }
+        tbody tr:last-child td { border-bottom: none; }
+        tbody tr:hover { background: rgba(139, 92, 246, 0.03); }
+        th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
+        th.sortable { cursor: pointer; user-select: none; transition: color 0.15s ease; }
+        th.sortable:hover { color: var(--primary-color); }
+        th.sortable:focus-visible { outline: 2px solid var(--primary-ring); outline-offset: -2px; }
+        th.sortable .sort-arrow {
+            display: inline-block; margin-left: 5px; font-size: 0.7rem;
+            opacity: 0.28; transition: opacity 0.15s ease;
+        }
+        th.sortable:hover .sort-arrow { opacity: 0.6; }
+        th.sorted { color: var(--primary-color); }
+        th.sorted .sort-arrow { opacity: 1; }
+
+        .cell-name { font-weight: 500; }
+        .cell-muted { color: var(--text-muted); font-size: 0.82rem; }
+        .empty-row td { text-align: center; color: var(--text-muted); padding: 40px; }
+        .skeleton { background: linear-gradient(90deg, #f3f0f8 25%, #e4dfec 50%, #f3f0f8 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 4px; height: 14px; }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+        /* ── Licence picker ── */
+        .licence-cell { white-space: nowrap; }
+        .licence-select {
+            font-family: inherit; font-size: 0.8rem; font-weight: 500;
+            padding: 5px 28px 5px 12px; border-radius: 999px;
+            border: 1px solid transparent; cursor: pointer;
+            appearance: none; -webkit-appearance: none; outline: none;
+            background-repeat: no-repeat; background-position: right 9px center;
+            background-size: 10px;
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235b5674' stroke-width='3' stroke-linecap='round'><polyline points='6 9 12 15 18 9'/></svg>");
+            transition: box-shadow 0.15s ease, border-color 0.15s ease;
+        }
+        .licence-select:focus-visible { border-color: var(--primary-ring); box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.18); }
+        .licence-select:disabled { opacity: 0.55; cursor: progress; }
+        /* Regular is the default and stays quiet; Pro is the exception worth
+           spotting when scanning the column. */
+        .licence-regular { background-color: rgba(107, 100, 132, 0.10); color: var(--text-muted); }
+        .licence-pro     { background-color: rgba(124, 58, 237, 0.12); color: var(--primary-color); }
+        .licence-status { margin-left: 8px; font-size: 0.75rem; color: var(--text-muted); }
+        .licence-status.error { color: #b91c1c; }
+
+        .refresh-btn {
+            background: none; border: 1px solid var(--glass-border);
+            border-radius: 999px; padding: 6px 14px;
+            font-family: inherit; font-size: 0.8rem; color: var(--text-muted);
+            cursor: pointer; transition: color 0.15s ease, border-color 0.15s ease;
+        }
+        .refresh-btn:hover { color: var(--primary-color); border-color: var(--primary-ring); }
+    </style>
+</head>
+<body>
+
+{% include '_header.html' %}
+
+<div class="page">
+    <div class="page-title">
+        <h2>Corporates</h2>
+        <span class="admin-badge">weace_super_admin</span>
+    </div>
+    <p class="page-sub">Every organisation using Nexa, with its people and conversation volume.</p>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-label">Corporates</div>
+            <div class="stat-value loading" id="stat-orgs">&mdash;</div>
+            <div class="stat-sub">Organisations with activity</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Total Users</div>
+            <div class="stat-value loading" id="stat-users">&mdash;</div>
+            <div class="stat-sub">People who have used Nexa</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Nexa Pro</div>
+            <div class="stat-value loading" id="stat-pro">&mdash;</div>
+            <div class="stat-sub" id="stat-pro-sub">Corporates on the Pro licence</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Total Messages</div>
+            <div class="stat-value loading" id="stat-messages">&mdash;</div>
+            <div class="stat-sub" id="stat-messages-sub"></div>
+        </div>
+    </div>
+
+    <div class="table-card">
+        <div class="table-header">
+            <h3>All Corporates</h3>
+            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                <input type="text" class="table-search" id="search-input" placeholder="Search corporate…">
+                <button class="refresh-btn" id="export-btn">Export CSV</button>
+            </div>
+        </div>
+        <div class="table-scroll">
+        <table>
+            <thead>
+                <tr id="corp-table-head">
+                    <th class="sortable" data-sort-key="org_name">Corporate<span class="sort-arrow"></span></th>
+                    <th class="sortable num" data-sort-key="total_users">Total Users<span class="sort-arrow"></span></th>
+                    <th class="sortable num" data-sort-key="total_messages">Total Messages<span class="sort-arrow"></span></th>
+                    <th class="sortable num" data-sort-key="user_messages">User Messages<span class="sort-arrow"></span></th>
+                    <th class="sortable num" data-sort-key="total_sessions">Sessions<span class="sort-arrow"></span></th>
+                    <th class="sortable num" data-sort-key="msgs_per_user">Msgs / User<span class="sort-arrow"></span></th>
+                    <th class="sortable" data-sort-key="last_activity">Last Activity<span class="sort-arrow"></span></th>
+                    <th class="sortable" data-sort-key="licence">Nexa Licence<span class="sort-arrow"></span></th>
+                </tr>
+            </thead>
+            <tbody id="corp-table-body">
+                <tr><td colspan="8"><div class="skeleton" style="width:60%; margin:0 auto;"></div></td></tr>
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+
+<script src="{{ asset('header.js') }}"></script>
+<script>
+    function getAuthHeaders(extra) {
+        const token = localStorage.getItem('we_ace_access_token') || '';
+        return Object.assign({ 'Authorization': `Bearer ${token}` }, extra || {});
+    }
+
+    function escHtml(str) {
+        return String(str ?? '').replace(/[&<>"']/g, c =>
+            ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    const num = n => Number(n || 0).toLocaleString('en-US');
+
+    function fmtDate(value) {
+        if (!value) return '—';
+        const d = new Date(String(value).replace(' ', 'T'));
+        if (isNaN(d)) return '—';
+        return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    }
+
+    // ── Nexa licences ────────────────────────────────────────────────────────
+    // Tiers come from /api/admin/corporates so the server stays the one place
+    // that defines them. Until it answers, fall back to the known two so the
+    // table can still render if the payload is missing them.
+    let licences = [{ code: 'regular', label: 'Nexa Regular' },
+                    { code: 'pro',     label: 'Nexa Pro' }];
+    let defaultLicence = 'regular';
+
+    function licenceLabel(code) {
+        const found = licences.find(l => l.code === code);
+        return found ? found.label : code || '';
+    }
+
+    function licencePicker(o) {
+        const current = o.licence || defaultLicence;
+        const options = licences.map(l =>
+            `<option value="${escHtml(l.code)}"${l.code === current ? ' selected' : ''}>${escHtml(l.label)}</option>`
+        ).join('');
+        return `<select class="licence-select licence-${escHtml(current)}"
+                        data-org-slug="${escHtml(o.org_slug)}"
+                        aria-label="Nexa licence for ${escHtml(o.org_name)}">${options}</select>` +
+               `<span class="licence-status" data-status-for="${escHtml(o.org_slug)}"></span>`;
+    }
+
+    // Saves on change, and puts the old value back if the request fails — the
+    // column should never show a licence the server did not accept.
+    async function saveLicence(select) {
+        const orgSlug = select.dataset.orgSlug;
+        const licence = select.value;
+        const org = allOrgs.find(o => o.org_slug === orgSlug);
+        const previous = org ? org.licence : defaultLicence;
+        const status = document.querySelector(`[data-status-for="${CSS.escape(orgSlug)}"]`);
+        if (status) { status.className = 'licence-status'; status.textContent = 'Saving…'; }
+        select.disabled = true;
+        try {
+            const res = await fetch('/api/admin/corporate-licence', {
+                method: 'POST',
+                headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+                body: JSON.stringify({ org_slug: orgSlug, licence }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Request failed');
+            if (org) org.licence = data.licence;
+            select.value = data.licence;
+            select.className = `licence-select licence-${data.licence}`;
+            if (status) {
+                status.textContent = 'Saved';
+                setTimeout(() => { if (status.textContent === 'Saved') status.textContent = ''; }, 2000);
+            }
+            renderLicenceStat();
+        } catch (err) {
+            select.value = previous;
+            select.className = `licence-select licence-${previous}`;
+            if (status) {
+                status.className = 'licence-status error';
+                status.textContent = err.message || 'Failed';
+            }
+        } finally {
+            select.disabled = false;
+        }
+    }
+
+    function bindLicencePickers() {
+        document.querySelectorAll('#corp-table-body .licence-select').forEach(sel => {
+            sel.addEventListener('change', () => saveLicence(sel));
+        });
+    }
+
+    function renderLicenceStat() {
+        const el = document.getElementById('stat-pro');
+        const sub = document.getElementById('stat-pro-sub');
+        const pro = allOrgs.filter(o => o.licence === 'pro').length;
+        el.classList.remove('loading');
+        el.textContent = num(pro);
+        sub.textContent = `${num(allOrgs.length - pro)} on ${licenceLabel(defaultLicence)}`;
+    }
+
+    let allOrgs = [];      // as returned by the API, plus the derived msgs_per_user
+    let visibleOrgs = [];  // what the table (and the CSV export) currently shows
+
+    // Which columns can be sorted and how their value is read. Numeric columns
+    // sort by magnitude, dates by timestamp, names alphabetically.
+    const SORT_COLUMNS = {
+        org_name:       { type: 'text', get: o => o.org_name },
+        total_users:    { type: 'num',  get: o => o.total_users },
+        total_messages: { type: 'num',  get: o => o.total_messages },
+        user_messages:  { type: 'num',  get: o => o.user_messages },
+        total_sessions: { type: 'num',  get: o => o.total_sessions },
+        msgs_per_user:  { type: 'num',  get: o => o.msgs_per_user },
+        last_activity:  { type: 'num',  get: o => o.last_activity ? Date.parse(String(o.last_activity).replace(' ', 'T')) : null },
+        licence:        { type: 'text', get: o => licenceLabel(o.licence) },
+    };
+    let sortState = { key: 'total_users', dir: 'desc' };
+
+    function sortOrgs(orgs) {
+        const col = SORT_COLUMNS[sortState.key];
+        if (!col) return orgs;
+        const sign = sortState.dir === 'asc' ? 1 : -1;
+        return orgs.slice().sort((a, b) => {
+            const va = col.get(a), vb = col.get(b);
+            // Orgs with nothing recorded sit at the bottom either way.
+            const na = va === null || va === undefined || va === '' || Number.isNaN(va);
+            const nb = vb === null || vb === undefined || vb === '' || Number.isNaN(vb);
+            if (na || nb) return na && nb ? 0 : (na ? 1 : -1);
+            if (col.type === 'text') return sign * String(va).localeCompare(String(vb));
+            return sign * (va - vb);
+        });
+    }
+
+    function updateSortHeaders() {
+        document.querySelectorAll('#corp-table-head th.sortable').forEach(th => {
+            const active = th.dataset.sortKey === sortState.key;
+            th.classList.toggle('sorted', active);
+            th.setAttribute('aria-sort', active
+                ? (sortState.dir === 'asc' ? 'ascending' : 'descending') : 'none');
+            th.querySelector('.sort-arrow').textContent = active
+                ? (sortState.dir === 'asc' ? '▲' : '▼') : '⇅';
+        });
+    }
+
+    function applyFilters() {
+        const q = (document.getElementById('search-input').value || '').toLowerCase();
+        const filtered = q ? allOrgs.filter(o =>
+            (o.org_name || '').toLowerCase().includes(q) ||
+            (o.org_slug || '').toLowerCase().includes(q)
+        ) : allOrgs;
+        renderTable(sortOrgs(filtered));
+    }
+
+    document.querySelectorAll('#corp-table-head th.sortable').forEach(th => {
+        th.tabIndex = 0;
+        const sort = () => {
+            const key = th.dataset.sortKey;
+            if (sortState.key === key) {
+                sortState.dir = sortState.dir === 'asc' ? 'desc' : 'asc';
+            } else {
+                // Names read best A→Z; counts and dates are more useful with the
+                // largest or most recent first.
+                sortState = { key, dir: SORT_COLUMNS[key].type === 'text' ? 'asc' : 'desc' };
+            }
+            renderLicenceStat();
+            updateSortHeaders();
+            applyFilters();
+        };
+        th.addEventListener('click', sort);
+        th.addEventListener('keydown', e => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); sort(); }
+        });
+    });
+
+    document.getElementById('search-input').addEventListener('input', applyFilters);
+
+    function renderTable(orgs) {
+        visibleOrgs = orgs;
+        const tbody = document.getElementById('corp-table-body');
+        if (!orgs.length) {
+            tbody.innerHTML = '<tr class="empty-row"><td colspan="8">No corporates found.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = orgs.map(o => `
+            <tr>
+                <td class="cell-name">${escHtml(o.org_name)}</td>
+                <td class="num">${num(o.total_users)}</td>
+                <td class="num">${num(o.total_messages)}</td>
+                <td class="num">${num(o.user_messages)}</td>
+                <td class="num">${num(o.total_sessions)}</td>
+                <td class="num">${o.msgs_per_user.toFixed(1)}</td>
+                <td class="cell-muted">${fmtDate(o.last_activity)}</td>
+                <td class="licence-cell">${licencePicker(o)}</td>
+            </tr>`).join('');
+        bindLicencePickers();
+    }
+
+    // Exports what is on screen — the current search and sort, not the full set.
+    document.getElementById('export-btn').addEventListener('click', () => {
+        const head = ['Corporate', 'Slug', 'Total Users', 'Total Messages',
+                      'User Messages', 'Sessions', 'Msgs Per User', 'First Activity',
+                      'Last Activity', 'Nexa Licence'];
+        const esc = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+        const rows = visibleOrgs.map(o => [
+            o.org_name, o.org_slug, o.total_users, o.total_messages, o.user_messages,
+            o.total_sessions, o.msgs_per_user.toFixed(1), o.first_activity || '',
+            o.last_activity || '', licenceLabel(o.licence),
+        ].map(esc).join(','));
+        const blob = new Blob([[head.map(esc).join(','), ...rows].join('\n')],
+                              { type: 'text/csv;charset=utf-8;' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `nexa-corporates-${new Date().toISOString().slice(0, 10)}.csv`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+    });
+
+    async function loadCorporates() {
+        try {
+            const res = await fetch('/api/admin/corporates', { headers: getAuthHeaders() });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Request failed');
+
+            if (Array.isArray(data.licences) && data.licences.length) licences = data.licences;
+            if (data.default_licence) defaultLicence = data.default_licence;
+
+            allOrgs = (data.orgs || []).map(o => Object.assign({}, o, {
+                licence: o.licence || defaultLicence,
+                msgs_per_user: o.total_users ? o.total_messages / o.total_users : 0,
+            }));
+
+            const orgsEl = document.getElementById('stat-orgs');
+            const usersEl = document.getElementById('stat-users');
+            const msgsEl = document.getElementById('stat-messages');
+            [orgsEl, usersEl, msgsEl].forEach(el => el.classList.remove('loading'));
+            orgsEl.textContent = num(data.total_orgs);
+            usersEl.textContent = num(data.total_users);
+            msgsEl.textContent = num(data.total_messages);
+            const userMsgs = allOrgs.reduce((a, o) => a + o.user_messages, 0);
+            document.getElementById('stat-messages-sub').textContent =
+                `${num(userMsgs)} sent by users`;
+
+            updateSortHeaders();
+            applyFilters();
+        } catch (err) {
+            ['stat-orgs', 'stat-users', 'stat-messages', 'stat-pro'].forEach(id => {
+                const el = document.getElementById(id);
+                el.classList.remove('loading');
+                el.textContent = '—';
+            });
+            document.getElementById('corp-table-body').innerHTML =
+                `<tr class="empty-row"><td colspan="8">${escHtml(err.message || 'Could not load corporates.')}</td></tr>`;
+        }
+    }
+
+    // Tabs, user chip and logout all come from the shared header.
+    NexaHeader.init();
+
+    loadCorporates();
+</script>
+</body>
+</html>

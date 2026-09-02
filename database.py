@@ -145,6 +145,17 @@ def init_db():
                     INDEX idx_org_slug (org_slug)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """)
+            # Which Nexa licence an organisation is on. Only orgs that have been
+            # moved off the default get a row — no row means Nexa Regular, so
+            # new corporates need no provisioning step to start working.
+            _execute(cur,"""
+                CREATE TABLE IF NOT EXISTS org_licence (
+                    org_slug VARCHAR(255) PRIMARY KEY,
+                    licence VARCHAR(32) NOT NULL DEFAULT 'regular',
+                    updated_by VARCHAR(36),
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """)
             _execute(cur,"""
                 CREATE TABLE IF NOT EXISTS sentiment (
                     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -189,6 +200,52 @@ def init_db():
                     report_data JSON NOT NULL,
                     calculated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     UNIQUE KEY uniq_user_report (user_id, report_type)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """)
+            # ── Daily Pulse ──────────────────────────────────────────────
+            # Deliberately split in two so no row anywhere ties a note to the
+            # person who wrote it.
+            #
+            #   pulse_notes        the note and mood, carrying only the org and
+            #                      the date. No user_id, no user hash, and no
+            #                      clock time — a timestamp would let anyone
+            #                      with the access log line a note up against a
+            #                      session, which is exactly the link this
+            #                      feature promises does not exist.
+            #   pulse_submissions  one row per person per day, keyed by a salted
+            #                      hash of the user id, purely to enforce
+            #                      one-note-a-day. It holds no note, no mood and
+            #                      no org, so it cannot be joined back.
+            #
+            # Never add a column to either table that narrows this. If a future
+            # filter needs a demographic, put it behind the same k-anonymity
+            # floor the aggregate API uses (_PULSE_MIN_RESPONSES in app.py).
+            _execute(cur,"""
+                CREATE TABLE IF NOT EXISTS pulse_notes (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    org_slug VARCHAR(255) NOT NULL,
+                    pulse_date DATE NOT NULL,
+                    mood TINYINT NOT NULL,
+                    note TEXT DEFAULT NULL,
+                    KEY idx_pulse_org_date (org_slug, pulse_date)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """)
+            _execute(cur,"""
+                CREATE TABLE IF NOT EXISTS pulse_submissions (
+                    user_hash CHAR(64) NOT NULL,
+                    pulse_date DATE NOT NULL,
+                    PRIMARY KEY (user_hash, pulse_date)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """)
+            _execute(cur,"""
+                CREATE TABLE IF NOT EXISTS pulse_insights (
+                    org_slug VARCHAR(255) NOT NULL,
+                    period_days INT NOT NULL,
+                    insight_data JSON NOT NULL,
+                    response_count INT NOT NULL DEFAULT 0,
+                    calculated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                        ON UPDATE CURRENT_TIMESTAMP,
+                    PRIMARY KEY (org_slug, period_days)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """)
             _execute(cur,"""
@@ -677,6 +734,114 @@ def get_all_orgs() -> list:
             )
             return [{'slug': r['org_slug'], 'name': r['org_name'] or r['org_slug']}
                     for r in cur.fetchall()]
+    finally:
+        conn.close()
+
+
+# ── Nexa licences ────────────────────────────────────────────────────────────
+# Every corporate is on Nexa Regular until an admin moves it to Pro, so the
+# default is expressed here rather than stored per org: orgs only get a row in
+# org_licence once they are changed.
+LICENCES = {
+    'regular': 'Nexa Regular',
+    'pro': 'Nexa Pro',
+}
+DEFAULT_LICENCE = 'regular'
+
+
+def normalise_licence(value) -> str:
+    """The stored licence code, or the default for anything unrecognised."""
+    code = (value or '').strip().lower()
+    return code if code in LICENCES else DEFAULT_LICENCE
+
+
+def get_org_licence(org_slug: str) -> str:
+    """The organisation's licence code. Orgs with no row are on the default."""
+    if not org_slug:
+        return DEFAULT_LICENCE
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur, "SELECT licence FROM org_licence WHERE org_slug = %s", (org_slug,))
+            row = cur.fetchone()
+            return normalise_licence(row['licence'] if row else None)
+    finally:
+        conn.close()
+
+
+def set_org_licence(org_slug: str, licence: str, updated_by: str = None) -> str:
+    """Assign a licence to an organisation. Returns the code actually stored.
+
+    Raises ValueError on an unknown licence rather than silently writing the
+    default — an admin picking Pro should never end up back on Regular.
+    """
+    code = (licence or '').strip().lower()
+    if code not in LICENCES:
+        raise ValueError(f"Unknown licence: {licence}")
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur, """
+                INSERT INTO org_licence (org_slug, licence, updated_by)
+                VALUES (%s, %s, %s)
+                ON DUPLICATE KEY UPDATE licence = VALUES(licence),
+                                        updated_by = VALUES(updated_by)
+            """, (org_slug, code, updated_by))
+        conn.commit()
+        return code
+    finally:
+        conn.close()
+
+
+def get_corporate_stats() -> list:
+    """One row per organisation for the admin corporate dashboard: how many
+    people it has on the platform and how much they have talked to Nexa.
+
+    Sessions and messages are counted in separate subqueries rather than one
+    joined GROUP BY — joining messages onto sessions would multiply the session
+    and user counts by the number of messages in each session. The message
+    subquery is already one row per org; the MAX() around its columns only
+    satisfies only_full_group_by.
+    """
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur, """
+                SELECT
+                    s.org_slug,
+                    MAX(s.org_name)              AS org_name,
+                    COUNT(DISTINCT s.user_id)    AS total_users,
+                    COUNT(DISTINCT s.session_id) AS total_sessions,
+                    MIN(s.started_at)            AS first_activity,
+                    MAX(s.started_at)            AS last_activity,
+                    COALESCE(MAX(msg.total_messages), 0) AS total_messages,
+                    COALESCE(MAX(msg.user_messages), 0)  AS user_messages,
+                    COALESCE(MAX(lic.licence), %s)       AS licence
+                FROM ai_coach_sessions s
+                LEFT JOIN (
+                    SELECT s2.org_slug,
+                           COUNT(*) AS total_messages,
+                           SUM(CASE WHEN m.role = 'user' THEN 1 ELSE 0 END) AS user_messages
+                    FROM ai_coach_messages m
+                    JOIN ai_coach_sessions s2 ON s2.session_id = m.session_id
+                    GROUP BY s2.org_slug
+                ) msg ON msg.org_slug = s.org_slug
+                LEFT JOIN org_licence lic ON lic.org_slug = s.org_slug
+                WHERE s.org_slug IS NOT NULL AND s.org_slug != ''
+                GROUP BY s.org_slug
+                ORDER BY total_users DESC, total_messages DESC
+            """, [DEFAULT_LICENCE])
+            orgs = cur.fetchall()
+            for o in orgs:
+                o['org_name'] = o['org_name'] or o['org_slug']
+                o['total_users'] = int(o['total_users'] or 0)
+                o['total_sessions'] = int(o['total_sessions'] or 0)
+                o['total_messages'] = int(o['total_messages'] or 0)
+                o['user_messages'] = int(o['user_messages'] or 0)
+                o['licence'] = normalise_licence(o['licence'])
+                o['first_activity'] = str(o['first_activity']) if o['first_activity'] else None
+                o['last_activity'] = str(o['last_activity']) if o['last_activity'] else None
+            return orgs
     finally:
         conn.close()
 
@@ -1910,3 +2075,171 @@ def get_usage_trend(org_slug=None, granularity: str = 'day', points: int = 30) -
         'peak_active_users': max((p['active_users'] for p in series), default=0),
         'series': series,
     }
+
+
+# ── Daily Pulse ─────────────────────────────────────────────────────────────
+# The one rule these helpers exist to keep: nothing here ever returns a note
+# alongside anything that identifies its author, because nothing here ever
+# stores the two together. See the table comments in init_db().
+
+def has_pulsed_today(user_hash: str, pulse_date) -> bool:
+    """Whether this person has already left today's note."""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur,
+                "SELECT 1 FROM pulse_submissions WHERE user_hash = %s AND pulse_date = %s",
+                (user_hash, pulse_date),
+            )
+            return cur.fetchone() is not None
+    finally:
+        conn.close()
+
+
+def record_pulse(user_hash: str, pulse_date, org_slug: str, mood: int,
+                 note: str = None) -> bool:
+    """Claim today's slot for this person, then store the note anonymously.
+
+    The claim goes in first and its INSERT IGNORE result is the lock: if the row
+    already existed nothing is written and False comes back, so a double submit
+    (or two tabs) cannot land two notes for one day. Both statements share one
+    transaction, so a failure on the note rolls the claim back and the person can
+    try again.
+    """
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur,
+                "INSERT IGNORE INTO pulse_submissions (user_hash, pulse_date) VALUES (%s, %s)",
+                (user_hash, pulse_date),
+            )
+            if cur.rowcount == 0:
+                conn.rollback()
+                return False
+            _execute(cur,
+                "INSERT INTO pulse_notes (org_slug, pulse_date, mood, note) "
+                "VALUES (%s, %s, %s, %s)",
+                (org_slug, pulse_date, mood, note or None),
+            )
+        conn.commit()
+        return True
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def get_pulse_summary(org_slug: str, days: int = 30) -> dict:
+    """Counts, mood mix and a daily trend for one org's pulse — no note text.
+
+    This is everything an admin view needs that is not the word cloud or the
+    written insight, and it is safe to compute for any org because the caller
+    still gates the whole response on the k-anonymity floor.
+    """
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur, """
+                SELECT COUNT(*) AS responses,
+                       SUM(CASE WHEN note IS NOT NULL AND note <> '' THEN 1 ELSE 0 END) AS notes,
+                       AVG(mood) AS avg_mood
+                FROM pulse_notes
+                WHERE org_slug = %s AND pulse_date >= (CURDATE() - INTERVAL %s DAY)
+            """, (org_slug, days))
+            head = cur.fetchone() or {}
+
+            _execute(cur, """
+                SELECT mood, COUNT(*) AS cnt
+                FROM pulse_notes
+                WHERE org_slug = %s AND pulse_date >= (CURDATE() - INTERVAL %s DAY)
+                GROUP BY mood
+            """, (org_slug, days))
+            mood_counts = {int(r['mood']): int(r['cnt']) for r in cur.fetchall()}
+
+            _execute(cur, """
+                SELECT pulse_date, COUNT(*) AS cnt, AVG(mood) AS avg_mood
+                FROM pulse_notes
+                WHERE org_slug = %s AND pulse_date >= (CURDATE() - INTERVAL %s DAY)
+                GROUP BY pulse_date
+                ORDER BY pulse_date
+            """, (org_slug, days))
+            trend = [{'date': r['pulse_date'].isoformat(),
+                      'responses': int(r['cnt']),
+                      'avg_mood': round(float(r['avg_mood']), 2)}
+                     for r in cur.fetchall()]
+    finally:
+        conn.close()
+
+    responses = int(head.get('responses') or 0)
+    return {
+        'days': days,
+        'responses': responses,
+        'notes': int(head.get('notes') or 0),
+        'avg_mood': round(float(head['avg_mood']), 2) if head.get('avg_mood') is not None else None,
+        'mood_counts': {str(m): mood_counts.get(m, 0) for m in range(1, 6)},
+        'trend': trend,
+    }
+
+
+def get_pulse_note_texts(org_slug: str, days: int = 30, limit: int = 800) -> list:
+    """The raw notes, for the word cloud and the LLM summary only.
+
+    Server-side callers only — nothing that reaches an admin's browser may carry
+    these strings. Returned newest first and shuffled by nothing, because the
+    rows carry no identity to shuffle away from.
+    """
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur, """
+                SELECT note FROM pulse_notes
+                WHERE org_slug = %s AND pulse_date >= (CURDATE() - INTERVAL %s DAY)
+                  AND note IS NOT NULL AND note <> ''
+                ORDER BY id DESC
+                LIMIT %s
+            """, (org_slug, days, limit))
+            return [r['note'] for r in cur.fetchall()]
+    finally:
+        conn.close()
+
+
+def get_pulse_insight(org_slug: str, days: int) -> dict | None:
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur,
+                "SELECT insight_data, response_count, calculated_at FROM pulse_insights "
+                "WHERE org_slug = %s AND period_days = %s",
+                (org_slug, days),
+            )
+            row = cur.fetchone()
+    finally:
+        conn.close()
+    if not row:
+        return None
+    data = row['insight_data']
+    if isinstance(data, str):
+        data = json.loads(data)
+    return {
+        'insight': data,
+        'response_count': int(row['response_count'] or 0),
+        'calculated_at': row['calculated_at'].isoformat() if row['calculated_at'] else None,
+    }
+
+
+def upsert_pulse_insight(org_slug: str, days: int, insight: dict, response_count: int):
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur, """
+                INSERT INTO pulse_insights (org_slug, period_days, insight_data, response_count)
+                VALUES (%s, %s, %s, %s)
+                ON DUPLICATE KEY UPDATE
+                    insight_data = VALUES(insight_data),
+                    response_count = VALUES(response_count),
+                    calculated_at = CURRENT_TIMESTAMP
+            """, (org_slug, days, json.dumps(insight), response_count))
+        conn.commit()
+    finally:
+        conn.close()

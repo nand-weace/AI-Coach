@@ -1041,6 +1041,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             returning,
             role,
             nexa_access: nexaAccess,
+            pulse_access: pulseAccess,
             welcome_message: welcomeMessage,
             welcome_suggestions: welcomeSuggestions,
             // Same chat session as before the page load (came back from another
@@ -1088,7 +1089,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Settles the tab bar for this user's roles — reveals Nexa Insights /
         // Knowledge Base, or collapses the bar to Admin for a WeAce super admin.
-        NexaHeader.applyRoles(role);
+        NexaHeader.applyRoles(role, { pulseAccess });
         NexaHeader.setNexaAccess(nexaAccess);
 
         const welcomeEl = document.getElementById('welcome-text');

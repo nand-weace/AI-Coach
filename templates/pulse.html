@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexa - Daily Pulse</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ asset('header.css') }}">
+    <link rel="icon" type="image/png" href="/static/favicon-wit.png">
+    <style>
+        :root {
+            --primary-color: #6d28d9;
+            --primary-hover: #5b21b6;
+            --text-main: #1e1b33;
+            --text-muted: #5b5674;
+            --accent-gradient: linear-gradient(135deg, #5b21b6 0%, #7c3aed 52%, #a855f7 100%);
+            --primary-soft: rgba(109, 40, 217, 0.09);
+            --primary-ring: rgba(109, 40, 217, 0.30);
+            --surface: rgba(255, 255, 255, 0.92);
+            --card-shadow: 0 12px 32px -14px rgba(49, 32, 110, 0.30);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: oklch(94.7% .018 290);
+            color: var(--text-main);
+            min-height: 100vh;
+            background-attachment: fixed;
+        }
+
+        .page { max-width: 720px; margin: 0 auto; padding: 24px 15px 60px; }
+
+        .pulse-head { text-align: center; margin-bottom: 22px; }
+        .pulse-head h2 {
+            font-size: 1.5rem; font-weight: 700; letter-spacing: -0.03em;
+        }
+        .pulse-head p {
+            margin-top: 6px; font-size: 0.9rem; color: var(--text-muted); line-height: 1.6;
+        }
+        .pulse-date {
+            display: inline-block; margin-bottom: 10px;
+            font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em;
+            text-transform: uppercase; color: var(--primary-color);
+            background: var(--primary-soft); border-radius: 999px; padding: 4px 12px;
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid rgba(76, 59, 138, 0.12);
+            border-radius: 20px;
+            box-shadow: var(--card-shadow);
+            padding: 26px;
+        }
+
+        .field-label {
+            font-size: 0.82rem; font-weight: 600; color: var(--text-main);
+            margin-bottom: 10px; display: block;
+        }
+        .field-hint { font-size: 0.78rem; color: var(--text-muted); font-weight: 400; }
+
+        /* ── Mood row ── */
+        .mood-row { display: flex; gap: 8px; margin-bottom: 24px; }
+        .mood-btn {
+            flex: 1; cursor: pointer; font-family: inherit;
+            background: rgba(255,255,255,0.7);
+            border: 1.5px solid rgba(76, 59, 138, 0.14);
+            border-radius: 14px; padding: 12px 4px 10px;
+            display: flex; flex-direction: column; align-items: center; gap: 6px;
+            transition: border-color .15s ease, background .15s ease, transform .12s ease;
+        }
+        .mood-btn:hover { transform: translateY(-2px); border-color: var(--primary-ring); }
+        .mood-btn .mood-face { width: 28px; height: 28px; color: var(--text-muted); }
+        .mood-btn .mood-label {
+            font-size: 0.72rem; font-weight: 600; color: var(--text-muted); text-align: center;
+        }
+        .mood-btn.selected {
+            border-color: var(--primary-color);
+            background: var(--primary-soft);
+            box-shadow: 0 0 0 3px rgba(109, 40, 217, 0.12);
+        }
+        .mood-btn.selected .mood-face,
+        .mood-btn.selected .mood-label { color: var(--primary-color); }
+
+        /* ── Note ── */
+        .note-input {
+            width: 100%; min-height: 130px; resize: vertical;
+            font-family: inherit; font-size: 0.92rem; line-height: 1.6;
+            color: var(--text-main);
+            background: rgba(255,255,255,0.75);
+            border: 1.5px solid rgba(76, 59, 138, 0.14);
+            border-radius: 14px; padding: 14px 16px;
+        }
+        .note-input:focus {
+            outline: none; border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(109, 40, 217, 0.12);
+        }
+        .note-input::placeholder { color: #9490ab; }
+        .note-foot {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-top: 8px; font-size: 0.76rem; color: var(--text-muted);
+        }
+        .note-count.over { color: #b91c1c; font-weight: 600; }
+
+        .submit-row {
+            display: flex; align-items: center; justify-content: flex-end;
+            gap: 12px; margin-top: 20px;
+        }
+        .submit-btn {
+            font-family: inherit; font-size: 0.9rem; font-weight: 600;
+            color: #fff; background: var(--accent-gradient);
+            border: none; border-radius: 12px; padding: 12px 26px; cursor: pointer;
+            transition: opacity .15s ease, transform .12s ease;
+        }
+        .submit-btn:hover:not(:disabled) { transform: translateY(-1px); }
+        .submit-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+        .submit-error { font-size: 0.82rem; color: #b91c1c; margin-right: auto; }
+
+        /* ── Done state ── */
+        .done-card { text-align: center; padding: 44px 26px; }
+        .done-ring {
+            width: 72px; height: 72px; border-radius: 50%; margin: 0 auto 18px;
+            display: flex; align-items: center; justify-content: center;
+            background: var(--primary-soft); border: 2px solid rgba(124, 58, 237, 0.25);
+            color: var(--primary-color);
+        }
+        .done-card h3 { font-size: 1.15rem; font-weight: 700; margin-bottom: 8px; }
+        .done-card p {
+            font-size: 0.88rem; color: var(--text-muted); line-height: 1.65;
+            max-width: 420px; margin: 0 auto;
+        }
+        .done-actions { margin-top: 22px; }
+        .ghost-btn {
+            font-family: inherit; font-size: 0.85rem; font-weight: 600;
+            color: var(--primary-color); background: rgba(255,255,255,0.8);
+            border: 1.5px solid rgba(124, 58, 237, 0.24);
+            border-radius: 12px; padding: 10px 20px; cursor: pointer; text-decoration: none;
+            display: inline-block;
+        }
+        .ghost-btn:hover { background: var(--primary-soft); }
+
+        .skeleton-card { min-height: 240px; display: flex; align-items: center; justify-content: center; }
+        .skeleton-text { font-size: 0.85rem; color: var(--text-muted); }
+
+        @media (max-width: 560px) {
+            .mood-row { flex-wrap: wrap; }
+            .mood-btn { flex: 1 1 30%; }
+        }
+    </style>
+</head>
+<body>
+
+{% include '_header.html' %}
+
+<div class="page">
+    <div class="pulse-head">
+        <span class="pulse-date" id="pulse-date">Today</span>
+        <h2>Daily Pulse</h2>
+        <p>One anonymous note a day. Say how work actually feels —<br>
+           no name is attached to it, not even for you to look back at.</p>
+    </div>
+
+    <!-- Which of the three states shows is decided by /api/pulse/today, so the
+         page opens on the loader rather than flashing a form at someone who has
+         already written today. -->
+    <div class="card skeleton-card" id="pulse-loading">
+        <span class="skeleton-text">Checking today's pulse…</span>
+    </div>
+
+    <div class="card" id="pulse-form" style="display:none;">
+        <label class="field-label">How is your day going?</label>
+        <div class="mood-row" id="mood-row">
+            {% for m in moods %}
+            <button type="button" class="mood-btn" data-mood="{{ m.value }}"
+                    aria-pressed="false" aria-label="{{ m.label }}">
+                <svg class="mood-face" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="9"/>
+                    <circle cx="9" cy="10" r="0.6" fill="currentColor" stroke="none"/>
+                    <circle cx="15" cy="10" r="0.6" fill="currentColor" stroke="none"/>
+                    {% if m.value == 1 %}<path d="M8.5 16.5c1-1.4 2.1-2.1 3.5-2.1s2.5.7 3.5 2.1"/>
+                    {% elif m.value == 2 %}<path d="M8.7 15.9c.9-.9 2-1.3 3.3-1.3s2.4.4 3.3 1.3"/>
+                    {% elif m.value == 3 %}<path d="M8.5 15h7"/>
+                    {% elif m.value == 4 %}<path d="M8.7 14.4c.9.9 2 1.4 3.3 1.4s2.4-.5 3.3-1.4"/>
+                    {% else %}<path d="M8.2 13.8c1 1.6 2.2 2.4 3.8 2.4s2.8-.8 3.8-2.4"/>{% endif %}
+                </svg>
+                <span class="mood-label">{{ m.label }}</span>
+            </button>
+            {% endfor %}
+        </div>
+
+        <label class="field-label" for="pulse-note">
+            Anything you want to say?
+            <span class="field-hint">— optional, and completely anonymous</span>
+        </label>
+        <textarea id="pulse-note" class="note-input" maxlength="{{ note_max }}"
+                  placeholder="What's working, what isn't, what would help. Write it the way you'd say it."></textarea>
+        <div class="note-foot">
+            <span>Please don't include names — yours or anyone else's.</span>
+            <span class="note-count" id="note-count">0 / {{ note_max }}</span>
+        </div>
+
+        <div class="submit-row">
+            <span class="submit-error" id="pulse-error"></span>
+            <button type="button" class="submit-btn" id="pulse-submit" disabled>Send anonymously</button>
+        </div>
+    </div>
+
+    <div class="card done-card" id="pulse-done" style="display:none;">
+        <div class="done-ring">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 6L9 17l-5-5"/>
+            </svg>
+        </div>
+        <h3>Your pulse is in for today</h3>
+        <p>It has gone into the anonymous pool for your organisation. There is no
+           copy of it tied to you — which also means it can't be shown back to you
+           or taken back. Come back tomorrow for the next one.</p>
+        <div class="done-actions">
+            <a href="/" class="ghost-btn" id="back-to-chat">Back to Chat</a>
+        </div>
+    </div>
+</div>
+
+<script src="{{ asset('header.js') }}"></script>
+<script>
+    NexaHeader.init();
+
+    const NOTE_MAX = {{ note_max }};
+
+    function getAuthHeaders(extra) {
+        const token = localStorage.getItem('we_ace_access_token') || '';
+        return Object.assign({ 'Authorization': `Bearer ${token}` }, extra || {});
+    }
+
+    const $ = id => document.getElementById(id);
+    const els = {
+        loading: $('pulse-loading'), form: $('pulse-form'), done: $('pulse-done'),
+        note: $('pulse-note'), count: $('note-count'), submit: $('pulse-submit'),
+        error: $('pulse-error'), date: $('pulse-date'),
+    };
+
+    let mood = null;
+    let sending = false;
+
+    function show(state) {
+        els.loading.style.display = state === 'loading' ? 'flex' : 'none';
+        els.form.style.display    = state === 'form' ? 'block' : 'none';
+        els.done.style.display    = state === 'done' ? 'block' : 'none';
+    }
+
+    // The mood is the only required field — a note with no mood tells a word
+    // cloud something but tells the trend nothing, so the button waits for it.
+    function syncSubmit() {
+        els.submit.disabled = sending || mood === null || els.note.value.length > NOTE_MAX;
+        els.submit.textContent = sending ? 'Sending…' : 'Send anonymously';
+    }
+
+    document.querySelectorAll('.mood-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            mood = parseInt(btn.dataset.mood, 10);
+            document.querySelectorAll('.mood-btn').forEach(b => {
+                const on = b === btn;
+                b.classList.toggle('selected', on);
+                b.setAttribute('aria-pressed', on ? 'true' : 'false');
+            });
+            els.error.textContent = '';
+            syncSubmit();
+        });
+    });
+
+    els.note.addEventListener('input', () => {
+        const n = els.note.value.length;
+        els.count.textContent = `${n} / ${NOTE_MAX}`;
+        els.count.classList.toggle('over', n > NOTE_MAX);
+        syncSubmit();
+    });
+
+    els.submit.addEventListener('click', async () => {
+        if (mood === null || sending) return;
+        sending = true; els.error.textContent = ''; syncSubmit();
+        try {
+            const res = await fetch('/api/pulse', {
+                method: 'POST',
+                headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+                credentials: 'omit',
+                body: JSON.stringify({ mood, note: els.note.value.trim() }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                // 409 means today's slot is already taken — that is not an error
+                // to argue with, it is the done state arriving late.
+                if (res.status === 409) { show('done'); return; }
+                els.error.textContent = data.error || 'Could not send that. Try again.';
+                return;
+            }
+            // Clear the box before switching views: nothing about the note
+            // should survive on the page once it is anonymous in the pool.
+            els.note.value = '';
+            show('done');
+        } catch (e) {
+            els.error.textContent = 'Network trouble — try again in a moment.';
+        } finally {
+            sending = false; syncSubmit();
+        }
+    });
+
+    // Going back to chat should land in the conversation they left, not open a
+    // new one. The side-panel tabs leave a marker for script.js that says "this
+    // load is an in-app hop"; this link is not one of those tabs, so it leaves
+    // the same marker itself.
+    document.getElementById('back-to-chat')?.addEventListener('click', () => {
+        window.NexaHeader?.markTabNav();
+    });
+
+    (async function init() {
+        els.date.textContent = new Date().toLocaleDateString('en-GB',
+            { weekday: 'long', day: 'numeric', month: 'long' });
+        try {
+            const res = await fetch('/api/pulse/today', { headers: getAuthHeaders(), credentials: 'omit' });
+            const data = await res.json().catch(() => ({}));
+            show(res.ok && data.submitted ? 'done' : 'form');
+        } catch (e) {
+            // If the check itself fails, offer the form — a duplicate is caught
+            // server-side anyway, so the worst case is a friendly 409.
+            show('form');
+        }
+    })();
+</script>
+</body>
+</html>

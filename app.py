@@ -39,6 +39,11 @@ from database import (
     get_user_identity,
     get_all_users_admin,
     get_all_orgs,
+    get_corporate_stats,
+    set_org_licence,
+    get_org_licence,
+    LICENCES,
+    DEFAULT_LICENCE,
     get_usage_trend,
     get_user_language,
     set_user_language,
@@ -49,6 +54,11 @@ from database import (
     get_user_linkedin,
     set_user_linkedin_url,
     save_user_linkedin_profile,
+    has_pulsed_today,
+    record_pulse,
+    get_pulse_summary,
+    get_pulse_note_texts,
+    get_pulse_insight,
 )
 import linkedin
 
@@ -187,6 +197,41 @@ def _org_content_directive(org_slug: str | None) -> str:
         f"{content.strip()}\n---"
     )
 
+# Daily Pulse is a Nexa Pro feature, so every pulse route has to know the
+# calling org's licence. Cached on the same short TTL as the org content above —
+# an admin flipping a corporate to Pro sees it take effect within the window,
+# without every pulse request costing a DB round trip.
+_ORG_LICENCE_TTL = 60  # seconds
+_org_licence_cache: dict = {}  # org_slug -> (expires_at, licence)
+
+PULSE_LICENCE = 'pro'   # the tier Daily Pulse is bundled with
+PULSE_UPGRADE_MESSAGE = ('Daily Pulse is part of Nexa Pro. '
+                         'Talk to WeAce about upgrading your organisation.')
+
+
+def _get_org_licence_cached(org_slug: str | None) -> str:
+    if not org_slug:
+        return DEFAULT_LICENCE
+    now = time.time()
+    cached = _org_licence_cache.get(org_slug)
+    if cached and cached[0] > now:
+        return cached[1]
+    try:
+        licence = get_org_licence(org_slug)
+    except Exception as e:
+        logger.error("[org_licence] fetch failed for org=%s: %s", org_slug, e)
+        # Fall back to the last known value, or the default. Failing closed on a
+        # transient DB error would take Pulse away from paying orgs mid-session.
+        return cached[1] if cached else DEFAULT_LICENCE
+    _org_licence_cache[org_slug] = (now + _ORG_LICENCE_TTL, licence)
+    return licence
+
+
+def _has_pulse(org_slug: str | None) -> bool:
+    """Whether this organisation's licence includes Daily Pulse."""
+    return _get_org_licence_cached(org_slug) == PULSE_LICENCE
+
+
 # Same idea for the per-user notes an admin maintains: cached briefly so /chat
 # stays a single AI call, and edits land within the TTL window.
 _USER_DETAILS_TTL = 60  # seconds
@@ -306,15 +351,21 @@ def _reply_text(response) -> str:
     return "\n\n".join(parts)
 
 
-def _claude_reply(system_content: str, messages: list, max_tokens: int) -> str:
-    """Call Claude with web search available, resuming if the turn pauses."""
+def _claude_reply(system: str | list, messages: list, max_tokens: int) -> str:
+    """Call Claude with web search available, resuming if the turn pauses.
+
+    `system` may be a plain string or a list of content blocks — the caller
+    uses the block form to place a `cache_control` breakpoint after the
+    stable part of the prompt. Tool definitions render before `system` in
+    the request, so a breakpoint there covers WEB_TOOLS too at no extra cost.
+    """
     convo = list(messages)
     response = None
     for _ in range(MAX_PAUSE_RESUMES + 1):
         response = client.messages.create(
             model=AI_MODEL,
             max_tokens=max_tokens,
-            system=system_content,
+            system=system,
             messages=convo,
             tools=WEB_TOOLS,
         )
@@ -408,19 +459,20 @@ except Exception as e:
 
 
 def _start_scheduler():
+    # Sentiment analysis used to run here nightly at 02:00 UTC. It no longer does:
+    # the run cost a full re-analysis every night whether or not anyone looked at
+    # the result, so it is now driven by the Recalculate button on the dashboard
+    # (POST /api/sentiment/refresh) and runs when an admin actually wants it.
     from apscheduler.schedulers.background import BackgroundScheduler
     import atexit
-    from sentiment_job import run_sentiment_job
     scheduler = BackgroundScheduler(daemon=True)
-    scheduler.add_job(run_sentiment_job, 'cron', hour=2, minute=0, id='sentiment_daily')
     # Sweeps up users who have a LinkedIn URL but no scraped profile — see
-    # linkedin_job.py. Offset off the hour so it never starts alongside the
-    # sentiment run.
+    # linkedin_job.py.
     scheduler.add_job(_run_linkedin_backfill, 'cron', hour='*/4', minute=15,
                       id='linkedin_backfill', max_instances=1, coalesce=True)
     scheduler.start()
     atexit.register(lambda: scheduler.shutdown())
-    print("Scheduler started: sentiment at 02:00 UTC, LinkedIn backfill every 4h.")
+    print("Scheduler started: LinkedIn backfill every 4h.")
     return scheduler
 
 
@@ -934,6 +986,7 @@ def me():
         'profile_image': g.user.get('profile_image', ''),
         'role': g.user.get('role', 'user'),
         'nexa_access': token_state.get('nexa_access', False),
+        'pulse_access': _has_pulse(token_state.get('org_id')),
         'access_last_date': token_state.get('access_last_date'),
     })
 
@@ -1203,6 +1256,9 @@ def create_session():
             'profile_image': profile_image,
             'role': role,
             'nexa_access': nexa_access,
+            # Daily Pulse is a Nexa Pro feature — the header hides the tab when
+            # this org isn't on it.
+            'pulse_access': _has_pulse(org_slug),
             'access_last_date': access_last_date,
             'recent_messages': recent_messages,
             'welcome_message': welcome_message,
@@ -1341,6 +1397,9 @@ def resume_session():
             'profile_image': profile_image,
             'role': role,
             'nexa_access': nexa_access,
+            # Daily Pulse is a Nexa Pro feature — the header hides the tab when
+            # this org isn't on it.
+            'pulse_access': _has_pulse(org_slug),
             'access_last_date': access_last_date,
             'recent_messages': recent_messages,
             'welcome_message': '',
@@ -1417,6 +1476,9 @@ def new_session():
             'profile_image': g.user.get('profile_image', ''),
             'role': role,
             'nexa_access': nexa_access,
+            # Daily Pulse is a Nexa Pro feature — the header hides the tab when
+            # this org isn't on it.
+            'pulse_access': _has_pulse(g.user.get('org_slug') or g.user.get('org_id')),
             'access_last_date': access_last_date,
             'recent_messages': recent_messages,
             'welcome_message': welcome_message,
@@ -1681,19 +1743,39 @@ def chat():
             system_content += _linkedin_directive(user_id, user_name)
 
         system_content += _user_details_directive(user_id) \
-          + _org_content_directive(g.user.get('org_id')) \
-          + _mode_directive(mode) \
-          + _language_directive(language)
+          + _org_content_directive(g.user.get('org_id'))
+
+        # Mode and language are read fresh every request and can change
+        # mid-session, so they're kept out of the cached prefix — everything
+        # above this line is byte-identical from one turn to the next.
+        volatile_directive = _mode_directive(mode) + _language_directive(language)
 
         if AI_PROVIDER == "claude":
             api_messages = [m for m in conversation_history if m["role"] != "system"]
+            if len(api_messages) > 1:
+                # Everything before this turn's new message was already sent on
+                # the previous request in this session — mark it so Claude
+                # serves it from cache instead of re-processing the whole
+                # history (up to MAX_CONTEXT_MESSAGES turns) on every message.
+                prior = api_messages[-2]
+                api_messages[-2] = {
+                    "role": prior["role"],
+                    "content": [{"type": "text", "text": prior["content"],
+                                 "cache_control": {"type": "ephemeral"}}],
+                }
+            system_blocks = [
+                {"type": "text", "text": system_content,
+                 "cache_control": {"type": "ephemeral"}},
+            ]
+            if volatile_directive:
+                system_blocks.append({"type": "text", "text": volatile_directive})
             # Search results land in context before the reply is written, so this
             # needs more headroom than a no-tools turn.
-            reply = _claude_reply(system_content, api_messages, max_tokens=2048)
+            reply = _claude_reply(system_blocks, api_messages, max_tokens=2048)
         else:
             response = client.chat.completions.create(
                 model=AI_MODEL,
-                messages=[{"role": "system", "content": system_content}]
+                messages=[{"role": "system", "content": system_content + volatile_directive}]
                          + [m for m in conversation_history if m["role"] != "system"],
                 temperature=0.7,
             )
@@ -1726,6 +1808,7 @@ def dashboard():
         refresh_token=session.get('refresh_token', ''),
         # shared header (_header.html)
         active_tab='sentiment',
+        show_pulse=_has_pulse(session.get('org_slug')),
         show_org_tabs=True,
         show_admin=_has_role(session.get('role'), 'weace_super_admin'),
     )
@@ -1874,6 +1957,7 @@ def my_insights():
         refresh_token=session.get('refresh_token', ''),
         # shared header (_header.html)
         active_tab='my-insights',
+        show_pulse=_has_pulse(session.get('org_slug')),
         show_org_tabs=_has_role(session.get('role'), 'corporate_super_admin'),
         show_admin=_has_role(session.get('role'), 'weace_super_admin'),
     )
@@ -2187,6 +2271,229 @@ def my_recommendations_refresh():
     return jsonify({'ok': True, 'status': 'running'})
 
 
+# ── Daily Pulse ─────────────────────────────────────────────────────────────
+# One anonymous note a day per person. The write path never puts a user id next
+# to a note (see the table comments in database.init_db), and the read path never
+# hands an admin note text — only the word cloud and the written summary that
+# pulse_job builds from the pool.
+
+_PULSE_MOODS = {
+    1: 'Struggling',
+    2: 'Low',
+    3: 'Okay',
+    4: 'Good',
+    5: 'Great',
+}
+_PULSE_NOTE_MAX = 600
+# Windows an admin may ask for. Fixed rather than free-form so nobody can narrow
+# the range down to a single day's handful of notes.
+_PULSE_WINDOWS = (7, 30, 90)
+
+
+def _pulse_today():
+    """Today's date, as the pulse day everyone is writing into."""
+    from datetime import date
+    return date.today()
+
+
+def _pulse_user_hash(user_id: str) -> str:
+    """A salted hash of the user id — the only trace a submission leaves.
+
+    It exists purely so `pulse_submissions` can hold one row per person per day
+    without holding the person. The salt is server-side and never leaves it, so
+    the hash cannot be recomputed from a user id anyone else has. Set PULSE_SALT
+    in the environment; without it the Flask secret key stands in, which is fine
+    as long as that is set in production.
+    """
+    import hashlib
+    salt = os.environ.get('PULSE_SALT') or app.secret_key or ''
+    return hashlib.sha256(f'{salt}:{user_id}'.encode('utf-8')).hexdigest()
+
+
+@app.route('/pulse')
+def pulse_page():
+    """The user-facing pulse check. Everyone at a Nexa Pro organisation has one;
+    admins included — but what they see here is their own note box, not anyone
+    else's. Organisations on Nexa Regular don't have the feature, so the page is
+    not theirs to open."""
+    if 'user_id' not in session:
+        return redirect('/')
+    if not _has_pulse(session.get('org_slug')):
+        return redirect('/')
+    name = session['user_name']
+    initials = ''.join(w[0].upper() for w in name.split()[:2])
+    return render_template('pulse.html',
+        user_name=name,
+        initials=initials,
+        profile_image=session.get('profile_image', ''),
+        org_name=session.get('org_name', 'Organisation'),
+        refresh_token=session.get('refresh_token', ''),
+        moods=[{'value': v, 'label': l} for v, l in sorted(_PULSE_MOODS.items())],
+        note_max=_PULSE_NOTE_MAX,
+        # shared header (_header.html)
+        active_tab='pulse',
+        show_pulse=True,
+        show_org_tabs=_has_role(session.get('role'), 'corporate_super_admin'),
+        show_admin=_has_role(session.get('role'), 'weace_super_admin'),
+    )
+
+
+@app.route('/api/pulse/today')
+@require_weace_token
+def pulse_today():
+    """Whether today's note is already in. Never returns the note itself —
+    once submitted it is out of the user's hands too, which is what makes it
+    unretrievable rather than merely hidden."""
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    if not _has_pulse((g.user.get('org_id') or '').strip()):
+        return jsonify({'error': PULSE_UPGRADE_MESSAGE}), 403
+    try:
+        done = has_pulsed_today(_pulse_user_hash(g.user['user_id']), _pulse_today())
+        return jsonify({'submitted': done, 'date': _pulse_today().isoformat()})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/pulse', methods=['POST'])
+@require_weace_token
+def pulse_submit():
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    org_slug = (g.user.get('org_id') or '').strip()
+    if not org_slug:
+        return jsonify({'error': 'No organisation associated with this account'}), 400
+    if not _has_pulse(org_slug):
+        return jsonify({'error': PULSE_UPGRADE_MESSAGE}), 403
+
+    data = request.get_json(silent=True) or {}
+    try:
+        mood = int(data.get('mood'))
+    except (TypeError, ValueError):
+        return jsonify({'error': 'Pick how your day is going.'}), 400
+    if mood not in _PULSE_MOODS:
+        return jsonify({'error': 'Pick how your day is going.'}), 400
+
+    note = (data.get('note') or '').strip()
+    if len(note) > _PULSE_NOTE_MAX:
+        return jsonify({'error': f'Keep it under {_PULSE_NOTE_MAX} characters.'}), 400
+
+    try:
+        ok = record_pulse(_pulse_user_hash(g.user['user_id']), _pulse_today(),
+                          org_slug, mood, note)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    if not ok:
+        return jsonify({'error': "You've already shared your pulse today. See you tomorrow."}), 409
+    # Deliberately nothing about the note comes back — there is no id to hand
+    # over, because nothing was written that could be looked up again.
+    return jsonify({'ok': True, 'date': _pulse_today().isoformat()}), 201
+
+
+@app.route('/api/pulse/aggregate')
+@require_weace_token
+def pulse_aggregate():
+    """Anonymised org-level pulse for admins: counts, mood mix, trend, word
+    cloud and the written summary. No note text, ever, at any response size."""
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    if not _has_role(g.user.get('role'), 'corporate_super_admin', 'weace_super_admin'):
+        return jsonify({'error': 'Forbidden'}), 403
+
+    if _has_role(g.user.get('role'), 'weace_super_admin'):
+        req_org = request.args.get('org_slug', '').strip()
+        org_slug = None if req_org in ('', 'all', '__all__') else req_org
+        if not org_slug:
+            return jsonify({'error': 'Select a specific organisation to view its pulse.'}), 400
+    else:
+        org_slug = (g.user.get('org_id') or '').strip() or None
+        if not org_slug:
+            return jsonify({'error': 'No organisation associated with this account'}), 400
+    # Gated on the organisation being looked at, not on who is looking — a WeAce
+    # admin has no pulse to read for an org that never had the feature.
+    if not _has_pulse(org_slug):
+        return jsonify({'error': PULSE_UPGRADE_MESSAGE}), 403
+
+    try:
+        days = int(request.args.get('days', 30))
+    except ValueError:
+        days = 30
+    if days not in _PULSE_WINDOWS:
+        days = 30
+
+    try:
+        from pulse_job import PULSE_MIN_RESPONSES, build_word_cloud
+        summary = get_pulse_summary(org_slug, days=days)
+        summary['min_responses'] = PULSE_MIN_RESPONSES
+
+        # The k-anonymity floor. Under it the response carries the count and
+        # nothing else — no mood mix, no trend, no words. A three-person pulse
+        # is a three-person pulse however you chart it.
+        if summary['responses'] < PULSE_MIN_RESPONSES:
+            return jsonify({
+                'locked': True,
+                'days': days,
+                'responses': summary['responses'],
+                'min_responses': PULSE_MIN_RESPONSES,
+            })
+
+        summary['locked'] = False
+        summary['word_cloud'] = build_word_cloud(get_pulse_note_texts(org_slug, days=days))
+        cached = get_pulse_insight(org_slug, days)
+        summary['insight'] = (cached or {}).get('insight')
+        summary['insight_calculated_at'] = (cached or {}).get('calculated_at')
+        return jsonify(summary)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/pulse/insights/refresh', methods=['POST'])
+@require_weace_token
+def pulse_insights_refresh():
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    if not _has_role(g.user.get('role'), 'corporate_super_admin', 'weace_super_admin'):
+        return jsonify({'error': 'Forbidden'}), 403
+
+    body = request.get_json(silent=True) or {}
+    if _has_role(g.user.get('role'), 'weace_super_admin'):
+        req_org = (request.args.get('org_slug', '').strip()
+                   or (body.get('org_slug') or '').strip())
+        if not req_org or req_org in ('all', '__all__'):
+            return jsonify({'error': 'Select a specific organisation to recalculate.'}), 400
+        org_slug = req_org
+    else:
+        org_slug = (g.user.get('org_id') or '').strip()
+        if not org_slug:
+            return jsonify({'error': 'No organisation associated with this account'}), 400
+    if not _has_pulse(org_slug):
+        return jsonify({'error': PULSE_UPGRADE_MESSAGE}), 403
+
+    try:
+        days = int(request.args.get('days', body.get('days', 30)))
+    except (TypeError, ValueError):
+        days = 30
+    if days not in _PULSE_WINDOWS:
+        days = 30
+
+    try:
+        from pulse_job import PULSE_MIN_RESPONSES, analyze_org_pulse
+        summary = get_pulse_summary(org_slug, days=days)
+        if summary['responses'] < PULSE_MIN_RESPONSES:
+            return jsonify({'ok': False,
+                            'error': f'Needs at least {PULSE_MIN_RESPONSES} responses '
+                                     f'in this window before anything can be summarised.'}), 400
+        insight = analyze_org_pulse(org_slug, days=days)
+        if not insight:
+            return jsonify({'ok': False,
+                            'error': 'Not enough written notes to summarise yet.'}), 400
+        cached = get_pulse_insight(org_slug, days) or {}
+        return jsonify({'ok': True, 'insight': insight,
+                        'insight_calculated_at': cached.get('calculated_at')})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/admin')
 def admin():
     if 'user_id' not in session:
@@ -2229,6 +2536,77 @@ def admin_cost():
         show_org_tabs=_has_role(session.get('role'), 'corporate_super_admin'),
         show_admin=True,
     )
+
+
+@app.route('/admin/corporates')
+def admin_corporates():
+    """Corporate dashboard — every organisation on the platform with its user
+    and message totals. Platform-wide, so weace_super_admin only."""
+    if 'user_id' not in session:
+        return redirect('/')
+    if not _has_role(session.get('role'), 'weace_super_admin'):
+        return redirect('/')
+    name = session['user_name']
+    initials = ''.join(w[0].upper() for w in name.split()[:2])
+    return render_template('admin_corporates.html',
+        user_name=name,
+        initials=initials,
+        profile_image=session.get('profile_image', ''),
+        refresh_token=session.get('refresh_token', ''),
+        active_tab='admin',
+        active_subtab='corporates',
+        show_org_tabs=_has_role(session.get('role'), 'corporate_super_admin'),
+        show_admin=True,
+    )
+
+
+@app.route('/api/admin/corporates')
+@require_weace_token
+def admin_corporates_data():
+    """Per-organisation totals for the corporate dashboard."""
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    if not _has_role(g.user.get('role'), 'weace_super_admin'):
+        return jsonify({'error': 'Forbidden'}), 403
+    try:
+        orgs = get_corporate_stats()
+        return jsonify({
+            'orgs': orgs,
+            'total_orgs': len(orgs),
+            'total_users': sum(o['total_users'] for o in orgs),
+            'total_messages': sum(o['total_messages'] for o in orgs),
+            # The picker's options come from the server so a new licence tier
+            # only has to be added in one place.
+            'licences': [{'code': c, 'label': l} for c, l in LICENCES.items()],
+            'default_licence': DEFAULT_LICENCE,
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/admin/corporate-licence', methods=['POST'])
+@require_weace_token
+def admin_set_corporate_licence():
+    """Assign a Nexa licence to one organisation."""
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    if not _has_role(g.user.get('role'), 'weace_super_admin'):
+        return jsonify({'error': 'Forbidden'}), 403
+    data = request.get_json(silent=True) or {}
+    org_slug = (data.get('org_slug') or '').strip()
+    if not org_slug:
+        return jsonify({'error': 'org_slug is required'}), 400
+    try:
+        licence = set_org_licence(org_slug, data.get('licence'), g.user.get('user_id'))
+        # Drop the cached tier so the gate (Daily Pulse) follows immediately
+        # rather than after the TTL.
+        _org_licence_cache.pop(org_slug, None)
+        return jsonify({'ok': True, 'org_slug': org_slug, 'licence': licence,
+                        'label': LICENCES[licence]})
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/api/admin/users')

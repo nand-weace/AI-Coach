@@ -87,6 +87,13 @@ _RECS_TYPES = ('article', 'book', 'video', 'lecture')
 # kept so a new tip covers different ground instead of rewording the last one.
 _TIPS_HISTORY = 5           # headlines remembered, to steer the next tip away
 
+# Every My Insights report is a single-shot read of one user's own messages that
+# comes back as a fixed JSON shape — summarising and scoring rather than coaching.
+# Haiku is sized for that and costs about a third of the coaching model, so the
+# personal reports run on it while the org-level analysis and the pulse stay on
+# whatever AI_MODEL says. Claude only; on OpenAI the provider's own model is used.
+_INSIGHTS_MODEL = os.environ.get('INSIGHTS_AI_MODEL', 'claude-haiku-4-5')
+
 # ── Prompts ──────────────────────────────────────────────────────────────────
 
 # Framing for the personal reports. Without it the request arrives as a bare
@@ -469,9 +476,22 @@ def _call_llm(prompt: str, client, ai_provider: str, ai_model: str, max_tokens: 
 # recalled from training. Search only: web_fetch would pull whole pages into the
 # prompt, and a search result already carries the link and title we need.
 # max_uses stops a thorough turn from running twenty searches.
-_WEB_TOOLS = [
-    {"type": "web_search_20260209", "name": "web_search", "max_uses": _RECS_SEARCHES},
-]
+#
+# The tool comes in two versions and the model decides which one is legal. The
+# 2026 version filters results through code execution under the hood, so it only
+# runs on Sonnet 4.6 / Opus 4.6 and later; Haiku rejects it outright and takes
+# the basic 2025 version instead. Same results and citations either way, just
+# without the dynamic filtering.
+_WEB_SEARCH_BASIC_MODELS = ('claude-haiku',)
+
+
+def _web_tools(ai_model: str) -> list:
+    kind = 'web_search_20250305' \
+        if (ai_model or '').startswith(_WEB_SEARCH_BASIC_MODELS) \
+        else 'web_search_20260209'
+    return [{"type": kind, "name": "web_search", "max_uses": _RECS_SEARCHES}]
+
+
 _MAX_PAUSE_RESUMES = 2
 
 
@@ -490,7 +510,7 @@ def _call_llm_websearch(prompt: str, client, ai_model: str, max_tokens: int = 40
             model=ai_model,
             max_tokens=max_tokens,
             messages=convo,
-            tools=_WEB_TOOLS,
+            tools=_web_tools(ai_model),
             **kwargs,
         )
 
@@ -562,12 +582,11 @@ def analyze_user_sentiment(user_id: str) -> dict | None:
     builds up run by run) and insights to user_sentiment. Returns the result,
     or None if there is too little to read or the LLM call fails.
     """
-    ai_provider = os.environ.get('AI_PROVIDER', 'claude').lower()
-    api_key = os.environ.get('CLAUDE_API_KEY' if ai_provider == 'claude' else 'OPENAI_API_KEY')
-    if not api_key:
+    cfg = _llm_config()
+    if not cfg:
         print("Personal sentiment: no API key configured.")
         return None
-    ai_model = os.environ.get('AI_MODEL', 'claude-sonnet-4-6' if ai_provider == 'claude' else 'gpt-4o')
+    client, ai_provider, ai_model = cfg
 
     messages = get_user_messages(user_id)
     if len(messages) < _MIN_SELF_MESSAGES:
@@ -577,7 +596,6 @@ def analyze_user_sentiment(user_id: str) -> dict | None:
     if len(combined) > _SELF_MAX_CHARS:
         combined = combined[:_SELF_MAX_CHARS] + '\n[...truncated]'
 
-    client = _build_client(ai_provider, api_key)
     raw = None
     try:
         raw = _call_llm(_SELF_PROMPT.replace('{messages}', combined), client, ai_provider, ai_model)
@@ -610,12 +628,16 @@ def analyze_user_sentiment(user_id: str) -> dict | None:
 # ── Personal narrative reports ───────────────────────────────────────────────
 
 def _llm_config():
-    """(client, provider, model) for the configured provider, or None if unset."""
+    """(client, provider, model) for the My Insights reports, or None if unset.
+
+    These run on _INSIGHTS_MODEL rather than AI_MODEL — see the note there.
+    """
     ai_provider = os.environ.get('AI_PROVIDER', 'claude').lower()
     api_key = os.environ.get('CLAUDE_API_KEY' if ai_provider == 'claude' else 'OPENAI_API_KEY')
     if not api_key:
         return None
-    ai_model = os.environ.get('AI_MODEL', 'claude-sonnet-4-6' if ai_provider == 'claude' else 'gpt-4o')
+    ai_model = _INSIGHTS_MODEL if ai_provider == 'claude' \
+        else os.environ.get('AI_MODEL', 'gpt-4o')
     return _build_client(ai_provider, api_key), ai_provider, ai_model
 
 

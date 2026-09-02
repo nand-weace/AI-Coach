@@ -4,8 +4,11 @@
 
   Params:
     active_tab     'talk' | 'sentiment' | 'my-insights' | 'admin'
-    active_subtab  'platform' | 'cost' — which Admin page is open, for the
+    active_subtab  'platform' | 'corporates' | 'cost' — which Admin page is open, for the
                    sub-nav under the Admin tab.
+    show_pulse     true when the user's organisation is on a licence that
+                   includes Daily Pulse (Nexa Pro). The chat page leaves it
+                   hidden and header.js reveals it from /session.
     show_org_tabs  true to render Sentiment Analysis / Corporate Knowledge as
                    visible (the dashboard, which is role-gated server-side).
                    The chat page leaves them hidden and lets script.js reveal
@@ -74,6 +77,18 @@
             <a class="app-subtab" href="/my-insights#recs" data-subtab="recs">Resources</a>
         </div>
 
+        {# Daily Pulse ships with Nexa Pro, so `show_pulse` decides whether this
+           tab exists at all for the user's organisation. #}
+        <a id="pulse-link" href="/pulse"
+           class="app-tab{% if active_tab == 'pulse' %} active{% endif %}"
+           {% if active_tab == 'pulse' %}aria-current="page"{% endif %}
+           {% if show_admin or not show_pulse %}style="display:none;"{% endif %}>
+            <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+            </svg>
+            Daily Pulse
+        </a>
+
         <a id="dashboard-link" href="/dashboard"
            class="app-tab{% if active_tab == 'sentiment' %} active{% endif %}"
            {% if active_tab == 'sentiment' %}aria-current="page"{% endif %}
@@ -109,6 +124,8 @@
              {% if not show_admin %}style="display:none;"{% endif %}>
             <a class="app-subtab{% if active_subtab == 'platform' %} active{% endif %}"
                href="/admin">Platform</a>
+            <a class="app-subtab{% if active_subtab == 'corporates' %} active{% endif %}"
+               href="/admin/corporates">Corporates</a>
             <a class="app-subtab{% if active_subtab == 'cost' %} active{% endif %}"
                href="/admin/cost">Cost Analysis</a>
         </div>
