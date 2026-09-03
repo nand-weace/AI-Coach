@@ -18,18 +18,18 @@ def _execute(cur, sql, params=None):
     return cur.execute(sql, params)
 
 _SENTIMENT_DIMS = [
-    'work_life_balance', 'job_satisfaction', 'stress_anxiety', 'self_confidence',
+    'work_life_balance', 'job_satisfaction', 'emotional_resilience', 'self_confidence',
     'empathy', 'frustration_disengagement', 'growth_mindset', 'psychological_safety',
 ]
 
-# Display names, matching the labels shown on the My Insights page
-# (templates/my_insights.html's ALL_SENTIMENT_DIMS) — kept in step with those,
-# not derived from the key, since a couple of them read shorter than their key
-# ('psychological_safety' -> 'Openness', 'frustration_disengagement' -> 'Frustration').
+# Display names, matching the labels shown on the My Insights page — kept in
+# step with those, not derived from the key, since a couple of them read
+# shorter than their key ('psychological_safety' -> 'Openness',
+# 'frustration_disengagement' -> 'Frustration').
 _SENTIMENT_TITLES = {
     'work_life_balance':         'Work-Life Balance',
     'job_satisfaction':          'Job Satisfaction',
-    'stress_anxiety':            'Stress & Anxiety',
+    'emotional_resilience':      'Emotional Resilience',
     'self_confidence':           'Self-Confidence',
     'empathy':                   'Empathy',
     'frustration_disengagement': 'Frustration',
@@ -37,16 +37,31 @@ _SENTIMENT_TITLES = {
     'psychological_safety':      'Openness',
 }
 
-# My Insights hides these two from its Scores/Trend views (see HIDDEN_DIMS in
+# Short, user-facing description for each dimension — what a viewer sees
+# under the title. Every dimension now scores 0-100 in the same direction
+# (higher is always the stronger reading), so a description never needs to
+# say "low is good here" the way the old inverted stress_anxiety dimension did.
+_SENTIMENT_DESCRIPTIONS = {
+    'work_life_balance':         'How well you separate work from personal life',
+    'job_satisfaction':          'Your sense of meaning and engagement at work',
+    'emotional_resilience':      'How calm and composed you stay under pressure',
+    'self_confidence':           'Belief in your ability to handle challenges',
+    'empathy':                   "Attention to others' perspectives and emotions",
+    'frustration_disengagement': 'Cynicism, dismissiveness, or detachment',
+    'growth_mindset':            'How you frame effort and setbacks',
+    'psychological_safety':      'How openly you discuss mistakes and doubts',
+}
+
+# My Insights hides these from its Scores/Trend views (see HIDDEN_DIMS in
 # templates/my_insights.html) — still scored and kept in the per-key result
 # for callers that need them (e.g. Growth Snapshot pills), just left out of
 # the 'sentiments' list below so it matches what the page actually shows.
-_SENTIMENT_LIST_HIDDEN = {'psychological_safety', 'empathy'}
+_SENTIMENT_LIST_HIDDEN = {'psychological_safety', 'empathy', 'frustration_disengagement'}
 
 _SENTIMENT_SEEDS = [
     ('work_life_balance',         'Boundary-setting and balance language',                   'Positive'),
     ('job_satisfaction',          'Fulfilment and motivation signals',                       'Positive'),
-    ('stress_anxiety',            'Urgency, overwhelm, and pressure signals',                'Negative'),
+    ('emotional_resilience',      'Calm, composure, and coping capacity under pressure',     'Positive'),
     ('self_confidence',           'Assertive vs self-doubting phrases',                      'Positive'),
     ('empathy',                   "References to others' feelings and perspectives",         'Positive'),
     ('frustration_disengagement', 'Cynical, dismissive, or disengaged patterns',             'Negative'),
@@ -183,9 +198,20 @@ def init_db():
                     name VARCHAR(100) NOT NULL UNIQUE,
                     description TEXT,
                     type ENUM('Positive', 'Negative') NOT NULL,
+                    is_active TINYINT(1) NOT NULL DEFAULT 1,
                     INDEX idx_name (name)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """)
+            # A dimension that's been retired (e.g. hidden from My Insights)
+            # keeps its historical sentiment_score rows — is_active just says
+            # whether it should still be picked up when calculating sentiments.
+            _execute(cur,
+                "SELECT COUNT(*) AS cnt FROM information_schema.COLUMNS "
+                "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sentiment' "
+                "AND COLUMN_NAME = 'is_active'",
+            )
+            if cur.fetchone()['cnt'] == 0:
+                _execute(cur, "ALTER TABLE sentiment ADD COLUMN is_active TINYINT(1) NOT NULL DEFAULT 1")
             _execute(cur,"""
                 CREATE TABLE IF NOT EXISTS sentiment_score (
                     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -964,51 +990,6 @@ def upsert_org_sentiment(org_slug: str, sentiment_data: dict):
         conn.close()
 
 
-def insert_org_sentiment_history(org_slug: str, sentiment_data: dict):
-    """Append a score snapshot to the history table. Keeps only the 8 dimension scores."""
-    _DIMS = _SENTIMENT_DIMS
-    scores = {
-        dim: sentiment_data[dim]['score']
-        for dim in _DIMS
-        if isinstance(sentiment_data.get(dim), dict) and 'score' in sentiment_data[dim]
-    }
-    if not scores:
-        return
-    conn = get_connection()
-    try:
-        with conn.cursor() as cur:
-            _execute(cur,
-                "INSERT INTO org_sentiment_history (org_slug, scores, calculated_at) VALUES (%s, %s, NOW())",
-                (org_slug, json.dumps(scores)),
-            )
-        conn.commit()
-    finally:
-        conn.close()
-
-
-def get_org_sentiment_history(org_slug: str, limit: int = 12) -> list:
-    """Return up to `limit` snapshots oldest-first: [{date, dim: score, ...}, ...]."""
-    conn = get_connection()
-    try:
-        with conn.cursor() as cur:
-            _execute(cur,
-                "SELECT scores, calculated_at FROM org_sentiment_history "
-                "WHERE org_slug = %s ORDER BY calculated_at DESC LIMIT %s",
-                (org_slug, limit),
-            )
-            rows = cur.fetchall()
-        result = []
-        for row in reversed(rows):
-            scores = row['scores']
-            if isinstance(scores, str):
-                scores = json.loads(scores)
-            scores['date'] = str(row['calculated_at'])[:10]
-            result.append(scores)
-        return result
-    finally:
-        conn.close()
-
-
 def upsert_user_login(user_id: str, first_name: str = None, last_name: str = None,
                       email: str = None, org_id: str = None, org_name: str = None,
                       cohort_id: str = None, cohort_name: str = None, country: str = None,
@@ -1608,7 +1589,7 @@ def get_org_sentiment_data(org_slug, trend_limit: int = 12, date_from=None, date
                 f"""
                 SELECT ss.user_id, s.name AS dim_name, ss.score
                 FROM sentiment_score ss
-                JOIN sentiment s ON ss.sentiment_id = s.id
+                JOIN sentiment s ON ss.sentiment_id = s.id AND s.is_active = 1
                 INNER JOIN (
                     SELECT user_id, sentiment_id, MAX(calculated_at) AS latest_at
                     FROM sentiment_score
@@ -1643,7 +1624,7 @@ def get_org_sentiment_data(org_slug, trend_limit: int = 12, date_from=None, date
                        s.name AS dim_name,
                        ROUND(AVG(ss.score)) AS avg_score
                 FROM sentiment_score ss
-                JOIN sentiment s ON ss.sentiment_id = s.id
+                JOIN sentiment s ON ss.sentiment_id = s.id AND s.is_active = 1
                 WHERE ss.user_id IN (
                     {user_subquery}
                 ){trend_date_clause}
@@ -1674,6 +1655,7 @@ def get_org_sentiment_data(org_slug, trend_limit: int = 12, date_from=None, date
         insight_data = (get_org_sentiment(org_slug) or {}) if org_slug else {}
 
         result: dict = {}
+        sentiments: list = []
         for dim in _SENTIMENT_DIMS:
             scores = dim_scores.get(dim, [])
             if not scores:
@@ -1687,16 +1669,30 @@ def get_org_sentiment_data(org_slug, trend_limit: int = 12, date_from=None, date
                 'negligible': round(sum(1 for s in scores if s <= 25)       / n * 100),
             }
             old_entry = insight_data.get(dim)
-            result[dim] = {
+            # 'title' rides along on every per-key entry (not just 'sentiments'
+            # below) so a caller with a bare dimension key never needs its own
+            # copy of these names — mirrors get_user_sentiment_data.
+            entry = {
                 'score': avg,
                 'insight': old_entry.get('insight', '') if isinstance(old_entry, dict) else '',
                 'bands': bands,
                 'trend': dim_trends.get(dim, []),
+                'title': _SENTIMENT_TITLES.get(dim, dim),
             }
+            result[dim] = entry
+            if dim not in _SENTIMENT_LIST_HIDDEN:
+                sentiments.append({
+                    'key': dim,
+                    'description': _SENTIMENT_DESCRIPTIONS.get(dim, ''),
+                    **entry,
+                })
 
         result['messages_analyzed'] = insight_data.get('messages_analyzed', 0)
         result['users_analyzed'] = len(set(row['user_id'] for row in latest_rows))
         result['calculated_at'] = insight_data.get('calculated_at', '')
+        # Same per-dimension data as the top-level keys, just as a list — see
+        # get_user_sentiment_data's 'sentiments' for why.
+        result['sentiments'] = sentiments
         return result
     finally:
         conn.close()
@@ -1894,7 +1890,7 @@ def get_user_sentiment_data(user_id: str, trend_limit: int = 12,
                 f"""
                 SELECT s.name AS dim_name, ss.score
                 FROM sentiment_score ss
-                JOIN sentiment s ON ss.sentiment_id = s.id
+                JOIN sentiment s ON ss.sentiment_id = s.id AND s.is_active = 1
                 INNER JOIN (
                     SELECT sentiment_id, MAX(calculated_at) AS latest_at
                     FROM sentiment_score
@@ -1926,7 +1922,7 @@ def get_user_sentiment_data(user_id: str, trend_limit: int = 12,
                        s.name AS dim_name,
                        ROUND(AVG(ss.score)) AS avg_score
                 FROM sentiment_score ss
-                JOIN sentiment s ON ss.sentiment_id = s.id
+                JOIN sentiment s ON ss.sentiment_id = s.id AND s.is_active = 1
                 WHERE ss.user_id = %s{trend_clause}
                 GROUP BY DATE(ss.calculated_at), s.name
                 ORDER BY run_date ASC
@@ -1957,14 +1953,23 @@ def get_user_sentiment_data(user_id: str, trend_limit: int = 12,
             if dim not in dim_scores:
                 continue
             old_entry = insight_data.get(dim)
+            # 'title' rides along on every per-key entry too (not just the
+            # 'sentiments' list below) so a caller with a bare dimension key —
+            # e.g. Growth Snapshot labelling a pill — never needs its own
+            # copy of these names, hidden dimensions included.
             entry = {
                 'score': dim_scores[dim],
                 'insight': old_entry.get('insight', '') if isinstance(old_entry, dict) else '',
                 'trend': dim_trends.get(dim, []),
+                'title': _SENTIMENT_TITLES.get(dim, dim),
             }
             result[dim] = entry
             if dim not in _SENTIMENT_LIST_HIDDEN:
-                sentiments.append({'key': dim, 'title': _SENTIMENT_TITLES.get(dim, dim), **entry})
+                sentiments.append({
+                    'key': dim,
+                    'description': _SENTIMENT_DESCRIPTIONS.get(dim, ''),
+                    **entry,
+                })
 
         result['messages_analyzed'] = insight_data.get('messages_analyzed', 0)
         result['calculated_at'] = insight_data.get('calculated_at', '')

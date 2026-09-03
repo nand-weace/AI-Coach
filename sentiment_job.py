@@ -24,7 +24,7 @@ from database import (
 # ── Constants ────────────────────────────────────────────────────────────────
 
 _DIMS = [
-    'work_life_balance', 'job_satisfaction', 'stress_anxiety', 'self_confidence',
+    'work_life_balance', 'job_satisfaction', 'emotional_resilience', 'self_confidence',
     'empathy', 'frustration_disengagement', 'growth_mindset', 'psychological_safety',
 ]
 # Reader-facing names for the same dimensions, matching the labels on the
@@ -32,7 +32,7 @@ _DIMS = [
 _DIM_LABELS = {
     'work_life_balance':         'Work-Life Balance',
     'job_satisfaction':          'Job Satisfaction',
-    'stress_anxiety':            'Stress & Anxiety',
+    'emotional_resilience':      'Emotional Resilience',
     'self_confidence':           'Self-Confidence',
     'empathy':                   'Empathy',
     'frustration_disengagement': 'Frustration',
@@ -120,7 +120,7 @@ Score each dimension 0–100 based purely on the language patterns present:
 
 - work_life_balance: 0=severe imbalance/always-on language, 100=healthy boundaries and balance
 - job_satisfaction: 0=very dissatisfied/disengaged, 100=highly fulfilled and motivated
-- stress_anxiety: 0=no stress signals, 100=extreme stress/anxiety/urgency language
+- emotional_resilience: 0=overwhelmed by stress, pressure, and urgency, 100=calm, composed, and resilient under pressure
 - self_confidence: 0=very uncertain/self-doubting, 100=very assertive/confident
 - empathy: 0=no empathy shown, 100=very high empathy toward others
 - frustration_disengagement: 0=no frustration, 100=extreme frustration/cynicism/dismissiveness
@@ -131,7 +131,7 @@ Return ONLY a valid JSON object with no markdown fences:
 {
   "work_life_balance": {"score": <0-100 int>, "insight": "<one concise sentence>"},
   "job_satisfaction": {"score": <0-100 int>, "insight": "<one concise sentence>"},
-  "stress_anxiety": {"score": <0-100 int>, "insight": "<one concise sentence>"},
+  "emotional_resilience": {"score": <0-100 int>, "insight": "<one concise sentence>"},
   "self_confidence": {"score": <0-100 int>, "insight": "<one concise sentence>"},
   "empathy": {"score": <0-100 int>, "insight": "<one concise sentence>"},
   "frustration_disengagement": {"score": <0-100 int>, "insight": "<one concise sentence>"},
@@ -147,10 +147,10 @@ Messages to analyse:
 # Compact prompt — scores only, no insights. Keeps per-user calls cheap.
 _USER_PROMPT = """Score these leadership coaching messages on 8 dimensions (0–100 each).
 Return ONLY this compact JSON with no other text:
-{"work_life_balance":N,"job_satisfaction":N,"stress_anxiety":N,"self_confidence":N,"empathy":N,"frustration_disengagement":N,"growth_mindset":N,"psychological_safety":N}
+{"work_life_balance":N,"job_satisfaction":N,"emotional_resilience":N,"self_confidence":N,"empathy":N,"frustration_disengagement":N,"growth_mindset":N,"psychological_safety":N}
 
 Scoring guide: work_life_balance(0=imbalanced,100=balanced), job_satisfaction(0=dissatisfied,100=fulfilled), \
-stress_anxiety(0=calm,100=stressed), self_confidence(0=self-doubting,100=assertive), \
+emotional_resilience(0=stressed,100=calm/resilient), self_confidence(0=self-doubting,100=assertive), \
 empathy(0=none,100=high), frustration_disengagement(0=none,100=high), \
 growth_mindset(0=fixed,100=growth), psychological_safety(0=closed,100=open)
 
@@ -169,7 +169,7 @@ Score each dimension 0–100 based purely on the language patterns present:
 
 - work_life_balance: 0=severe imbalance/always-on language, 100=healthy boundaries and balance
 - job_satisfaction: 0=very dissatisfied/disengaged, 100=highly fulfilled and motivated
-- stress_anxiety: 0=no stress signals, 100=extreme stress/anxiety/urgency language
+- emotional_resilience: 0=overwhelmed by stress, pressure, and urgency, 100=calm, composed, and resilient under pressure
 - self_confidence: 0=very uncertain/self-doubting, 100=very assertive/confident
 - empathy: 0=no empathy shown, 100=very high empathy toward others
 - frustration_disengagement: 0=no frustration, 100=extreme frustration/cynicism/dismissiveness
@@ -183,7 +183,7 @@ Return ONLY a valid JSON object with no markdown fences:
 {
   "work_life_balance": {"score": <0-100 int>, "insight": "<one concise sentence>"},
   "job_satisfaction": {"score": <0-100 int>, "insight": "<one concise sentence>"},
-  "stress_anxiety": {"score": <0-100 int>, "insight": "<one concise sentence>"},
+  "emotional_resilience": {"score": <0-100 int>, "insight": "<one concise sentence>"},
   "self_confidence": {"score": <0-100 int>, "insight": "<one concise sentence>"},
   "empathy": {"score": <0-100 int>, "insight": "<one concise sentence>"},
   "frustration_disengagement": {"score": <0-100 int>, "insight": "<one concise sentence>"},
@@ -284,7 +284,7 @@ or corrected. Do not include the date prefix. If you cannot copy an exact span f
 strength entirely — never paraphrase into the quote field.
 
 2. GROWTH_AREAS — skills in progress. Map each to the single closest dimension key from: \
-work_life_balance, job_satisfaction, stress_anxiety, self_confidence, empathy, \
+work_life_balance, job_satisfaction, emotional_resilience, self_confidence, empathy, \
 frustration_disengagement, growth_mindset, psychological_safety. Set "trajectory" from the scores above \
 and from what changes across dates: "improving" (moving in a good direction), "steady" (present, not \
 shifting), "newly surfaced" (only appears in recent messages), "needs attention" (moving the wrong way). \

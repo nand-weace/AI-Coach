@@ -266,97 +266,10 @@
         .section-row p { font-size: 0.8rem; color: var(--text-muted); }
         .section-meta { font-size: 0.78rem; color: var(--text-muted); white-space: nowrap; }
 
-        .sentiment-grid {
-            display: flex;
-            flex-direction: column;
-            gap: 22px;
-            margin-bottom: 28px;
-        }
-        /* one block per theme: label + its own card grid */
-        .sentiment-group { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
-        .sentiment-group-cards {
-            display: grid;
-            /* auto-fit, not auto-fill: a theme with a single card stretches it
-               across its half rather than leaving an empty track */
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 14px;
-        }
-        /* two themes to a row — column weights come from --pair-cols, set per
-           row by the renderer from each theme's card count */
-        .sentiment-pair {
-            display: grid;
-            grid-template-columns: var(--pair-cols, 1fr 1fr);
-            gap: 22px;
-            align-items: start;
-            margin-bottom: 0;
-        }
-        /* only one of the two themes has data — let it take the full width */
-        .sentiment-pair:has(> .sentiment-group:only-child) { grid-template-columns: 1fr; }
-        @media (max-width: 1000px) {
-            .sentiment-pair { grid-template-columns: 1fr; }
-        }
-        /* The tinted card fills went muddy once the page picked up a blue-lavender
-           gradient behind them — a 5%-violet wash over a coloured backdrop reads
-           as dirt, not as a band. The tier now rides a solid accent rail down the
-           left edge and the surface stays clean white, so the cards sit on the
-           gradient instead of sinking into it. Each tier only sets --tier. */
-        .sentiment-card {
-            position: relative;
-            background: var(--surface);
-            border: 1px solid var(--glass-border);
-            border-left: 3px solid var(--tier, var(--primary-color));
-            border-radius: 14px;
-            padding: 14px 16px 14px 17px;
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            cursor: pointer;
-            box-shadow: 0 2px 10px -6px rgba(49, 32, 110, 0.28);
-            transition: box-shadow 0.18s, transform 0.18s, border-color 0.18s;
-        }
-        /* A whisper of the tier colour bleeding in from the rail — enough to
-           group the cards by band at a glance, not enough to tint the text. */
-        .sentiment-card::before {
-            content: '';
-            position: absolute; inset: 0;
-            border-radius: 11px;
-            background: linear-gradient(90deg, var(--tier-wash, transparent) 0%, transparent 42%);
-            pointer-events: none;
-        }
-        .sentiment-card > * { position: relative; }
-        .sentiment-card:hover {
-            box-shadow: var(--card-shadow);
-            transform: translateY(-2px);
-            border-color: var(--primary-ring);
-            border-left-color: var(--tier, var(--primary-color));
-        }
-        .card-green { --tier: #5b21b6; --tier-wash: rgba(91, 33, 182, 0.07); }
-        .card-amber { --tier: #8b5cf6; --tier-wash: rgba(139, 92, 246, 0.07); }
-        .card-red   { --tier: #c084fc; --tier-wash: rgba(192, 132, 252, 0.09); }
-        @media (prefers-reduced-motion: reduce) {
-            .sentiment-card, .sentiment-card:hover { transition: none; transform: none; }
-        }
-        .sentiment-card-header { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
-        .sentiment-label { font-size: 0.88rem; font-weight: 600; color: var(--text-main); line-height: 1.3; }
-        .sentiment-score-block { flex-shrink: 0; }
-        /* clamped to keep every card the same height — the modal has the full text */
-        .sentiment-insight {
-            font-size: 0.78rem;
-            color: var(--text-muted);
-            line-height: 1.5;
-            display: -webkit-box;
-            -webkit-line-clamp: 3;
-            line-clamp: 3;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-        }
         /* Bare centred text floated on the gradient with nothing holding it —
-           it now gets a surface of its own, so empty and loading states read as
-           part of the grid. */
+           it now gets a surface of its own, so empty and loading states read
+           as part of the card. */
         .sentiment-no-data {
-            grid-column: 1 / -1;
             text-align: center;
             color: var(--text-muted);
             font-size: 0.88rem;
@@ -365,23 +278,6 @@
             border: 1px dashed var(--primary-ring);
             border-radius: 14px;
         }
-        .sentiment-group-label {
-            grid-column: 1 / -1;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 0.72rem;
-            font-weight: 700;
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-            color: var(--primary-color);
-            margin-bottom: -4px;
-        }
-        /* Rule fades out rather than stopping dead against the gradient. */
-        .sentiment-group-label .group-line {
-            flex: 1; height: 1px;
-            background: linear-gradient(90deg, var(--primary-ring) 0%, rgba(109, 40, 217, 0) 100%);
-        }
         /* Score ramp — deep violet is a strong score, pale is a weak one. Kept
            monochrome on purpose: these are dimensions to work on, not failures,
            so no red. Deepened from the old values to hold contrast on white. */
@@ -389,49 +285,14 @@
         .score-amber  { color: #6d28d9; }
         .score-red    { color: #9333ea; }
 
-        /* ── Trend modal ── */
-        .trend-modal-overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            z-index: 100;
-            background: rgba(23, 16, 42, 0.5);
-            backdrop-filter: blur(6px);
-            -webkit-backdrop-filter: blur(6px);
-            align-items: center;
-            justify-content: center;
-            padding: 24px;
-        }
-        .trend-modal-overlay.open { display: flex; }
-        .trend-modal-box {
-            background: #fff;
-            border-radius: 20px;
-            padding: 32px 32px 28px;
-            max-width: 660px;
-            width: 100%;
-            box-shadow: 0 24px 64px rgba(49, 32, 110,0.18);
-            position: relative;
-            animation: modalIn 0.18s ease;
-        }
-        @keyframes modalIn {
-            from { opacity: 0; transform: translateY(12px) scale(0.97); }
-            to   { opacity: 1; transform: translateY(0)    scale(1); }
-        }
-        .trend-modal-close {
-            position: absolute; top: 16px; right: 18px;
-            background: none; border: none; cursor: pointer;
-            font-size: 1.4rem; color: #7f78a0; line-height: 1;
-            padding: 2px 6px; border-radius: 6px; transition: color 0.15s, background 0.15s;
-        }
-        .trend-modal-close:hover { color: #1e1b33; background: rgba(45, 32, 90, 0.08); }
+        /* ── Trend detail (the hover panel's own content, not a modal) ── */
         .trend-modal-title { font-size: 1.1rem; font-weight: 600; color: var(--text-main); margin-bottom: 3px; }
-        .trend-modal-meta  { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 24px; }
+        .trend-modal-meta  { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 18px; }
         .trend-modal-score-row { display: flex; align-items: baseline; gap: 8px; margin-bottom: 20px; }
         .trend-modal-score-num { font-size: 2.4rem; font-weight: 700; letter-spacing: -0.04em; line-height: 1; }
         .trend-modal-score-sub { font-size: 0.78rem; color: var(--text-muted); }
         .trend-chart-wrap { width: 100%; overflow: hidden; }
         .trend-modal-divider { height: 1px; background: rgba(45, 32, 90, 0.10); margin: 20px 0; }
-        .trend-modal-bands-label { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 10px; }
         .trend-modal-insight { font-size: 0.82rem; color: var(--text-muted); line-height: 1.6; }
 
         /* ── Employee Distribution bar ── */
@@ -521,17 +382,7 @@
         .heat-row-score { font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-align: center; font-variant-numeric: tabular-nums; }
 
         /* ── Combined Trend Chart ── */
-        .combo-chart-card {
-            background: var(--glass-bg);
-            border: 1px solid var(--glass-border);
-            border-radius: 18px;
-            padding: 22px 26px 18px;
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            margin-bottom: 24px;
-        }
-        .combo-chart-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
-        .combo-focus-hint { font-size: 0.72rem; color: var(--text-muted); white-space: nowrap; }
+        .combo-focus-hint { font-size: 0.72rem; color: var(--text-muted); white-space: nowrap; margin-bottom: 10px; text-align: right; }
 
         /* Click-to-focus: the chosen line keeps full weight, the rest fall back
            far enough to read as background without disappearing entirely. */
@@ -571,7 +422,36 @@
         .combo-legend-name { color: var(--text-main); }
         .combo-legend-score { font-weight: 600; font-variant-numeric: tabular-nums; }
 
-        /* ── Heat Analysis + Trend Over Time side by side ── */
+        /* ── Scores / Trend switch ──
+           One card, one dataset, two readings of it: the current snapshot as
+           bars grouped into bands, or the same dimensions over time as lines. */
+        .combo-switch {
+            display: inline-flex; background: rgba(45, 32, 90, 0.06);
+            border-radius: 999px; padding: 3px; flex-shrink: 0;
+        }
+        .combo-switch-btn {
+            font-family: inherit; font-size: 0.78rem; font-weight: 600;
+            color: var(--text-muted); background: none; border: none;
+            border-radius: 999px; padding: 6px 15px; cursor: pointer;
+            transition: background 0.15s ease, color 0.15s ease;
+        }
+        .combo-switch-btn:hover:not(.active) { color: var(--text-main); }
+        .combo-switch-btn.active { background: var(--primary-color); color: #fff; }
+
+        /* ── Score bands (Strong / Developing / Needs Attention) ──
+           Background tint comes from BAND_BG (a low-opacity match of
+           BAND_COLORS) set inline per band. */
+        .heat-band { border-radius: 12px; padding: 10px 12px; }
+        .heat-band + .heat-band { margin-top: 12px; }
+        .heat-band-label {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em;
+            text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px;
+        }
+        .heat-band-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+        .heat-band .heat-row { border-bottom: none; padding: 5px 0; }
+
+        /* ── Graph (left) + hover detail (right) ── */
         .insight-row {
             display: grid;
             grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -579,30 +459,26 @@
             align-items: stretch;
             margin-bottom: 24px;
         }
-        .insight-row > div { min-width: 0; display: flex; }
-        .insight-row .heat-card,
-        .insight-row .combo-chart-card { margin-bottom: 0; width: 100%; }
-        /* half-width columns: tighten the heat rows so the bar keeps its room */
+        .insight-row > .heat-card { margin-bottom: 0; width: 100%; min-width: 0; }
         .insight-row .heat-row {
             grid-template-columns: 18px minmax(96px, 1.1fr) 2.4fr 28px;
             gap: 10px;
         }
-        /* if either half has nothing to show (e.g. too little history for a
-           trend line), let the surviving card take the full width */
-        .insight-row:has(> #heat-wrap:empty),
-        .insight-row:has(> #trends-wrap:empty) { grid-template-columns: 1fr; }
-        .insight-row:has(> #trends-wrap:empty) .heat-row {
-            grid-template-columns: 18px minmax(160px, 1.2fr) 3fr 32px;
-            gap: 14px;
+        .hover-detail-card { display: flex; flex-direction: column; }
+        .hover-detail-placeholder {
+            margin: auto; font-size: 0.85rem; color: var(--text-muted); text-align: center;
+            line-height: 1.6; padding: 20px;
         }
+        .hover-detail-card #hover-detail-body { width: 100%; }
+        .hover-detail-card .trend-modal-meta { margin-bottom: 18px; }
         @media (max-width: 1000px) {
             .insight-row { grid-template-columns: 1fr; gap: 0; margin-bottom: 0; }
-            .insight-row .heat-card,
-            .insight-row .combo-chart-card { margin-bottom: 24px; }
+            .insight-row > .heat-card { margin-bottom: 24px; }
             .insight-row .heat-row {
                 grid-template-columns: 18px minmax(160px, 1.2fr) 3fr 32px;
                 gap: 14px;
             }
+            .hover-detail-card { display: none; }
         }
 
         /* ── Page transitions ── */
@@ -774,13 +650,30 @@
                 </button>
             </div>
         </div>
-        <div class="insight-row">
-            <div id="heat-wrap"></div>
-            <div id="trends-wrap"></div>
-        </div>
-        <div class="sentiment-grid" id="sentiment-grid">
-            <!-- populated by JS -->
-            <div class="sentiment-no-data"><div class="skeleton" style="width:200px; margin:0 auto;"></div></div>
+        <div class="insight-row" id="insight-row" style="display:none;">
+            <div class="heat-card combo-merged" id="combo-card">
+                <div class="heat-card-header">
+                    <div class="heat-title-wrap">
+                        <span class="heat-num"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="18" y="3" width="4" height="18"/><rect x="10" y="8" width="4" height="13"/><rect x="2" y="13" width="4" height="8"/></svg></span>
+                        <h3>Sentiment Analysis</h3>
+                    </div>
+                    <div class="combo-switch" id="combo-view-switch" role="tablist" aria-label="Scores or trend view">
+                        <button type="button" class="combo-switch-btn active" data-view="scores" role="tab" aria-selected="true">Scores</button>
+                        <button type="button" class="combo-switch-btn" data-view="trends" role="tab" aria-selected="false">Trend</button>
+                    </div>
+                </div>
+                <div id="combo-body"></div>
+            </div>
+
+            <!-- Hover any dimension on the left — a heat row, or a trend line's
+                 legend entry — and its detail (score, distribution, trend chart,
+                 insight) shows here. -->
+            <div class="heat-card hover-detail-card" id="hover-detail-card">
+                <div class="hover-detail-placeholder" id="hover-detail-placeholder">
+                    Hover a dimension on the left to see its detail here.
+                </div>
+                <div id="hover-detail-body"></div>
+            </div>
         </div>
     </div>
 
@@ -811,24 +704,6 @@
         </table>
     </div>
     </div><!-- /#main-dashboard-content -->
-</div>
-
-<!-- Sentiment trend modal -->
-<div class="trend-modal-overlay" id="trend-modal">
-    <div class="trend-modal-box">
-        <button class="trend-modal-close" id="trend-modal-close" aria-label="Close">&times;</button>
-        <div class="trend-modal-title" id="trend-modal-title"></div>
-        <div class="trend-modal-meta"  id="trend-modal-meta"></div>
-        <div class="trend-modal-score-row">
-            <span class="trend-modal-score-num" id="trend-modal-score"></span>
-            <span class="trend-modal-score-sub">overall score</span>
-        </div>
-        <div class="trend-chart-wrap" id="trend-modal-chart"></div>
-        <div class="trend-modal-divider"></div>
-        <div id="trend-modal-bands"></div>
-        <div class="trend-modal-divider" id="trend-modal-insight-divider"></div>
-        <div class="trend-modal-insight" id="trend-modal-insight"></div>
-    </div>
 </div>
 
 <script src="{{ asset('header.js') }}"></script>
@@ -1046,56 +921,10 @@
     loadFilters();
 
     // ── Sentiment Intelligence ────────────────────────────────────────────────
-
-    const SENTIMENT_DIMS = [
-        { key: 'growth_mindset', label: 'Growth Mindset', desc: 'Learning-oriented framing of effort and setbacks', inverse: false, theme: 'growth',
-          interp: { high: 'Challenges framed as opportunities; strong focus on learning and continuous improvement.', mid: 'Some growth framing present, alongside occasional fixed-mindset language.', low: 'Predominantly fixed-mindset framing; setbacks treated as limitations rather than lessons.' } },
-        { key: 'job_satisfaction', label: 'Job Satisfaction', desc: 'Sense of meaning and engagement at work', inverse: false, theme: 'growth',
-          interp: { high: 'Strong signals of purpose, motivation, and fulfilment in their role.', mid: 'Mixed signals — some engagement alongside moments of questioning or doubt.', low: 'Low engagement, repeated questioning of role fit, or signs of disillusionment.' } },
-        { key: 'self_confidence', label: 'Self-Confidence', desc: 'Belief in own ability to handle challenges', inverse: false, theme: 'interpersonal',
-          interp: { high: 'Assertive, decisive language — leaders trust their own judgement and capabilities.', mid: 'Occasional self-doubt or hedging, but generally stable self-perception.', low: 'Frequent self-doubt, hedging language, or avoidance of ownership.' } },
-        { key: 'work_life_balance', label: 'Work-Life Balance', desc: 'Separating work time from personal life', inverse: false, theme: 'wellbeing',
-          interp: { high: 'Leaders express clear boundaries and healthy separation between work and personal time.', mid: 'Some boundary language present, but patterns suggest occasional difficulty switching off.', low: 'Language reflects consistent overextension or difficulty separating work from personal life.' } },
-        { key: 'stress_anxiety', label: 'Stress & Anxiety', desc: 'Perceived pressure, urgency, and overwhelm', inverse: true, theme: 'wellbeing',
-          interp: { high: 'Language is calm and composed; minimal urgency or pressure signals detected.', mid: 'Moderate stress indicators — some urgency or pressure language present across sessions.', low: 'High stress signals — language reflects significant pressure, overwhelm, or urgency.' } },
-        { key: 'frustration_disengagement', label: 'Frustration', desc: 'Cynicism, dismissiveness, or detachment', inverse: true, theme: 'wellbeing',
-          interp: { high: 'Engaged and positive language; minimal cynicism or dismissiveness detected.', mid: 'Some frustration signals; occasional cynicism or disconnection in language.', low: 'Marked frustration or disengagement — language shows significant cynicism or withdrawal.' } },
-        { key: 'psychological_safety', label: 'Psychological Safety', desc: 'Openness about vulnerabilities and mistakes', inverse: false, theme: 'wellbeing',
-          interp: { high: 'High openness — leaders share failures, fears, and uncertainties freely.', mid: 'Selective openness; some vulnerability expressed but language remains partially guarded.', low: 'Limited self-disclosure; language stays guarded around failures and doubts.' } },
-        { key: 'empathy', label: 'Empathy', desc: 'Understanding and sharing others\' emotions', inverse: false, theme: 'interpersonal',
-          interp: { high: 'Frequent perspective-taking and explicit acknowledgement of others\' experiences.', mid: 'Some awareness of others\' emotions, with room to deepen relational understanding.', low: 'Limited references to others\' feelings; conversations focus primarily on self or tasks.' } },
-    ];
-
-    const SENTIMENT_THEMES = [
-        { key: 'growth',       label: 'Growth & Development' },
-        // Emotional Wellbeing and Openness & Trust are merged into one block
-        { key: 'wellbeing',    label: 'Emotional Wellbeing & Trust' },
-        { key: 'interpersonal',label: 'Interpersonal Awareness' },
-    ];
-
-    function sparkline(points, color) {
-        if (!points || points.length < 2) return '';
-        const W = 200, H = 44, pad = 4;
-        const minV = Math.min(...points), maxV = Math.max(...points);
-        const range = maxV - minV || 1;
-        const xs = points.map((_, i) => pad + (i / (points.length - 1)) * (W - pad * 2));
-        const ys = points.map(v => H - pad - ((v - minV) / range) * (H - pad * 2));
-        const pts = xs.map((x, i) => `${x.toFixed(1)},${ys[i].toFixed(1)}`).join(' ');
-        const area = `M${xs[0].toFixed(1)},${H} ` +
-            xs.map((x, i) => `L${x.toFixed(1)},${ys[i].toFixed(1)}`).join(' ') +
-            ` L${xs[xs.length-1].toFixed(1)},${H} Z`;
-        const dots = points.map((_, i) =>
-            i === points.length - 1
-                ? `<circle cx="${xs[i].toFixed(1)}" cy="${ys[i].toFixed(1)}" r="3.5" fill="${color}"/>`
-                : `<circle cx="${xs[i].toFixed(1)}" cy="${ys[i].toFixed(1)}" r="2" fill="${color}" opacity="0.5"/>`
-        ).join('');
-        return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="height:44px;">
-            <path d="${area}" fill="${color}" opacity="0.10"/>
-            <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2"
-                stroke-linejoin="round" stroke-linecap="round"/>
-            ${dots}
-        </svg>`;
-    }
+    // A dimension's key, title and description all come from the API response
+    // (see 'sentiments' in /api/sentiment) — nothing about what a dimension is
+    // called or measures is duplicated here. What stays local is purely
+    // presentational and keyed by dimension key: an icon, a line colour.
 
     const BAND_COLORS = { 'score-green': 'green', 'score-amber': '#e1a34e', 'score-red': 'red' };
 
@@ -1151,55 +980,66 @@
         </svg>`;
     }
 
-    function openTrendModal(dimKey) {
-        if (!currentSentimentData) return;
-        const dim   = SENTIMENT_DIMS.find(d => d.key === dimKey);
-        const entry = currentSentimentData[dimKey];
-        if (!dim || !entry) return;
+    // Everything the hover panel needs to show for one dimension: title, meta
+    // line, score, distribution across the org, trend chart, insight. dim.title
+    // and dim.description come straight from the API's 'sentiments' entry.
+    function buildDimDetail(dimKey) {
+        const dim = currentSentimentData && (currentSentimentData.sentiments || [])
+            .find(d => d.key === dimKey);
+        if (!dim) return null;
 
-        const score = Math.max(0, Math.min(100, entry.score || 0));
-        const cls   = scoreClasses(score, dim.inverse);
+        const score = Math.max(0, Math.min(100, dim.score || 0));
+        const cls   = scoreClasses(score);
         const color = BAND_COLORS[cls.num] || '#9333ea';
 
-        document.getElementById('trend-modal-title').textContent = dim.label;
-        document.getElementById('trend-modal-score').textContent = score;
-        document.getElementById('trend-modal-score').className = 'trend-modal-score-num ' + cls.num;
+        const trend = dim.trend || [];
+        const metaParts = [dim.description];
+        if (trend.length >= 2) metaParts.push(`${trend[0].date} → ${trend[trend.length - 1].date}`);
 
-        const trend = entry.trend || [];
-        const metaParts = [`${dim.desc}`];
-        if (trend.length >= 2) {
-            metaParts.push(`${trend[0].date} → ${trend[trend.length - 1].date}`);
-        }
-        document.getElementById('trend-modal-meta').textContent = metaParts.join('  ·  ');
-        document.getElementById('trend-modal-chart').innerHTML  = renderTrendChart(trend, color);
-
-        const bands = entry.bands || null;
-        const bandsEl = document.getElementById('trend-modal-bands');
-        const insightDivider = document.getElementById('trend-modal-insight-divider');
-        if (bands) {
-            bandsEl.innerHTML = buildEmpDist(bands);
-            bandsEl.style.display = '';
-            insightDivider.style.display = '';
-        } else {
-            bandsEl.innerHTML = '';
-            bandsEl.style.display = 'none';
-            insightDivider.style.display = 'none';
-        }
-
-        document.getElementById('trend-modal-insight').textContent = entry.insight || '';
-
-        document.getElementById('trend-modal').classList.add('open');
+        return {
+            dim, score, cls, color,
+            meta: metaParts.join('  ·  '),
+            chartHtml: renderTrendChart(trend, color),
+            distHtml: dim.bands ? buildEmpDist(dim.bands) : '',
+        };
     }
 
-    function closeTrendModal() {
-        document.getElementById('trend-modal').classList.remove('open');
+    // ── Hover detail (right column) ─────────────────────────────────────────
+    // Hovering a dimension on the left — a score row, or a trend line's legend
+    // entry — shows its full detail here: title, score, distribution, trend
+    // chart, insight.
+    function showHoverDetail(dimKey) {
+        const d = buildDimDetail(dimKey);
+        if (!d) return;
+        document.getElementById('hover-detail-placeholder').style.display = 'none';
+        document.getElementById('hover-detail-body').innerHTML = `
+            <div class="trend-modal-title">${escHtml(d.dim.title)}</div>
+            <div class="trend-modal-meta">${escHtml(d.meta)}</div>
+            <div class="trend-modal-score-row">
+                <span class="trend-modal-score-num" style="color:${d.color}">${d.score}</span>
+                <span class="trend-modal-score-sub">overall score</span>
+            </div>
+            <div class="trend-chart-wrap">${d.chartHtml}</div>
+            ${d.distHtml ? `<div class="trend-modal-divider"></div>${d.distHtml}` : ''}
+            <div class="trend-modal-divider"></div>
+            <div class="trend-modal-insight">${escHtml(d.dim.insight || '')}</div>`;
     }
 
-    document.getElementById('trend-modal-close').addEventListener('click', closeTrendModal);
-    document.getElementById('trend-modal').addEventListener('click', e => {
-        if (e.target === e.currentTarget) closeTrendModal();
-    });
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeTrendModal(); });
+    function clearHoverDetail() {
+        const placeholder = document.getElementById('hover-detail-placeholder');
+        const body = document.getElementById('hover-detail-body');
+        if (placeholder) placeholder.style.display = '';
+        if (body) body.innerHTML = '';
+    }
+
+    // What the panel falls back to whenever nothing is actively hovered — the
+    // first dimension with data, so the panel never sits on the placeholder
+    // while there's something real to show.
+    function resetHoverDetail() {
+        const dim = currentSentimentData && (currentSentimentData.sentiments || [])[0];
+        if (dim) showHoverDetail(dim.key);
+        else clearHoverDetail();
+    }
 
     function buildEmpDist(bands) {
         if (!bands) return '';
@@ -1233,11 +1073,12 @@
         </div>`;
     }
 
-    function scoreClasses(score, inverse) {
-        const effective = inverse ? (100 - score) : score;
-        if (effective >= 65) return { num: 'score-green', card: 'card-green' };
-        if (effective >= 35) return { num: 'score-amber', card: 'card-amber' };
-        return { num: 'score-red', card: 'card-red' };
+    // Every visible dimension now scores 0-100 in the same direction — higher
+    // is always the stronger reading — so the band is a plain threshold.
+    function scoreClasses(score) {
+        if (score >= 65) return { num: 'score-green' };
+        if (score >= 35) return { num: 'score-amber' };
+        return { num: 'score-red' };
     }
 
     const HEAT_META = {
@@ -1245,7 +1086,7 @@
         job_satisfaction:          { signal: { high: 'Strong',   mid: 'Moderate',   low: 'Low'      }, icon: '<rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>' },
         self_confidence:           { signal: { high: 'Strong',   mid: 'Moderate',   low: 'Low'      }, icon: '<circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/>' },
         work_life_balance:         { signal: { high: 'Healthy',  mid: 'Moderate',   low: 'Strained' }, icon: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>' },
-        stress_anxiety:            { signal: { high: 'Low',      mid: 'Moderate',   low: 'High'     }, icon: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>' },
+        emotional_resilience:      { signal: { high: 'Strong',   mid: 'Moderate',   low: 'Low'      }, icon: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>' },
         frustration_disengagement: { signal: { high: 'Low',      mid: 'Moderate',   low: 'Elevated' }, icon: '<circle cx="12" cy="12" r="10"/><path d="M16 16s-1.5-2-4-2-4 2-4 2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/>' },
         psychological_safety:      { signal: { high: 'Strong',   mid: 'Moderate',   low: 'Low'      }, icon: '<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>' },
         empathy:                   { signal: { high: 'Strong',   mid: 'Moderate',   low: 'Low'      }, icon: '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>' },
@@ -1256,10 +1097,22 @@
         job_satisfaction:          '#818cf8',  // indigo
         self_confidence:           '#075985',  // blue
         work_life_balance:         '#0d9488',  // teal
-        stress_anxiety:            '#22c55e',  // green
+        emotional_resilience:      '#22c55e',  // green
         frustration_disengagement: '#a16207',  // yellow
         psychological_safety:      '#fb923c',  // orange
         empathy:                   '#be123c',  // red
+    };
+
+    // Which band a dimension sits in decides the section it's grouped under in
+    // the Scores view — strong first, then developing, then what needs
+    // attention.
+    const BAND_ORDER  = ['score-green', 'score-amber', 'score-red'];
+    const BAND_LABELS = { 'score-green': 'Strong', 'score-amber': 'Developing', 'score-red': 'Needs Attention' };
+    // A low-opacity wash of the same BAND_COLORS, for the section background.
+    const BAND_BG = {
+        'score-green': 'rgba(16, 185, 129, 0.08)',
+        'score-amber': 'rgba(225, 163, 78, 0.12)',
+        'score-red':   'rgba(239, 68, 68, 0.08)',
     };
 
     let _comboMeta = null;
@@ -1268,18 +1121,21 @@
     let focusedDim = null;
 
     function renderTrendsSection(data) {
-        const wrap = document.getElementById('trends-wrap');
+        const wrap = document.getElementById('combo-body');
         if (!wrap) return;
         // Fresh data — a dimension held in focus may not even be in it any more.
         focusedDim = null;
 
+        const dims = data.sentiments || [];
         const dateSet = new Set();
-        SENTIMENT_DIMS.forEach(dim => {
-            const entry = data[dim.key];
-            if (entry && entry.trend) entry.trend.forEach(t => dateSet.add(t.date));
+        dims.forEach(dim => {
+            if (dim.trend) dim.trend.forEach(t => dateSet.add(t.date));
         });
         const sortedDates = [...dateSet].sort();
-        if (sortedDates.length < 2) { wrap.innerHTML = ''; return; }
+        if (sortedDates.length < 2) {
+            wrap.innerHTML = '<div class="sentiment-no-data">Not enough history yet to show a trend.</div>';
+            return;
+        }
 
         const n = sortedDates.length;
         const dateIdx = new Map(sortedDates.map((d, i) => [d, i]));
@@ -1302,15 +1158,14 @@
             return `<text x="${toX(i).toFixed(1)}" y="${H - 8}" text-anchor="middle" font-size="10" fill="#7f78a0">${lbl}</text>`;
         }).join('');
 
-        const lines = SENTIMENT_DIMS.map(dim => {
-            const entry = data[dim.key];
-            if (!entry || !entry.trend || entry.trend.length < 2) return '';
+        const lines = dims.map(dim => {
+            if (!dim.trend || dim.trend.length < 2) return '';
             const color = DIM_COLORS[dim.key] || '#7f78a0';
-            const pts = entry.trend
+            const pts = dim.trend
                 .map(t => { const xi = dateIdx.get(t.date); return xi !== undefined ? `${toX(xi).toFixed(1)},${toY(t.score).toFixed(1)}` : null; })
                 .filter(Boolean).join(' ');
             if (!pts) return '';
-            const last = entry.trend[entry.trend.length - 1];
+            const last = dim.trend[dim.trend.length - 1];
             const lxi  = dateIdx.get(last.date);
             const dot  = lxi !== undefined ? `<circle cx="${toX(lxi).toFixed(1)}" cy="${toY(last.score).toFixed(1)}" r="4" fill="${color}"/>` : '';
             return `<g class="combo-series" data-dim-key="${dim.key}">
@@ -1324,44 +1179,33 @@
             <rect id="combo-hit" x="${padL}" y="${padT}" width="${iW}" height="${iH}" fill="transparent"/>
         </svg>`;
 
-        const legendItems = SENTIMENT_DIMS.map(dim => {
-            const entry = data[dim.key];
-            if (!entry) return '';
+        const legendItems = dims.map(dim => {
             const color = DIM_COLORS[dim.key] || '#7f78a0';
-            const score = Math.max(0, Math.min(100, entry.score || 0));
-            const cls = scoreClasses(score, dim.inverse);
+            const score = Math.max(0, Math.min(100, dim.score || 0));
+            const cls = scoreClasses(score);
             return `<div class="combo-legend-item" data-dim-key="${dim.key}">
                 <span class="combo-legend-line" style="background:${color}"></span>
-                <span class="combo-legend-name">${dim.label}</span>
+                <span class="combo-legend-name">${dim.title}</span>
                 <span class="combo-legend-score ${cls.num}">${score}</span>
             </div>`;
         }).join('');
 
-        wrap.innerHTML = `<div class="combo-chart-card">
-            <div class="combo-chart-header">
-                <div class="heat-title-wrap">
-                    <span class="heat-num"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
-                    <h3>Trend Over Time</h3>
-                </div>
-                <span class="combo-focus-hint">Click a line to focus it</span>
-            </div>
+        wrap.innerHTML = `
+            <span class="combo-focus-hint">Click a line to focus it</span>
             <div class="combo-chart-body">
                 ${svg}
                 <div class="combo-tooltip" id="combo-tooltip"></div>
             </div>
-            <div class="combo-legend">${legendItems}</div>
-        </div>`;
+            <div class="combo-legend">${legendItems}</div>`;
 
         // Store metadata for hover handler
         _comboMeta = {
             dates: sortedDates, dateIdx, n,
             W, H, padL, padR, padT, padB, iW, iH,
-            dims: SENTIMENT_DIMS.map(dim => {
-                const entry = data[dim.key];
-                if (!entry || !entry.trend) return null;
-                return { key: dim.key, label: dim.label, color: DIM_COLORS[dim.key] || '#7f78a0',
-                         scoreMap: new Map(entry.trend.map(t => [t.date, t.score])) };
-            }).filter(Boolean),
+            dims: dims.filter(dim => dim.trend && dim.trend.length).map(dim => (
+                { key: dim.key, label: dim.title, color: DIM_COLORS[dim.key] || '#7f78a0',
+                  scoreMap: new Map(dim.trend.map(t => [t.date, t.score])) }
+            )),
         };
 
         // Wire hover
@@ -1454,6 +1298,8 @@
 
         wrap.querySelectorAll('.combo-legend-item[data-dim-key]').forEach(item => {
             item.addEventListener('click', () => setComboFocus(item.dataset.dimKey, wrap));
+            item.addEventListener('mouseenter', () => showHoverDetail(item.dataset.dimKey));
+            item.addEventListener('mouseleave', resetHoverDetail);
         });
     }
 
@@ -1480,46 +1326,85 @@
     }
 
     function renderHeatAnalysis(data) {
-        const wrap = document.getElementById('heat-wrap');
+        const wrap = document.getElementById('combo-body');
         if (!wrap || !data) return;
 
-        // Bars carry the dimension's own colour from DIM_COLORS — the same one
-        // its line has in Trend Over Time, which sits beside this card — so a
-        // row and its trend line are the same thing in two views. The score
-        // beside it still shows the band, which is what varies row to row.
-        const rows = SENTIMENT_DIMS.map(dim => {
-            const entry = data[dim.key];
-            if (!entry) return '';
-            const score = Math.max(0, Math.min(100, entry.score || 0));
-            const cls = scoreClasses(score, dim.inverse);
-            const meta = HEAT_META[dim.key] || {};
-            const svg = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${meta.icon || ''}</svg>`;
-            return `<div class="heat-row">
-                <div class="heat-row-icon">${svg}</div>
-                <div class="heat-row-label">${dim.label}</div>
-                <div class="heat-row-track"><div class="heat-row-fill" style="width:${score}%; background:${DIM_COLORS[dim.key] || '#7f78a0'}"></div></div>
-                <div class="heat-row-score" style="color:${BAND_COLORS[cls.num] || 'var(--text-muted)'}">${score}</div>
+        const bands = { 'score-green': [], 'score-amber': [], 'score-red': [] };
+        (data.sentiments || []).forEach(dim => {
+            const score = Math.max(0, Math.min(100, dim.score || 0));
+            const cls = scoreClasses(score);
+            bands[cls.num].push({ dim, score, cls });
+        });
+
+        // Bars carry the band's colour from BAND_COLORS, same as the score
+        // text beside them — the fill says which section a row belongs to.
+        const sections = BAND_ORDER.map(bandKey => {
+            const items = bands[bandKey];
+            if (!items.length) return '';
+            const rows = items.map(({ dim, score, cls }) => {
+                const meta = HEAT_META[dim.key] || {};
+                const svg = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${meta.icon || ''}</svg>`;
+                return `<div class="heat-row" data-dim-key="${dim.key}">
+                    <div class="heat-row-icon">${svg}</div>
+                    <div class="heat-row-label">${dim.title}</div>
+                    <div class="heat-row-track"><div class="heat-row-fill" style="width:${score}%; background:${BAND_COLORS[cls.num] || '#7f78a0'}"></div></div>
+                    <div class="heat-row-score" style="color:${BAND_COLORS[cls.num] || 'var(--text-muted)'}">${score}</div>
+                </div>`;
+            }).join('');
+            return `<div class="heat-band" data-band="${bandKey}" style="background:${BAND_BG[bandKey]}">
+                <div class="heat-band-label" style="color:${BAND_COLORS[bandKey]}">
+                    <span class="heat-band-dot" style="background:${BAND_COLORS[bandKey]}"></span>
+                    <span>${BAND_LABELS[bandKey]}</span>
+                </div>
+                <div class="heat-rows">${rows}</div>
             </div>`;
         }).join('');
 
-        wrap.innerHTML = `<div class="heat-card">
-            <div class="heat-card-header">
-                <div class="heat-title-wrap">
-                    <span class="heat-num"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="18" y="3" width="4" height="18"/><rect x="10" y="8" width="4" height="13"/><rect x="2" y="13" width="4" height="8"/></svg></span>
-                    <h3>Sentiment Heat Analysis</h3>
-                </div>
-            </div>
-            <div class="heat-rows">${rows}</div>
-        </div>`;
+        wrap.innerHTML = sections;
+
+        wrap.querySelectorAll('.heat-row[data-dim-key]').forEach(row => {
+            row.addEventListener('mouseenter', () => showHoverDetail(row.dataset.dimKey));
+            row.addEventListener('mouseleave', resetHoverDetail);
+        });
     }
+
+    // Which reading of the merged card is showing — the current snapshot as
+    // bars, or the same dimensions over time as lines. Persisted per browser.
+    let comboView = localStorage.getItem('we_ace_combo_view') === 'trends' ? 'trends' : 'scores';
+
+    function renderCombo(data) {
+        if (comboView === 'trends') renderTrendsSection(data);
+        else renderHeatAnalysis(data);
+    }
+
+    document.querySelectorAll('#combo-view-switch .combo-switch-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            if (btn.dataset.view === comboView) return;
+            comboView = btn.dataset.view;
+            try { localStorage.setItem('we_ace_combo_view', comboView); } catch (_) {}
+            document.querySelectorAll('#combo-view-switch .combo-switch-btn').forEach(b => {
+                const on = b === btn;
+                b.classList.toggle('active', on);
+                b.setAttribute('aria-selected', on ? 'true' : 'false');
+            });
+            resetHoverDetail();
+            if (currentSentimentData) renderCombo(currentSentimentData);
+        });
+    });
+    document.querySelectorAll('#combo-view-switch .combo-switch-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.view === comboView);
+        b.setAttribute('aria-selected', b.dataset.view === comboView ? 'true' : 'false');
+    });
 
     function renderSentiment(data) {
         currentSentimentData = data;
-        const grid = document.getElementById('sentiment-grid');
-        if (!data || Object.keys(data).length === 0) {
-            grid.innerHTML = '<div class="sentiment-no-data">No sentiment data yet — click Recalculate to generate the first report.</div>';
-            document.getElementById('heat-wrap').innerHTML = '';
-            document.getElementById('trends-wrap').innerHTML = '';
+        const hasDims = data && data.sentiments && data.sentiments.length > 0;
+        if (!hasDims) {
+            document.getElementById('insight-row').style.display = '';
+            document.getElementById('hover-detail-card').style.display = 'none';
+            document.getElementById('combo-body').innerHTML =
+                '<div class="sentiment-no-data">No sentiment data yet — click Recalculate to generate the first report.</div>';
+            clearHoverDetail();
             return;
         }
 
@@ -1534,185 +1419,10 @@
             updatedEl.textContent = meta;
         }
 
-        renderHeatAnalysis(data);
-        renderTrendsSection(data);
-
-        // The dial is the one deliberate exception to the page's violet ramp: a
-        // physical gauge reads green/amber/red instantly, and no amount of
-        // monochrome shading replaces that. The numeral uses deeper shades of
-        // the same three hues so it holds contrast against the white card.
-        const GAUGE_COLORS = { 'score-green': '#047857', 'score-amber': '#b45309', 'score-red': '#dc2626' };
-        const GAUGE_BAND   = { low: '#ef4444', mid: '#f59e0b', high: '#10b981' };
-        const GAUGE_GLOW   = { low: '#ff6b6b', mid: '#fbbf24', high: '#34d399' };
-
-        function buildGauge(score, gc, inverse) {
-            const cx = 60, cy = 56, r = 46;
-            // sweep=1 (clockwise in SVG y-down) goes left→top→right = upper arch ∩
-            // Two quarter arcs avoids the degenerate diameter ambiguity
-            const arc = `M ${cx-r} ${cy} A ${r} ${r} 0 0 1 ${cx} ${cy-r} A ${r} ${r} 0 0 1 ${cx+r} ${cy}`;
-            const arcLen = Math.PI * r;
-            const rL   = (0.35 * arcLen).toFixed(2);
-            const aL   = (0.30 * arcLen).toFixed(2);
-            const gL   = (0.35 * arcLen).toFixed(2);
-            const aOff = (-0.35 * arcLen).toFixed(2);
-            const gOff = (-0.65 * arcLen).toFixed(2);
-            // Clockwise sweep: 0° = left (score 0), +90° = top (score 5), +180° = right (score 10)
-            const na   = (score / 100) * 180;
-            // Spring: overshoot → undershoot → overshoot → settle
-            const anV  = `0 ${cx} ${cy};${(na*1.13).toFixed(2)} ${cx} ${cy};${(na*0.92).toFixed(2)} ${cx} ${cy};${(na*1.04).toFixed(2)} ${cx} ${cy};${na.toFixed(2)} ${cx} ${cy}`;
-            const displayScore = (score / 10).toFixed(1);
-            const nLen = r - 10;
-            const uid  = Math.random().toString(36).slice(2, 7);
-
-            // Tick marks (11 stops, major at 0/5/10)
-            let ticks = '';
-            for (let i = 0; i <= 10; i++) {
-                const θ   = Math.PI * (1 - i / 10);
-                const cos = Math.cos(θ), sin = Math.sin(θ);
-                const major = i % 5 === 0;
-                const r1 = r + 7, r2 = major ? r - 9 : r - 3;
-                ticks += `<line x1="${(cx+r1*cos).toFixed(1)}" y1="${(cy-r1*sin).toFixed(1)}" x2="${(cx+r2*cos).toFixed(1)}" y2="${(cy-r2*sin).toFixed(1)}" stroke="rgba(255,255,255,${major ? 0.92 : 0.5})" stroke-width="${major ? 2.4 : 1}" stroke-linecap="round"/>`;
-            }
-
-            // Tapered needle: wide at pivot, sharp at tip, small tail
-            const ndl  = `M ${cx} ${cy-2.5} L ${(cx-nLen).toFixed(1)} ${cy} L ${cx} ${cy+2.5} L ${cx+5} ${cy+1.5} L ${cx+5} ${cy-1.5} Z`;
-            const anim = `<animateTransform attributeName="transform" type="rotate"
-                values="${anV}" keyTimes="0;0.55;0.73;0.88;1" calcMode="spline"
-                keySplines="0.25 0.1 0.25 1;0.4 0 0.6 1;0.4 0 0.6 1;0.4 0 0.6 1"
-                dur="1.9s" fill="freeze"/>`;
-
-            return `<svg viewBox="0 0 120 86" width="86" height="62" style="display:block;margin-left:auto;overflow:visible;">
-              <defs>
-                <!-- Drop shadow for needle -->
-                <filter id="ns${uid}" x="-200%" y="-200%" width="500%" height="500%">
-                  <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="rgba(0,0,0,0.45)"/>
-                </filter>
-                <!-- Neon glow for zone arcs -->
-                <filter id="gz${uid}" x="-25%" y="-25%" width="150%" height="150%">
-                  <feGaussianBlur stdDeviation="3" result="b"/>
-                  <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-                </filter>
-                <!-- Needle gradient: dark base fading to silver tip -->
-                <linearGradient id="ndg${uid}" x1="1" y1="0" x2="0" y2="0">
-                  <stop offset="0%"   stop-color="#5b5674"/>
-                  <stop offset="55%"  stop-color="#1e1b33"/>
-                  <stop offset="100%" stop-color="#d5cee6"/>
-                </linearGradient>
-                <!-- Cap metallic gradient -->
-                <radialGradient id="cap${uid}" cx="38%" cy="32%" r="60%">
-                  <stop offset="0%"   stop-color="#4d4166"/>
-                  <stop offset="100%" stop-color="#17102a"/>
-                </radialGradient>
-              </defs>
-
-              <!-- Outer ambient shadow ring -->
-              <path d="${arc}" fill="none" stroke="rgba(45, 32, 90, 0.10)" stroke-width="22" stroke-linecap="round"/>
-              <!-- Dark recessed background track -->
-              <path d="${arc}" fill="none" stroke="rgba(18, 10, 35,0.22)" stroke-width="14" stroke-linecap="round"/>
-
-              <!-- Zone arcs (solid base) -->
-              <path d="${arc}" fill="none" stroke="${inverse ? GAUGE_BAND.high : GAUGE_BAND.low}" stroke-width="12" stroke-linecap="butt" stroke-dasharray="${rL} 1000" stroke-dashoffset="0"/>
-              <path d="${arc}" fill="none" stroke="${GAUGE_BAND.mid}" stroke-width="12" stroke-linecap="butt" stroke-dasharray="${aL} 1000" stroke-dashoffset="${aOff}"/>
-              <path d="${arc}" fill="none" stroke="${inverse ? GAUGE_BAND.low : GAUGE_BAND.high}" stroke-width="12" stroke-linecap="butt" stroke-dasharray="${gL} 1000" stroke-dashoffset="${gOff}"/>
-
-              <!-- Neon glow overlay on zones -->
-              <path d="${arc}" fill="none" stroke="${inverse ? GAUGE_GLOW.high : GAUGE_GLOW.low}" stroke-width="7" stroke-linecap="butt" stroke-dasharray="${rL} 1000" stroke-dashoffset="0"    opacity="0.45" filter="url(#gz${uid})"/>
-              <path d="${arc}" fill="none" stroke="${GAUGE_GLOW.mid}" stroke-width="7" stroke-linecap="butt" stroke-dasharray="${aL} 1000" stroke-dashoffset="${aOff}" opacity="0.45" filter="url(#gz${uid})"/>
-              <path d="${arc}" fill="none" stroke="${inverse ? GAUGE_GLOW.low : GAUGE_GLOW.high}" stroke-width="7" stroke-linecap="butt" stroke-dasharray="${gL} 1000" stroke-dashoffset="${gOff}" opacity="0.45" filter="url(#gz${uid})"/>
-
-              <!-- Glass sheen highlight -->
-              <path d="${arc}" fill="none" stroke="rgba(255,255,255,0.11)" stroke-width="5" stroke-linecap="round"/>
-
-              <!-- Tick marks -->
-              ${ticks}
-
-              <!-- Scale labels -->
-              <text x="${cx-r-10}" y="${cy+5}" text-anchor="middle" font-size="8.5" font-weight="600" fill="rgba(45, 32, 90, 0.45)" font-family="system-ui,sans-serif">0</text>
-              <text x="${cx+r+10}" y="${cy+5}" text-anchor="middle" font-size="8.5" font-weight="600" fill="rgba(45, 32, 90, 0.45)" font-family="system-ui,sans-serif">10</text>
-
-              <!-- Needle drop-shadow -->
-              <path d="${ndl}" fill="rgba(0,0,0,0.3)" filter="url(#ns${uid})">${anim}</path>
-              <!-- Needle (gradient-filled tapered shape) -->
-              <path d="${ndl}" fill="url(#ndg${uid})">${anim}</path>
-
-              <!-- Center cap: layered metallic rings -->
-              <circle cx="${cx}" cy="${cy}" r="10"  fill="url(#cap${uid})"/>
-              <circle cx="${cx}" cy="${cy}" r="7.5" fill="#1e1b33"/>
-              <circle cx="${cx}" cy="${cy}" r="5.5" fill="#392f4d"/>
-              <circle cx="${cx}" cy="${cy}" r="3"   fill="#4d4166"/>
-              <!-- Cap highlight glint -->
-              <circle cx="${cx-2}" cy="${cy-2.5}" r="1.8" fill="rgba(255,255,255,0.5)"/>
-
-              <!-- Score (fades in as needle settles) -->
-              <text x="${cx}" y="${cy+22}" text-anchor="middle" font-size="15" font-weight="800"
-                    letter-spacing="-0.5" fill="${gc}" font-family="system-ui,sans-serif" opacity="0">
-                ${displayScore}
-                <animate attributeName="opacity" from="0" to="1" begin="1.3s" dur="0.55s" fill="freeze"/>
-              </text>
-              
-            </svg>`;
-        }
-
-        function buildCard(dim, entry) {
-            const score = Math.max(0, Math.min(100, entry.score || 0));
-            const cls = scoreClasses(score, dim.inverse);
-            const effective = dim.inverse ? (100 - score) : score;
-            const tier = effective >= 70 ? 'high' : effective >= 40 ? 'mid' : 'low';
-            const interp = dim.interp ? dim.interp[tier] : '';
-            const gaugeColor = GAUGE_COLORS[cls.num];
-            // Compact card: label + gauge + a clamped insight. The description and
-            // the tier meaning live in the modal, which opens on click.
-            return `<div class="sentiment-card ${cls.card}" data-dim-key="${dim.key}" title="${escHtml(interp || dim.desc)}">
-                <div class="sentiment-card-header">
-                    <div class="sentiment-label">${dim.label}</div>
-                    <div class="sentiment-score-block">${buildGauge(score, gaugeColor, dim.inverse)}</div>
-                </div>
-                <div class="sentiment-insight">${escHtml(entry.insight || '')}</div>
-            </div>`;
-        }
-
-        const groupBlock = theme => {
-            const cards = SENTIMENT_DIMS
-                .filter(d => d.theme === theme.key)
-                .map(dim => { const entry = data[dim.key]; return entry ? buildCard(dim, entry) : ''; })
-                .join('');
-            if (!cards) return '';
-            return `<section class="sentiment-group" data-theme="${theme.key}">
-                <div class="sentiment-group-label">
-                    <span>${theme.label}</span>
-                    <span class="group-line"></span>
-                </div>
-                <div class="sentiment-group-cards">${cards}</div>
-            </section>`;
-        };
-
-        // Growth & Development sits beside Interpersonal Awareness; the merged
-        // Emotional Wellbeing & Trust block takes the full row below.
-        const THEME_ROWS = [['growth', 'interpersonal'], ['wellbeing']];
-        const themeByKey  = k => SENTIMENT_THEMES.find(t => t.key === k);
-        const cardCount   = k => SENTIMENT_DIMS.filter(d => d.theme === k && data[d.key]).length;
-
-        const rendered = new Set();
-        const rows = THEME_ROWS.map(keys => {
-            const filled = keys.filter(k => themeByKey(k) && cardCount(k) > 0);
-            filled.forEach(k => rendered.add(k));
-            if (!filled.length) return '';
-            // equal halves, so the two themes in a row read as a pair
-            const cols = filled.map(() => '1fr').join(' ');
-            const blocks = filled.map(k => groupBlock(themeByKey(k))).join('');
-            // set as a custom property so the stacked mobile rule can still win
-            return `<div class="sentiment-pair" style="--pair-cols:${cols};">${blocks}</div>`;
-        }).join('');
-
-        // any theme not named above still gets rendered, full width, below
-        const rest = SENTIMENT_THEMES.filter(t => !rendered.has(t.key)).map(groupBlock).join('');
-
-        grid.innerHTML = rows + rest;
-
-        grid.onclick = e => {
-            const card = e.target.closest('.sentiment-card[data-dim-key]');
-            if (card) openTrendModal(card.dataset.dimKey);
-        };
+        document.getElementById('insight-row').style.display = '';
+        document.getElementById('hover-detail-card').style.display = '';
+        resetHoverDetail();
+        renderCombo(data);
     }
 
     async function loadSentiment() {
@@ -1730,10 +1440,8 @@
         document.querySelectorAll('.stat-value').forEach(el => el.classList.add('loading'));
         document.getElementById('user-table-body').innerHTML =
             '<tr><td colspan="7"><div class="skeleton" style="width:60%; margin: 0 auto;"></div></td></tr>';
-        document.getElementById('sentiment-grid').innerHTML =
+        document.getElementById('combo-body').innerHTML =
             '<div class="sentiment-no-data"><div class="skeleton" style="width:200px; margin:0 auto;"></div></div>';
-        document.getElementById('heat-wrap').innerHTML = '';
-        document.getElementById('trends-wrap').innerHTML = '';
         // loadAnalytics re-evaluates the gate and pulls the sentiment itself.
         loadAnalytics();
     }
@@ -1760,7 +1468,7 @@
         btn.disabled = true;
         btn.classList.add('is-busy');
         label.textContent = 'Calculating…';
-        document.getElementById('sentiment-grid').innerHTML =
+        document.getElementById('combo-body').innerHTML =
             '<div class="sentiment-no-data"><div class="skeleton" style="width:220px; margin:0 auto;"></div></div>';
         try {
             const res = await fetch('/api/sentiment/refresh', { method: 'POST', headers: getAuthHeaders(), credentials: 'omit' });
@@ -1768,11 +1476,11 @@
             if (payload.ok && payload.data) {
                 renderSentiment(payload.data);
             } else {
-                document.getElementById('sentiment-grid').innerHTML =
+                document.getElementById('combo-body').innerHTML =
                     `<div class="sentiment-no-data">${escHtml(payload.error || 'Calculation failed. Try again later.')}</div>`;
             }
         } catch (_) {
-            document.getElementById('sentiment-grid').innerHTML =
+            document.getElementById('combo-body').innerHTML =
                 '<div class="sentiment-no-data">Request failed. Please try again.</div>';
         } finally {
             btn.disabled = false;

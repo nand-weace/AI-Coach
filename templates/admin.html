@@ -365,17 +365,7 @@
         .heat-row-score { font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-align: center; font-variant-numeric: tabular-nums; }
 
         /* ── Combined Trend Chart ── */
-        .combo-chart-card {
-            background: var(--glass-bg);
-            border: 1px solid var(--glass-border);
-            border-radius: 18px;
-            padding: 22px 26px 18px;
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            margin-bottom: 24px;
-        }
-        .combo-chart-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
-        .combo-focus-hint { font-size: 0.72rem; color: var(--text-muted); white-space: nowrap; }
+        .combo-focus-hint { font-size: 0.72rem; color: var(--text-muted); white-space: nowrap; margin-bottom: 10px; text-align: right; }
 
         /* Click-to-focus: the chosen line keeps full weight, the rest fall back
            far enough to read as background without disappearing entirely. */
@@ -437,7 +427,39 @@
         .usage-total strong { color: var(--text-main); font-weight: 600; }
         .usage-empty { font-size: 0.82rem; color: var(--text-muted); text-align: center; padding: 40px 0; }
 
-        /* ── Heat Analysis + Trend Over Time side by side ── */
+        /* ── Scores / Trend switch ──
+           One card, one dataset, two readings of it: the current snapshot as
+           bars grouped into bands, or the same dimensions over time as lines. */
+        .combo-switch {
+            display: inline-flex; background: rgba(45, 32, 90, 0.06);
+            border-radius: 999px; padding: 3px; flex-shrink: 0;
+        }
+        .combo-switch-btn {
+            font-family: inherit; font-size: 0.78rem; font-weight: 600;
+            color: var(--text-muted); background: none; border: none;
+            border-radius: 999px; padding: 6px 15px; cursor: pointer;
+            transition: background 0.15s ease, color 0.15s ease;
+        }
+        .combo-switch-btn:hover:not(.active) { color: var(--text-main); }
+        .combo-switch-btn.active { background: var(--primary-color); color: #fff; }
+
+        /* ── Score bands (Strong / Developing / Needs Attention) ──
+           Background tint comes from BAND_BG (a low-opacity match of
+           BAND_COLORS) set inline per band. */
+        .heat-band { border-radius: 12px; padding: 10px 12px; }
+        .heat-band + .heat-band { margin-top: 12px; }
+        .heat-band-label {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em;
+            text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px;
+        }
+        .heat-band-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+        .heat-band .heat-row { border-bottom: none; padding: 5px 0; }
+
+        /* ── Insight row layout ──
+           Shared with .usage-row above it (two plain chart wraps), so the base
+           grid stays generic; only .heat-card/.hover-detail-card get the
+           Sentiment Analysis card's own sizing. */
         .insight-row {
             display: grid;
             grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -445,30 +467,29 @@
             align-items: stretch;
             margin-bottom: 24px;
         }
-        .insight-row > div { min-width: 0; display: flex; }
-        .insight-row .heat-card,
-        .insight-row .combo-chart-card { margin-bottom: 0; width: 100%; }
-        /* half-width columns: tighten the heat rows so the bar keeps its room */
+        /* The usage-row's plain chart wraps want to be flex; the Sentiment
+           Analysis cards must not be — their header stacks above their body. */
+        .insight-row > div:not(.heat-card) { min-width: 0; }
+        .insight-row > .heat-card { margin-bottom: 0; width: 100%; min-width: 0; }
         .insight-row .heat-row {
             grid-template-columns: 18px minmax(96px, 1.1fr) 2.4fr 28px;
             gap: 10px;
         }
-        /* if either half has nothing to show (e.g. too little history for a
-           trend line), let the surviving card take the full width */
-        .insight-row:has(> #heat-wrap:empty),
-        .insight-row:has(> #trends-wrap:empty) { grid-template-columns: 1fr; }
-        .insight-row:has(> #trends-wrap:empty) .heat-row {
-            grid-template-columns: 18px minmax(160px, 1.2fr) 3fr 32px;
-            gap: 14px;
+        .hover-detail-card { display: flex; flex-direction: column; }
+        .hover-detail-placeholder {
+            margin: auto; font-size: 0.85rem; color: var(--text-muted); text-align: center;
+            line-height: 1.6; padding: 20px;
         }
+        .hover-detail-card #hover-detail-body { width: 100%; }
+        .hover-detail-card .trend-modal-meta { margin-bottom: 18px; }
         @media (max-width: 1000px) {
             .insight-row { grid-template-columns: 1fr; gap: 0; margin-bottom: 0; }
-            .insight-row .heat-card,
-            .insight-row .combo-chart-card { margin-bottom: 24px; }
+            .insight-row > .heat-card { margin-bottom: 24px; }
             .insight-row .heat-row {
                 grid-template-columns: 18px minmax(160px, 1.2fr) 3fr 32px;
                 gap: 14px;
             }
+            .hover-detail-card { display: none; }
         }
 
         /* ── Page transitions ── */
@@ -549,14 +570,30 @@
             <button class="refresh-btn" id="sentiment-refresh-btn">Recalculate</button>
         </div>
     </div>
-    <div class="insight-row">
-        <div id="heat-wrap"></div>
-        <div id="trends-wrap"></div>
-    </div>
-    <!-- Loading / empty / error line for the section above — the per-dimension
-         cards were dropped; Heat Analysis and Trend Over Time carry the read. -->
-    <div id="sentiment-status">
-        <div class="sentiment-no-data"><div class="skeleton" style="width:200px; margin:0 auto;"></div></div>
+    <div class="insight-row" id="insight-row" style="display:none;">
+        <div class="heat-card combo-merged" id="combo-card">
+            <div class="heat-card-header">
+                <div class="heat-title-wrap">
+                    <span class="heat-num"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="18" y="3" width="4" height="18"/><rect x="10" y="8" width="4" height="13"/><rect x="2" y="13" width="4" height="8"/></svg></span>
+                    <h3>Sentiment Analysis</h3>
+                </div>
+                <div class="combo-switch" id="combo-view-switch" role="tablist" aria-label="Scores or trend view">
+                    <button type="button" class="combo-switch-btn active" data-view="scores" role="tab" aria-selected="true">Scores</button>
+                    <button type="button" class="combo-switch-btn" data-view="trends" role="tab" aria-selected="false">Trend</button>
+                </div>
+            </div>
+            <div id="combo-body"></div>
+        </div>
+
+        <!-- Hover any dimension on the left — a heat row, or a trend line's
+             legend entry — and its detail (score, distribution, trend chart,
+             insight) shows here. -->
+        <div class="heat-card hover-detail-card" id="hover-detail-card">
+            <div class="hover-detail-placeholder" id="hover-detail-placeholder">
+                Hover a dimension on the left to see its detail here.
+            </div>
+            <div id="hover-detail-body"></div>
+        </div>
     </div>
 
     <div class="table-card">
@@ -609,24 +646,6 @@
             </div>
             <div class="details-status" id="li-status"></div>
         </div>
-    </div>
-</div>
-
-<!-- Sentiment trend modal -->
-<div class="trend-modal-overlay" id="trend-modal">
-    <div class="trend-modal-box">
-        <button class="trend-modal-close" id="trend-modal-close" aria-label="Close">&times;</button>
-        <div class="trend-modal-title" id="trend-modal-title"></div>
-        <div class="trend-modal-meta"  id="trend-modal-meta"></div>
-        <div class="trend-modal-score-row">
-            <span class="trend-modal-score-num" id="trend-modal-score"></span>
-            <span class="trend-modal-score-sub">overall score</span>
-        </div>
-        <div class="trend-chart-wrap" id="trend-modal-chart"></div>
-        <div class="trend-modal-divider"></div>
-        <div id="trend-modal-bands"></div>
-        <div class="trend-modal-divider" id="trend-modal-insight-divider"></div>
-        <div class="trend-modal-insight" id="trend-modal-insight"></div>
     </div>
 </div>
 
@@ -1020,55 +1039,13 @@
     updateSortHeaders();
     loadUsers();
     loadNexaCounts();
-    const SENTIMENT_DIMS = [
-        { key: 'growth_mindset', label: 'Growth Mindset', desc: 'Learning-oriented framing of effort and setbacks', inverse: false, theme: 'growth',
-          interp: { high: 'Challenges framed as opportunities; strong focus on learning and continuous improvement.', mid: 'Some growth framing present, alongside occasional fixed-mindset language.', low: 'Predominantly fixed-mindset framing; setbacks treated as limitations rather than lessons.' } },
-        { key: 'job_satisfaction', label: 'Job Satisfaction', desc: 'Sense of meaning and engagement at work', inverse: false, theme: 'growth',
-          interp: { high: 'Strong signals of purpose, motivation, and fulfilment in their role.', mid: 'Mixed signals — some engagement alongside moments of questioning or doubt.', low: 'Low engagement, repeated questioning of role fit, or signs of disillusionment.' } },
-        { key: 'self_confidence', label: 'Self-Confidence', desc: 'Belief in own ability to handle challenges', inverse: false, theme: 'interpersonal',
-          interp: { high: 'Assertive, decisive language — leaders trust their own judgement and capabilities.', mid: 'Occasional self-doubt or hedging, but generally stable self-perception.', low: 'Frequent self-doubt, hedging language, or avoidance of ownership.' } },
-        { key: 'work_life_balance', label: 'Work-Life Balance', desc: 'Separating work time from personal life', inverse: false, theme: 'wellbeing',
-          interp: { high: 'Leaders express clear boundaries and healthy separation between work and personal time.', mid: 'Some boundary language present, but patterns suggest occasional difficulty switching off.', low: 'Language reflects consistent overextension or difficulty separating work from personal life.' } },
-        { key: 'stress_anxiety', label: 'Stress & Anxiety', desc: 'Perceived pressure, urgency, and overwhelm', inverse: true, theme: 'wellbeing',
-          interp: { high: 'Language is calm and composed; minimal urgency or pressure signals detected.', mid: 'Moderate stress indicators — some urgency or pressure language present across sessions.', low: 'High stress signals — language reflects significant pressure, overwhelm, or urgency.' } },
-        { key: 'frustration_disengagement', label: 'Frustration', desc: 'Cynicism, dismissiveness, or detachment', inverse: true, theme: 'wellbeing',
-          interp: { high: 'Engaged and positive language; minimal cynicism or dismissiveness detected.', mid: 'Some frustration signals; occasional cynicism or disconnection in language.', low: 'Marked frustration or disengagement — language shows significant cynicism or withdrawal.' } },
-        { key: 'psychological_safety', label: 'Psychological Safety', desc: 'Openness about vulnerabilities and mistakes', inverse: false, theme: 'wellbeing',
-          interp: { high: 'High openness — leaders share failures, fears, and uncertainties freely.', mid: 'Selective openness; some vulnerability expressed but language remains partially guarded.', low: 'Limited self-disclosure; language stays guarded around failures and doubts.' } },
-        { key: 'empathy', label: 'Empathy', desc: 'Understanding and sharing others\' emotions', inverse: false, theme: 'interpersonal',
-          interp: { high: 'Frequent perspective-taking and explicit acknowledgement of others\' experiences.', mid: 'Some awareness of others\' emotions, with room to deepen relational understanding.', low: 'Limited references to others\' feelings; conversations focus primarily on self or tasks.' } },
-    ];
-
-    // No SENTIMENT_THEMES here: theme grouping only ever drove the per-dimension
-    // card grid. Heat Analysis and Trend Over Time read the dimensions directly.
-
-    function sparkline(points, color) {
-        if (!points || points.length < 2) return '';
-        const W = 200, H = 44, pad = 4;
-        const minV = Math.min(...points), maxV = Math.max(...points);
-        const range = maxV - minV || 1;
-        const xs = points.map((_, i) => pad + (i / (points.length - 1)) * (W - pad * 2));
-        const ys = points.map(v => H - pad - ((v - minV) / range) * (H - pad * 2));
-        const pts = xs.map((x, i) => `${x.toFixed(1)},${ys[i].toFixed(1)}`).join(' ');
-        const area = `M${xs[0].toFixed(1)},${H} ` +
-            xs.map((x, i) => `L${x.toFixed(1)},${ys[i].toFixed(1)}`).join(' ') +
-            ` L${xs[xs.length-1].toFixed(1)},${H} Z`;
-        const dots = points.map((_, i) =>
-            i === points.length - 1
-                ? `<circle cx="${xs[i].toFixed(1)}" cy="${ys[i].toFixed(1)}" r="3.5" fill="${color}"/>`
-                : `<circle cx="${xs[i].toFixed(1)}" cy="${ys[i].toFixed(1)}" r="2" fill="${color}" opacity="0.5"/>`
-        ).join('');
-        return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="height:44px;">
-            <path d="${area}" fill="${color}" opacity="0.10"/>
-            <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2"
-                stroke-linejoin="round" stroke-linecap="round"/>
-            ${dots}
-        </svg>`;
-    }
+    // A dimension's key, title and description all come from the API response
+    // (see 'sentiments' in /api/sentiment) — nothing about what a dimension is
+    // called or measures is duplicated here. What stays local is purely
+    // presentational and keyed by dimension key: an icon, a line colour.
 
     const BAND_COLORS = { 'score-green': 'green', 'score-amber': '#e1a34e', 'score-red': 'red' };
 
-    // ── Trend modal ───────────────────────────────────────────────────────────
     let currentSentimentData = null;
 
     function renderTrendChart(trendData, color) {
@@ -1120,55 +1097,66 @@
         </svg>`;
     }
 
-    function openTrendModal(dimKey) {
-        if (!currentSentimentData) return;
-        const dim   = SENTIMENT_DIMS.find(d => d.key === dimKey);
-        const entry = currentSentimentData[dimKey];
-        if (!dim || !entry) return;
+    // Everything the hover panel needs to show for one dimension: title, meta
+    // line, score, distribution across the org, trend chart, insight. dim.title
+    // and dim.description come straight from the API's 'sentiments' entry.
+    function buildDimDetail(dimKey) {
+        const dim = currentSentimentData && (currentSentimentData.sentiments || [])
+            .find(d => d.key === dimKey);
+        if (!dim) return null;
 
-        const score = Math.max(0, Math.min(100, entry.score || 0));
-        const cls   = scoreClasses(score, dim.inverse);
+        const score = Math.max(0, Math.min(100, dim.score || 0));
+        const cls   = scoreClasses(score);
         const color = BAND_COLORS[cls.num] || '#9333ea';
 
-        document.getElementById('trend-modal-title').textContent = dim.label;
-        document.getElementById('trend-modal-score').textContent = score;
-        document.getElementById('trend-modal-score').className = 'trend-modal-score-num ' + cls.num;
+        const trend = dim.trend || [];
+        const metaParts = [dim.description];
+        if (trend.length >= 2) metaParts.push(`${trend[0].date} → ${trend[trend.length - 1].date}`);
 
-        const trend = entry.trend || [];
-        const metaParts = [`${dim.desc}`];
-        if (trend.length >= 2) {
-            metaParts.push(`${trend[0].date} → ${trend[trend.length - 1].date}`);
-        }
-        document.getElementById('trend-modal-meta').textContent = metaParts.join('  ·  ');
-        document.getElementById('trend-modal-chart').innerHTML  = renderTrendChart(trend, color);
-
-        const bands = entry.bands || null;
-        const bandsEl = document.getElementById('trend-modal-bands');
-        const insightDivider = document.getElementById('trend-modal-insight-divider');
-        if (bands) {
-            bandsEl.innerHTML = buildEmpDist(bands);
-            bandsEl.style.display = '';
-            insightDivider.style.display = '';
-        } else {
-            bandsEl.innerHTML = '';
-            bandsEl.style.display = 'none';
-            insightDivider.style.display = 'none';
-        }
-
-        document.getElementById('trend-modal-insight').textContent = entry.insight || '';
-
-        document.getElementById('trend-modal').classList.add('open');
+        return {
+            dim, score, cls, color,
+            meta: metaParts.join('  ·  '),
+            chartHtml: renderTrendChart(trend, color),
+            distHtml: dim.bands ? buildEmpDist(dim.bands) : '',
+        };
     }
 
-    function closeTrendModal() {
-        document.getElementById('trend-modal').classList.remove('open');
+    // ── Hover detail (right column) ─────────────────────────────────────────
+    // Hovering a dimension on the left — a score row, or a trend line's legend
+    // entry — shows its full detail here: title, score, distribution, trend
+    // chart, insight.
+    function showHoverDetail(dimKey) {
+        const d = buildDimDetail(dimKey);
+        if (!d) return;
+        document.getElementById('hover-detail-placeholder').style.display = 'none';
+        document.getElementById('hover-detail-body').innerHTML = `
+            <div class="trend-modal-title">${escHtml(d.dim.title)}</div>
+            <div class="trend-modal-meta">${escHtml(d.meta)}</div>
+            <div class="trend-modal-score-row">
+                <span class="trend-modal-score-num" style="color:${d.color}">${d.score}</span>
+                <span class="trend-modal-score-sub">overall score</span>
+            </div>
+            <div class="trend-chart-wrap">${d.chartHtml}</div>
+            ${d.distHtml ? `<div class="trend-modal-divider"></div>${d.distHtml}` : ''}
+            <div class="trend-modal-divider"></div>
+            <div class="trend-modal-insight">${escHtml(d.dim.insight || '')}</div>`;
     }
 
-    document.getElementById('trend-modal-close').addEventListener('click', closeTrendModal);
-    document.getElementById('trend-modal').addEventListener('click', e => {
-        if (e.target === e.currentTarget) closeTrendModal();
-    });
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeTrendModal(); });
+    function clearHoverDetail() {
+        const placeholder = document.getElementById('hover-detail-placeholder');
+        const body = document.getElementById('hover-detail-body');
+        if (placeholder) placeholder.style.display = '';
+        if (body) body.innerHTML = '';
+    }
+
+    // What the panel falls back to whenever nothing is actively hovered — the
+    // first dimension with data, so the panel never sits on the placeholder
+    // while there's something real to show.
+    function resetHoverDetail() {
+        const dim = currentSentimentData && (currentSentimentData.sentiments || [])[0];
+        if (dim) showHoverDetail(dim.key);
+        else clearHoverDetail();
+    }
 
     function buildEmpDist(bands) {
         if (!bands) return '';
@@ -1202,10 +1190,11 @@
         </div>`;
     }
 
-    function scoreClasses(score, inverse) {
-        const effective = inverse ? (100 - score) : score;
-        if (effective >= 65) return { num: 'score-green' };
-        if (effective >= 35) return { num: 'score-amber' };
+    // Every visible dimension now scores 0-100 in the same direction — higher
+    // is always the stronger reading — so the band is a plain threshold.
+    function scoreClasses(score) {
+        if (score >= 65) return { num: 'score-green' };
+        if (score >= 35) return { num: 'score-amber' };
         return { num: 'score-red' };
     }
 
@@ -1214,7 +1203,7 @@
         job_satisfaction:          { signal: { high: 'Strong',   mid: 'Moderate',   low: 'Low'      }, icon: '<rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>' },
         self_confidence:           { signal: { high: 'Strong',   mid: 'Moderate',   low: 'Low'      }, icon: '<circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/>' },
         work_life_balance:         { signal: { high: 'Healthy',  mid: 'Moderate',   low: 'Strained' }, icon: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>' },
-        stress_anxiety:            { signal: { high: 'Low',      mid: 'Moderate',   low: 'High'     }, icon: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>' },
+        emotional_resilience:      { signal: { high: 'Strong',   mid: 'Moderate',   low: 'Low'      }, icon: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>' },
         frustration_disengagement: { signal: { high: 'Low',      mid: 'Moderate',   low: 'Elevated' }, icon: '<circle cx="12" cy="12" r="10"/><path d="M16 16s-1.5-2-4-2-4 2-4 2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/>' },
         psychological_safety:      { signal: { high: 'Strong',   mid: 'Moderate',   low: 'Low'      }, icon: '<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>' },
         empathy:                   { signal: { high: 'Strong',   mid: 'Moderate',   low: 'Low'      }, icon: '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>' },
@@ -1225,10 +1214,22 @@
         job_satisfaction:          '#818cf8',  // indigo
         self_confidence:           '#075985',  // blue
         work_life_balance:         '#0d9488',  // teal
-        stress_anxiety:            '#22c55e',  // green
+        emotional_resilience:      '#22c55e',  // green
         frustration_disengagement: '#a16207',  // yellow
         psychological_safety:      '#fb923c',  // orange
         empathy:                   '#be123c',  // red
+    };
+
+    // Which band a dimension sits in decides the section it's grouped under in
+    // the Scores view — strong first, then developing, then what needs
+    // attention.
+    const BAND_ORDER  = ['score-green', 'score-amber', 'score-red'];
+    const BAND_LABELS = { 'score-green': 'Strong', 'score-amber': 'Developing', 'score-red': 'Needs Attention' };
+    // A low-opacity wash of the same BAND_COLORS, for the section background.
+    const BAND_BG = {
+        'score-green': 'rgba(16, 185, 129, 0.08)',
+        'score-amber': 'rgba(225, 163, 78, 0.12)',
+        'score-red':   'rgba(239, 68, 68, 0.08)',
     };
 
     let _comboMeta = null;
@@ -1237,18 +1238,21 @@
     let focusedDim = null;
 
     function renderTrendsSection(data) {
-        const wrap = document.getElementById('trends-wrap');
+        const wrap = document.getElementById('combo-body');
         if (!wrap) return;
         // Fresh data — a dimension held in focus may not even be in it any more.
         focusedDim = null;
 
+        const dims = data.sentiments || [];
         const dateSet = new Set();
-        SENTIMENT_DIMS.forEach(dim => {
-            const entry = data[dim.key];
-            if (entry && entry.trend) entry.trend.forEach(t => dateSet.add(t.date));
+        dims.forEach(dim => {
+            if (dim.trend) dim.trend.forEach(t => dateSet.add(t.date));
         });
         const sortedDates = [...dateSet].sort();
-        if (sortedDates.length < 2) { wrap.innerHTML = ''; return; }
+        if (sortedDates.length < 2) {
+            wrap.innerHTML = '<div class="sentiment-no-data">Not enough history yet to show a trend.</div>';
+            return;
+        }
 
         const n = sortedDates.length;
         const dateIdx = new Map(sortedDates.map((d, i) => [d, i]));
@@ -1271,15 +1275,14 @@
             return `<text x="${toX(i).toFixed(1)}" y="${H - 8}" text-anchor="middle" font-size="10" fill="#7f78a0">${lbl}</text>`;
         }).join('');
 
-        const lines = SENTIMENT_DIMS.map(dim => {
-            const entry = data[dim.key];
-            if (!entry || !entry.trend || entry.trend.length < 2) return '';
+        const lines = dims.map(dim => {
+            if (!dim.trend || dim.trend.length < 2) return '';
             const color = DIM_COLORS[dim.key] || '#7f78a0';
-            const pts = entry.trend
+            const pts = dim.trend
                 .map(t => { const xi = dateIdx.get(t.date); return xi !== undefined ? `${toX(xi).toFixed(1)},${toY(t.score).toFixed(1)}` : null; })
                 .filter(Boolean).join(' ');
             if (!pts) return '';
-            const last = entry.trend[entry.trend.length - 1];
+            const last = dim.trend[dim.trend.length - 1];
             const lxi  = dateIdx.get(last.date);
             const dot  = lxi !== undefined ? `<circle cx="${toX(lxi).toFixed(1)}" cy="${toY(last.score).toFixed(1)}" r="4" fill="${color}"/>` : '';
             return `<g class="combo-series" data-dim-key="${dim.key}">
@@ -1293,44 +1296,33 @@
             <rect id="combo-hit" x="${padL}" y="${padT}" width="${iW}" height="${iH}" fill="transparent"/>
         </svg>`;
 
-        const legendItems = SENTIMENT_DIMS.map(dim => {
-            const entry = data[dim.key];
-            if (!entry) return '';
+        const legendItems = dims.map(dim => {
             const color = DIM_COLORS[dim.key] || '#7f78a0';
-            const score = Math.max(0, Math.min(100, entry.score || 0));
-            const cls = scoreClasses(score, dim.inverse);
+            const score = Math.max(0, Math.min(100, dim.score || 0));
+            const cls = scoreClasses(score);
             return `<div class="combo-legend-item" data-dim-key="${dim.key}">
                 <span class="combo-legend-line" style="background:${color}"></span>
-                <span class="combo-legend-name">${dim.label}</span>
+                <span class="combo-legend-name">${dim.title}</span>
                 <span class="combo-legend-score ${cls.num}">${score}</span>
             </div>`;
         }).join('');
 
-        wrap.innerHTML = `<div class="combo-chart-card">
-            <div class="combo-chart-header">
-                <div class="heat-title-wrap">
-                    <span class="heat-num"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
-                    <h3>Trend Over Time</h3>
-                </div>
-                <span class="combo-focus-hint">Click a line to focus it</span>
-            </div>
+        wrap.innerHTML = `
+            <span class="combo-focus-hint">Click a line to focus it</span>
             <div class="combo-chart-body">
                 ${svg}
                 <div class="combo-tooltip" id="combo-tooltip"></div>
             </div>
-            <div class="combo-legend">${legendItems}</div>
-        </div>`;
+            <div class="combo-legend">${legendItems}</div>`;
 
         // Store metadata for hover handler
         _comboMeta = {
             dates: sortedDates, dateIdx, n,
             W, H, padL, padR, padT, padB, iW, iH,
-            dims: SENTIMENT_DIMS.map(dim => {
-                const entry = data[dim.key];
-                if (!entry || !entry.trend) return null;
-                return { key: dim.key, label: dim.label, color: DIM_COLORS[dim.key] || '#7f78a0',
-                         scoreMap: new Map(entry.trend.map(t => [t.date, t.score])) };
-            }).filter(Boolean),
+            dims: dims.filter(dim => dim.trend && dim.trend.length).map(dim => (
+                { key: dim.key, label: dim.title, color: DIM_COLORS[dim.key] || '#7f78a0',
+                  scoreMap: new Map(dim.trend.map(t => [t.date, t.score])) }
+            )),
         };
 
         // Wire hover
@@ -1423,6 +1415,8 @@
 
         wrap.querySelectorAll('.combo-legend-item[data-dim-key]').forEach(item => {
             item.addEventListener('click', () => setComboFocus(item.dataset.dimKey, wrap));
+            item.addEventListener('mouseenter', () => showHoverDetail(item.dataset.dimKey));
+            item.addEventListener('mouseleave', resetHoverDetail);
         });
     }
 
@@ -1449,49 +1443,87 @@
     }
 
     function renderHeatAnalysis(data) {
-        const wrap = document.getElementById('heat-wrap');
+        const wrap = document.getElementById('combo-body');
         if (!wrap || !data) return;
 
-        // Bars carry the dimension's own colour from DIM_COLORS — the same one
-        // its line has in Trend Over Time, which sits beside this card — so a
-        // row and its trend line are the same thing in two views. The score
-        // beside it still shows the band, which is what varies row to row.
-        const rows = SENTIMENT_DIMS.map(dim => {
-            const entry = data[dim.key];
-            if (!entry) return '';
-            const score = Math.max(0, Math.min(100, entry.score || 0));
-            const cls = scoreClasses(score, dim.inverse);
-            const meta = HEAT_META[dim.key] || {};
-            const svg = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${meta.icon || ''}</svg>`;
-            return `<div class="heat-row">
-                <div class="heat-row-icon">${svg}</div>
-                <div class="heat-row-label">${dim.label}</div>
-                <div class="heat-row-track"><div class="heat-row-fill" style="width:${score}%; background:${DIM_COLORS[dim.key] || '#7f78a0'}"></div></div>
-                <div class="heat-row-score" style="color:${BAND_COLORS[cls.num] || 'var(--text-muted)'}">${score}</div>
+        const bands = { 'score-green': [], 'score-amber': [], 'score-red': [] };
+        (data.sentiments || []).forEach(dim => {
+            const score = Math.max(0, Math.min(100, dim.score || 0));
+            const cls = scoreClasses(score);
+            bands[cls.num].push({ dim, score, cls });
+        });
+
+        // Bars carry the band's colour from BAND_COLORS, same as the score
+        // text beside them — the fill says which section a row belongs to.
+        const sections = BAND_ORDER.map(bandKey => {
+            const items = bands[bandKey];
+            if (!items.length) return '';
+            const rows = items.map(({ dim, score, cls }) => {
+                const meta = HEAT_META[dim.key] || {};
+                const svg = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${meta.icon || ''}</svg>`;
+                return `<div class="heat-row" data-dim-key="${dim.key}">
+                    <div class="heat-row-icon">${svg}</div>
+                    <div class="heat-row-label">${dim.title}</div>
+                    <div class="heat-row-track"><div class="heat-row-fill" style="width:${score}%; background:${BAND_COLORS[cls.num] || '#7f78a0'}"></div></div>
+                    <div class="heat-row-score" style="color:${BAND_COLORS[cls.num] || 'var(--text-muted)'}">${score}</div>
+                </div>`;
+            }).join('');
+            return `<div class="heat-band" data-band="${bandKey}" style="background:${BAND_BG[bandKey]}">
+                <div class="heat-band-label" style="color:${BAND_COLORS[bandKey]}">
+                    <span class="heat-band-dot" style="background:${BAND_COLORS[bandKey]}"></span>
+                    <span>${BAND_LABELS[bandKey]}</span>
+                </div>
+                <div class="heat-rows">${rows}</div>
             </div>`;
         }).join('');
 
-        wrap.innerHTML = `<div class="heat-card">
-            <div class="heat-card-header">
-                <div class="heat-title-wrap">
-                    <span class="heat-num"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="18" y="3" width="4" height="18"/><rect x="10" y="8" width="4" height="13"/><rect x="2" y="13" width="4" height="8"/></svg></span>
-                    <h3>Sentiment Heat Analysis</h3>
-                </div>
-            </div>
-            <div class="heat-rows">${rows}</div>
-        </div>`;
+        wrap.innerHTML = sections;
+
+        wrap.querySelectorAll('.heat-row[data-dim-key]').forEach(row => {
+            row.addEventListener('mouseenter', () => showHoverDetail(row.dataset.dimKey));
+            row.addEventListener('mouseleave', resetHoverDetail);
+        });
     }
+
+    // Which reading of the merged card is showing — the current snapshot as
+    // bars, or the same dimensions over time as lines. Persisted per browser.
+    let comboView = localStorage.getItem('we_ace_combo_view') === 'trends' ? 'trends' : 'scores';
+
+    function renderCombo(data) {
+        if (comboView === 'trends') renderTrendsSection(data);
+        else renderHeatAnalysis(data);
+    }
+
+    document.querySelectorAll('#combo-view-switch .combo-switch-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            if (btn.dataset.view === comboView) return;
+            comboView = btn.dataset.view;
+            try { localStorage.setItem('we_ace_combo_view', comboView); } catch (_) {}
+            document.querySelectorAll('#combo-view-switch .combo-switch-btn').forEach(b => {
+                const on = b === btn;
+                b.classList.toggle('active', on);
+                b.setAttribute('aria-selected', on ? 'true' : 'false');
+            });
+            resetHoverDetail();
+            if (currentSentimentData) renderCombo(currentSentimentData);
+        });
+    });
+    document.querySelectorAll('#combo-view-switch .combo-switch-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.view === comboView);
+        b.setAttribute('aria-selected', b.dataset.view === comboView ? 'true' : 'false');
+    });
 
     function renderSentiment(data) {
         currentSentimentData = data;
-        const status = document.getElementById('sentiment-status');
-        if (!data || Object.keys(data).length === 0) {
-            status.innerHTML = '<div class="sentiment-no-data">No sentiment data yet — click Recalculate to generate the first report.</div>';
-            document.getElementById('heat-wrap').innerHTML = '';
-            document.getElementById('trends-wrap').innerHTML = '';
+        const hasDims = data && data.sentiments && data.sentiments.length > 0;
+        if (!hasDims) {
+            document.getElementById('insight-row').style.display = '';
+            document.getElementById('hover-detail-card').style.display = 'none';
+            document.getElementById('combo-body').innerHTML =
+                '<div class="sentiment-no-data">No sentiment data yet — click Recalculate to generate the first report.</div>';
+            clearHoverDetail();
             return;
         }
-        status.innerHTML = '';
 
         const analyzed = data.messages_analyzed || 0;
         const usersAnalyzed = data.users_analyzed || 0;
@@ -1504,8 +1536,10 @@
             updatedEl.textContent = meta;
         }
 
-        renderHeatAnalysis(data);
-        renderTrendsSection(data);
+        document.getElementById('insight-row').style.display = '';
+        document.getElementById('hover-detail-card').style.display = '';
+        resetHoverDetail();
+        renderCombo(data);
     }
 
     // ── Usage Trend ───────────────────────────────────────────────────────────
@@ -1599,10 +1633,8 @@
 
     async function loadSentiment() {
         const qs = currentOrgSlug === ALL_ORGS ? '' : ('?org_slug=' + encodeURIComponent(currentOrgSlug));
-        document.getElementById('sentiment-status').innerHTML =
+        document.getElementById('combo-body').innerHTML =
             '<div class="sentiment-no-data"><div class="skeleton" style="width:200px; margin:0 auto;"></div></div>';
-        document.getElementById('heat-wrap').innerHTML = '';
-        document.getElementById('trends-wrap').innerHTML = '';
         document.getElementById('sentiment-updated').textContent = '';
         try {
             const res = await fetch('/api/sentiment' + qs, { headers: getAuthHeaders() });
@@ -1626,7 +1658,7 @@
         const btn = document.getElementById('sentiment-refresh-btn');
         btn.disabled = true;
         btn.textContent = 'Calculating…';
-        document.getElementById('sentiment-status').innerHTML =
+        document.getElementById('combo-body').innerHTML =
             '<div class="sentiment-no-data"><div class="skeleton" style="width:220px; margin:0 auto;"></div></div>';
         try {
             const res = await fetch('/api/sentiment/refresh?org_slug=' + encodeURIComponent(currentOrgSlug),
@@ -1635,11 +1667,11 @@
             if (payload.ok && payload.data) {
                 renderSentiment(payload.data);
             } else {
-                document.getElementById('sentiment-status').innerHTML =
+                document.getElementById('combo-body').innerHTML =
                     `<div class="sentiment-no-data">${escHtml(payload.error || 'Calculation failed. Try again later.')}</div>`;
             }
         } catch (_) {
-            document.getElementById('sentiment-status').innerHTML =
+            document.getElementById('combo-body').innerHTML =
                 '<div class="sentiment-no-data">Request failed. Please try again.</div>';
         } finally {
             btn.textContent = 'Recalculate';
