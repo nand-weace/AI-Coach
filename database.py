@@ -22,6 +22,27 @@ _SENTIMENT_DIMS = [
     'empathy', 'frustration_disengagement', 'growth_mindset', 'psychological_safety',
 ]
 
+# Display names, matching the labels shown on the My Insights page
+# (templates/my_insights.html's ALL_SENTIMENT_DIMS) — kept in step with those,
+# not derived from the key, since a couple of them read shorter than their key
+# ('psychological_safety' -> 'Openness', 'frustration_disengagement' -> 'Frustration').
+_SENTIMENT_TITLES = {
+    'work_life_balance':         'Work-Life Balance',
+    'job_satisfaction':          'Job Satisfaction',
+    'stress_anxiety':            'Stress & Anxiety',
+    'self_confidence':           'Self-Confidence',
+    'empathy':                   'Empathy',
+    'frustration_disengagement': 'Frustration',
+    'growth_mindset':            'Growth Mindset',
+    'psychological_safety':      'Openness',
+}
+
+# My Insights hides these two from its Scores/Trend views (see HIDDEN_DIMS in
+# templates/my_insights.html) — still scored and kept in the per-key result
+# for callers that need them (e.g. Growth Snapshot pills), just left out of
+# the 'sentiments' list below so it matches what the page actually shows.
+_SENTIMENT_LIST_HIDDEN = {'psychological_safety', 'empathy'}
+
 _SENTIMENT_SEEDS = [
     ('work_life_balance',         'Boundary-setting and balance language',                   'Positive'),
     ('job_satisfaction',          'Fulfilment and motivation signals',                       'Positive'),
@@ -1931,18 +1952,26 @@ def get_user_sentiment_data(user_id: str, trend_limit: int = 12,
         insight_data = get_user_sentiment(user_id) or {}
 
         result: dict = {}
+        sentiments: list = []
         for dim in _SENTIMENT_DIMS:
             if dim not in dim_scores:
                 continue
             old_entry = insight_data.get(dim)
-            result[dim] = {
+            entry = {
                 'score': dim_scores[dim],
                 'insight': old_entry.get('insight', '') if isinstance(old_entry, dict) else '',
                 'trend': dim_trends.get(dim, []),
             }
+            result[dim] = entry
+            if dim not in _SENTIMENT_LIST_HIDDEN:
+                sentiments.append({'key': dim, 'title': _SENTIMENT_TITLES.get(dim, dim), **entry})
 
         result['messages_analyzed'] = insight_data.get('messages_analyzed', 0)
         result['calculated_at'] = insight_data.get('calculated_at', '')
+        # Same per-dimension data as the top-level keys, just as a list — handy
+        # for a caller that wants to iterate all of them without knowing the
+        # dimension keys up front.
+        result['sentiments'] = sentiments
         return result
     finally:
         conn.close()

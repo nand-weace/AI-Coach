@@ -78,7 +78,10 @@
         </div>
 
         {# Daily Pulse ships with Nexa Pro, so `show_pulse` decides whether this
-           tab exists at all for the user's organisation. #}
+           tab exists at all for the user's organisation. For a corporate super
+           admin (`show_org_tabs`) the same route shows the org-wide Pulse
+           Dashboard instead of a personal check-in, so the tab is relabelled
+           to match — see /pulse in app.py and pulse.html. #}
         <a id="pulse-link" href="/pulse"
            class="app-tab{% if active_tab == 'pulse' %} active{% endif %}"
            {% if active_tab == 'pulse' %}aria-current="page"{% endif %}
@@ -86,7 +89,7 @@
             <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
             </svg>
-            Daily Pulse
+            <span id="pulse-link-label">{{ 'Pulse Dashboard' if show_org_tabs else 'Daily Pulse' }}</span>
         </a>
 
         <a id="dashboard-link" href="/dashboard"

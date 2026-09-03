@@ -2312,14 +2312,17 @@ def _pulse_user_hash(user_id: str) -> str:
 
 @app.route('/pulse')
 def pulse_page():
-    """The user-facing pulse check. Everyone at a Nexa Pro organisation has one;
-    admins included — but what they see here is their own note box, not anyone
-    else's. Organisations on Nexa Regular don't have the feature, so the page is
-    not theirs to open."""
+    """The pulse page. For most people this is their own anonymous note box.
+    A corporate super admin has nothing personal to check in with here — they
+    get the org-wide Pulse Dashboard (the anonymised aggregate) at this same
+    route instead, so `/dashboard`'s "Team Pulse" section doesn't have to
+    double as their pulse home. Organisations on Nexa Regular don't have the
+    feature, so the page is not theirs to open."""
     if 'user_id' not in session:
         return redirect('/')
     if not _has_pulse(session.get('org_slug')):
         return redirect('/')
+    is_org_admin = _has_role(session.get('role'), 'corporate_super_admin')
     name = session['user_name']
     initials = ''.join(w[0].upper() for w in name.split()[:2])
     return render_template('pulse.html',
@@ -2330,10 +2333,11 @@ def pulse_page():
         refresh_token=session.get('refresh_token', ''),
         moods=[{'value': v, 'label': l} for v, l in sorted(_PULSE_MOODS.items())],
         note_max=_PULSE_NOTE_MAX,
+        is_org_admin=is_org_admin,
         # shared header (_header.html)
         active_tab='pulse',
         show_pulse=True,
-        show_org_tabs=_has_role(session.get('role'), 'corporate_super_admin'),
+        show_org_tabs=is_org_admin,
         show_admin=_has_role(session.get('role'), 'weace_super_admin'),
     )
 

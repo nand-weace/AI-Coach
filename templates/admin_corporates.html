@@ -187,7 +187,6 @@
                 <tr id="corp-table-head">
                     <th class="sortable" data-sort-key="org_name">Corporate<span class="sort-arrow"></span></th>
                     <th class="sortable num" data-sort-key="total_users">Total Users<span class="sort-arrow"></span></th>
-                    <th class="sortable num" data-sort-key="total_messages">Total Messages<span class="sort-arrow"></span></th>
                     <th class="sortable num" data-sort-key="user_messages">User Messages<span class="sort-arrow"></span></th>
                     <th class="sortable num" data-sort-key="total_sessions">Sessions<span class="sort-arrow"></span></th>
                     <th class="sortable num" data-sort-key="msgs_per_user">Msgs / User<span class="sort-arrow"></span></th>
@@ -196,7 +195,7 @@
                 </tr>
             </thead>
             <tbody id="corp-table-body">
-                <tr><td colspan="8"><div class="skeleton" style="width:60%; margin:0 auto;"></div></td></tr>
+                <tr><td colspan="7"><div class="skeleton" style="width:60%; margin:0 auto;"></div></td></tr>
             </tbody>
         </table>
         </div>
@@ -309,7 +308,6 @@
     const SORT_COLUMNS = {
         org_name:       { type: 'text', get: o => o.org_name },
         total_users:    { type: 'num',  get: o => o.total_users },
-        total_messages: { type: 'num',  get: o => o.total_messages },
         user_messages:  { type: 'num',  get: o => o.user_messages },
         total_sessions: { type: 'num',  get: o => o.total_sessions },
         msgs_per_user:  { type: 'num',  get: o => o.msgs_per_user },
@@ -380,14 +378,13 @@
         visibleOrgs = orgs;
         const tbody = document.getElementById('corp-table-body');
         if (!orgs.length) {
-            tbody.innerHTML = '<tr class="empty-row"><td colspan="8">No corporates found.</td></tr>';
+            tbody.innerHTML = '<tr class="empty-row"><td colspan="7">No corporates found.</td></tr>';
             return;
         }
         tbody.innerHTML = orgs.map(o => `
             <tr>
                 <td class="cell-name">${escHtml(o.org_name)}</td>
                 <td class="num">${num(o.total_users)}</td>
-                <td class="num">${num(o.total_messages)}</td>
                 <td class="num">${num(o.user_messages)}</td>
                 <td class="num">${num(o.total_sessions)}</td>
                 <td class="num">${o.msgs_per_user.toFixed(1)}</td>
@@ -399,12 +396,12 @@
 
     // Exports what is on screen — the current search and sort, not the full set.
     document.getElementById('export-btn').addEventListener('click', () => {
-        const head = ['Corporate', 'Slug', 'Total Users', 'Total Messages',
+        const head = ['Corporate', 'Slug', 'Total Users',
                       'User Messages', 'Sessions', 'Msgs Per User', 'First Activity',
                       'Last Activity', 'Nexa Licence'];
         const esc = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
         const rows = visibleOrgs.map(o => [
-            o.org_name, o.org_slug, o.total_users, o.total_messages, o.user_messages,
+            o.org_name, o.org_slug, o.total_users, o.user_messages,
             o.total_sessions, o.msgs_per_user.toFixed(1), o.first_activity || '',
             o.last_activity || '', licenceLabel(o.licence),
         ].map(esc).join(','));
@@ -451,7 +448,7 @@
                 el.textContent = '—';
             });
             document.getElementById('corp-table-body').innerHTML =
-                `<tr class="empty-row"><td colspan="8">${escHtml(err.message || 'Could not load corporates.')}</td></tr>`;
+                `<tr class="empty-row"><td colspan="7">${escHtml(err.message || 'Could not load corporates.')}</td></tr>`;
         }
     }
 

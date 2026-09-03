@@ -55,6 +55,35 @@ const NexaHeader = (() => {
         try { sessionStorage.removeItem('we_ace_tab_nav'); } catch (_) {}
     }
 
+    // ── Global 401 handling ──────────────────────────────────────────────────
+    // Every dashboard/admin/insights page hits its data through /api/* with a
+    // bearer token and no refresh-token dance of its own — unlike the chat
+    // page (script.js), which owns a full refresh-then-logout chain for its
+    // endpoints (/session, /chat, /logout, ...), none of which live under
+    // /api/. So patching fetch here to force a logout on any /api/* 401 covers
+    // every page that loads header.js without touching script.js's flow.
+    let _loggingOut = false;
+    async function forceLogout() {
+        if (_loggingOut) return;
+        _loggingOut = true;
+        try { await fetch('/logout', { method: 'POST', headers: authHeaders() }); } catch (_) {}
+        clearStoredCredentials();
+        window.location.href = '/';
+    }
+    (function installUnauthorizedInterceptor() {
+        const origFetch = window.fetch.bind(window);
+        window.fetch = async function (input, init) {
+            const res = await origFetch(input, init);
+            if (res.status === 401) {
+                const rawUrl = typeof input === 'string' ? input : (input && input.url) || '';
+                let path = rawUrl;
+                try { path = new URL(rawUrl, window.location.origin).pathname; } catch (_) {}
+                if (path.startsWith('/api/')) forceLogout();
+            }
+            return res;
+        };
+    })();
+
     // Marks the next page load as an in-app tab switch. sessionStorage is
     // per browser tab and survives the navigation; script.js reads it once.
     // Exported as well as used here: a page can have its own link back to the
@@ -421,6 +450,11 @@ const NexaHeader = (() => {
         show('language-menu-wrap', !isWeaceAdmin);
         show('my-insights-link', !isWeaceAdmin);
         show('pulse-link', !isWeaceAdmin && hasPulse);
+        // Mirrors the server-rendered label in _header.html: a corporate super
+        // admin gets the org-wide Pulse Dashboard at the same /pulse route, not
+        // their own check-in, so the tab reads accordingly.
+        const pulseLabel = $('pulse-link-label');
+        if (pulseLabel) pulseLabel.textContent = isOrgAdmin ? 'Pulse Dashboard' : 'Daily Pulse';
         show('my-insights-subnav', !isWeaceAdmin);
         show('admin-subnav', isWeaceAdmin);
         show('btn-corp-content', isOrgAdmin && !isWeaceAdmin);

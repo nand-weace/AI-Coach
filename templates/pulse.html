@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexa - Daily Pulse</title>
+    <title>Nexa - {{ 'Pulse Dashboard' if is_org_admin else 'Daily Pulse' }}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -20,6 +20,8 @@
             --primary-ring: rgba(109, 40, 217, 0.30);
             --surface: rgba(255, 255, 255, 0.92);
             --card-shadow: 0 12px 32px -14px rgba(49, 32, 110, 0.30);
+            --glass-bg: rgba(255, 255, 255, 0.78);
+            --glass-border: rgba(76, 59, 138, 0.14);
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -31,6 +33,7 @@
         }
 
         .page { max-width: 720px; margin: 0 auto; padding: 24px 15px 60px; }
+        .page.page--admin { max-width: 1080px; }
 
         .pulse-head { text-align: center; margin-bottom: 22px; }
         .pulse-head h2 {
@@ -147,12 +150,149 @@
             .mood-row { flex-wrap: wrap; }
             .mood-btn { flex: 1 1 30%; }
         }
+
+        /* ── Pulse Dashboard (corporate super admin) ──
+           The org-wide aggregate — moved here from the Nexa Insights dashboard
+           so admins have one dedicated home for it instead of it sitting inside
+           Sentiment Intelligence's page. */
+        .refresh-btn {
+            background: none; border: 1px solid var(--glass-border);
+            border-radius: 999px; padding: 6px 14px;
+            font-family: inherit; font-size: 0.8rem; color: var(--text-muted);
+            cursor: pointer; transition: all 0.2s;
+        }
+        .refresh-btn:hover { color: var(--primary-color); border-color: rgba(139, 92, 246, 0.3); }
+        .section-row {
+            display: flex; align-items: flex-end; justify-content: space-between;
+            margin: 0 0 16px; gap: 12px; flex-wrap: wrap;
+        }
+        .section-row h3 { font-size: 1rem; font-weight: 600; margin-bottom: 3px; }
+        .section-row p { font-size: 0.8rem; color: var(--text-muted); }
+        .section-meta { font-size: 0.78rem; color: var(--text-muted); white-space: nowrap; }
+        .skeleton { background: linear-gradient(90deg, #f3f0f8 25%, #e4dfec 50%, #f3f0f8 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 4px; height: 14px; }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+        .pulse-window {
+            display: inline-flex; background: rgba(255,255,255,0.7);
+            border: 1px solid rgba(76, 59, 138, 0.14); border-radius: 999px; padding: 3px;
+        }
+        .pulse-window button {
+            font-family: inherit; font-size: 0.76rem; font-weight: 600;
+            color: var(--text-muted); background: none; border: none;
+            border-radius: 999px; padding: 5px 13px; cursor: pointer;
+        }
+        .pulse-window button.active { background: var(--primary-color); color: #fff; }
+        .pulse-tiles {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px; margin-bottom: 16px;
+        }
+        .pulse-tile {
+            background: var(--glass-bg); border: 1px solid rgba(76, 59, 138, 0.12);
+            border-radius: 14px; padding: 14px 16px;
+        }
+        .pulse-tile-label {
+            font-size: 0.72rem; font-weight: 600; letter-spacing: 0.04em;
+            text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px;
+        }
+        .pulse-tile-value {
+            font-size: 1.5rem; font-weight: 700; letter-spacing: -0.03em;
+            font-variant-numeric: tabular-nums;
+        }
+        .pulse-tile-sub { font-size: 0.74rem; color: var(--text-muted); margin-top: 3px; }
+
+        .pulse-grid {
+            display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+            gap: 14px; align-items: start;
+        }
+        @media (max-width: 900px) { .pulse-grid { grid-template-columns: 1fr; } }
+        .pulse-card {
+            background: var(--glass-bg); border: 1px solid rgba(76, 59, 138, 0.12);
+            border-radius: 16px; padding: 18px 20px;
+        }
+        .pulse-card h4 { font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; }
+        .pulse-card .pulse-card-sub { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 14px; }
+
+        .word-cloud {
+            display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
+            gap: 6px 14px; padding: 6px 0 2px; line-height: 1.35;
+        }
+        .word-cloud span { font-weight: 600; letter-spacing: -0.01em; color: var(--primary-color); cursor: default; }
+        .pulse-mood-bars { display: grid; gap: 8px; }
+        .pulse-mood-row { display: grid; grid-template-columns: 74px 1fr 34px; align-items: center; gap: 10px; }
+        .pulse-mood-name { font-size: 0.76rem; color: var(--text-muted); font-weight: 500; }
+        .pulse-mood-track { height: 8px; border-radius: 999px; background: rgba(45, 32, 90, 0.08); overflow: hidden; }
+        .pulse-mood-fill { height: 100%; border-radius: 999px; background: var(--accent-gradient); }
+        .pulse-mood-pct {
+            font-size: 0.74rem; font-weight: 600; color: var(--text-muted);
+            text-align: right; font-variant-numeric: tabular-nums;
+        }
+
+        .pulse-theme { border-top: 1px solid rgba(76, 59, 138, 0.1); padding: 12px 0 0; margin-top: 12px; }
+        .pulse-theme:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+        .pulse-theme-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+        .pulse-theme-title { font-size: 0.85rem; font-weight: 600; }
+        .pulse-chip {
+            font-size: 0.66rem; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase;
+            border-radius: 999px; padding: 2px 8px; white-space: nowrap;
+        }
+        .pulse-chip.positive { background: rgba(16, 185, 129, 0.12); color: #047857; }
+        .pulse-chip.negative { background: rgba(239, 68, 68, 0.12);  color: #b91c1c; }
+        .pulse-chip.mixed    { background: rgba(124, 58, 237, 0.12); color: #6d28d9; }
+        .pulse-chip.neutral  { background: rgba(45, 32, 90, 0.07);   color: var(--text-muted); }
+        .pulse-theme p { font-size: 0.8rem; color: var(--text-muted); line-height: 1.55; }
+        .pulse-list { list-style: none; display: grid; gap: 8px; }
+        .pulse-list li { display: flex; gap: 8px; font-size: 0.8rem; color: var(--text-muted); line-height: 1.5; }
+        .pulse-list li::before { content: '\2022'; color: var(--primary-color); font-weight: 700; }
+
+        .pulse-locked {
+            text-align: center; padding: 34px 22px;
+            background: var(--glass-bg); border: 1px dashed rgba(124, 58, 237, 0.28); border-radius: 16px;
+        }
+        .pulse-locked-title { font-size: 0.95rem; font-weight: 600; margin: 12px 0 6px; }
+        .pulse-locked p { font-size: 0.82rem; color: var(--text-muted); line-height: 1.6; max-width: 430px; margin: 0 auto; }
+        .pulse-privacy {
+            display: flex; align-items: flex-start; gap: 9px;
+            margin-top: 14px; font-size: 0.75rem; color: var(--text-muted); line-height: 1.55;
+        }
+        .pulse-privacy svg { flex-shrink: 0; margin-top: 2px; color: var(--primary-color); }
+        .pulse-empty { font-size: 0.82rem; color: var(--text-muted); text-align: center; padding: 22px 0; }
     </style>
 </head>
 <body>
 
 {% include '_header.html' %}
 
+{% if is_org_admin %}
+<div class="page page--admin">
+    <div class="pulse-head">
+        <h2>Pulse Dashboard</h2>
+        <p>Anonymous daily check-ins — themes across {{ org_name }}, never individual notes.</p>
+    </div>
+
+    <div class="section-row">
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <div class="pulse-window" id="pulse-window">
+                <button type="button" data-days="7">7d</button>
+                <button type="button" data-days="30" class="active">30d</button>
+                <button type="button" data-days="90">90d</button>
+            </div>
+            <span class="section-meta" id="pulse-updated"></span>
+        </div>
+        <button class="refresh-btn" id="pulse-refresh-btn">Summarise</button>
+    </div>
+    <div id="pulse-body">
+        <div class="pulse-empty"><div class="skeleton" style="width:200px; margin:0 auto;"></div></div>
+    </div>
+    <div class="pulse-privacy">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+        <span>Notes are stored with no link to the person who wrote them. Nothing appears here
+              until enough people have taken part, and a word only reaches the cloud once it has
+              turned up in several different notes.</span>
+    </div>
+</div>
+{% else %}
 <div class="page">
     <div class="pulse-head">
         <span class="pulse-date" id="pulse-date">Today</span>
@@ -223,12 +363,11 @@
         </div>
     </div>
 </div>
+{% endif %}
 
 <script src="{{ asset('header.js') }}"></script>
 <script>
     NexaHeader.init();
-
-    const NOTE_MAX = {{ note_max }};
 
     function getAuthHeaders(extra) {
         const token = localStorage.getItem('we_ace_access_token') || '';
@@ -236,6 +375,210 @@
     }
 
     const $ = id => document.getElementById(id);
+
+    function escHtml(str) {
+        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+{% if is_org_admin %}
+    // ── Pulse Dashboard (corporate super admin) ──────────────────────────────
+    // The org-wide aggregate, moved here from the Nexa Insights dashboard. Data
+    // comes from the anonymous pulse pool via /api/pulse/aggregate, which never
+    // returns note text — the word cloud and written summary below are the
+    // whole of what an admin can see.
+    const PULSE_MOOD_LABELS = { 1: 'Struggling', 2: 'Low', 3: 'Okay', 4: 'Good', 5: 'Great' };
+    let pulseDays = 30;
+
+    function pulseQuery() {
+        return '?' + new URLSearchParams({ days: String(pulseDays) }).toString();
+    }
+
+    function renderWordCloud(words) {
+        if (!words || !words.length) {
+            return '<div class="pulse-empty">No words have come up often enough yet. '
+                 + 'A word needs to appear in several different notes before it can be shown.</div>';
+        }
+        const max = Math.max(...words.map(w => w.weight));
+        const min = Math.min(...words.map(w => w.weight));
+        const span = Math.max(1, max - min);
+        return '<div class="word-cloud">' + words.map(w => {
+            const size = 0.8 + ((w.weight - min) / span) * 1.45;
+            const opacity = 0.55 + ((w.weight - min) / span) * 0.45;
+            return `<span style="font-size:${size.toFixed(2)}rem; opacity:${opacity.toFixed(2)}"
+                          title="${w.weight} mentions across ${w.notes} notes">${escHtml(w.text)}</span>`;
+        }).join('') + '</div>';
+    }
+
+    function renderMoodMix(counts, total) {
+        const rows = [5, 4, 3, 2, 1].map(m => {
+            const n = counts[String(m)] || 0;
+            const pct = total ? Math.round((n / total) * 100) : 0;
+            return `<div class="pulse-mood-row">
+                        <span class="pulse-mood-name">${PULSE_MOOD_LABELS[m]}</span>
+                        <div class="pulse-mood-track"><div class="pulse-mood-fill" style="width:${pct}%"></div></div>
+                        <span class="pulse-mood-pct">${pct}%</span>
+                    </div>`;
+        }).join('');
+        return `<div class="pulse-mood-bars">${rows}</div>`;
+    }
+
+    function renderPulseInsight(insight) {
+        if (!insight) {
+            return '<div class="pulse-empty">No written summary yet — press Summarise to read the '
+                 + 'themes across these notes.</div>';
+        }
+        let html = '';
+        if (insight.mood_summary) {
+            html += `<p style="font-size:0.83rem; line-height:1.6; color:var(--text-muted); margin-bottom:14px;">
+                        ${escHtml(insight.mood_summary)}</p>`;
+        }
+        (insight.themes || []).forEach(t => {
+            const tone = ['positive', 'negative', 'mixed'].includes(t.sentiment) ? t.sentiment : 'mixed';
+            html += `<div class="pulse-theme">
+                        <div class="pulse-theme-head">
+                            <span class="pulse-theme-title">${escHtml(t.title || '')}</span>
+                            <span class="pulse-chip ${tone}">${escHtml(tone)}</span>
+                            ${t.prevalence ? `<span class="pulse-chip neutral">${escHtml(t.prevalence)}</span>` : ''}
+                        </div>
+                        <p>${escHtml(t.summary || '')}</p>
+                     </div>`;
+        });
+        const listBlock = (title, items) => (items && items.length)
+            ? `<div class="pulse-theme"><div class="pulse-theme-head"><span class="pulse-theme-title">${title}</span></div>
+                 <ul class="pulse-list">${items.map(i => `<li>${escHtml(i)}</li>`).join('')}</ul></div>`
+            : '';
+        html += listBlock('Watch-outs', insight.watch_outs);
+        html += listBlock('What would help', insight.recommendations);
+        return html || '<div class="pulse-empty">Nothing consistent enough to report from these notes.</div>';
+    }
+
+    function renderPulse(data) {
+        const body = document.getElementById('pulse-body');
+        const meta = document.getElementById('pulse-updated');
+        const btn  = document.getElementById('pulse-refresh-btn');
+
+        if (data.locked) {
+            meta.textContent = '';
+            btn.style.display = 'none';
+            body.innerHTML = `
+                <div class="pulse-locked">
+                    <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                    </svg>
+                    <div class="pulse-locked-title">Not enough responses to show anything</div>
+                    <p>${data.responses} of ${data.min_responses} needed in the last ${data.days} days.
+                       Below that threshold a pulse cannot be shown without risking someone being
+                       recognisable, so nothing at all is displayed — not a smaller word cloud, not a
+                       mood breakdown.</p>
+                </div>`;
+            return;
+        }
+
+        btn.style.display = '';
+        meta.textContent = data.insight_calculated_at
+            ? 'Summarised ' + new Date(data.insight_calculated_at).toLocaleDateString('en-GB',
+                { day: 'numeric', month: 'short' })
+            : '';
+
+        const avg = data.avg_mood !== null && data.avg_mood !== undefined ? data.avg_mood.toFixed(1) : '—';
+        const nearest = data.avg_mood ? PULSE_MOOD_LABELS[Math.round(data.avg_mood)] : '';
+
+        body.innerHTML = `
+            <div class="pulse-tiles">
+                <div class="pulse-tile">
+                    <div class="pulse-tile-label">Responses</div>
+                    <div class="pulse-tile-value">${data.responses}</div>
+                    <div class="pulse-tile-sub">in the last ${data.days} days</div>
+                </div>
+                <div class="pulse-tile">
+                    <div class="pulse-tile-label">Average mood</div>
+                    <div class="pulse-tile-value">${avg}<span style="font-size:0.9rem; font-weight:500; color:var(--text-muted);"> / 5</span></div>
+                    <div class="pulse-tile-sub">${nearest ? 'around &ldquo;' + nearest + '&rdquo;' : ''}</div>
+                </div>
+                <div class="pulse-tile">
+                    <div class="pulse-tile-label">Written notes</div>
+                    <div class="pulse-tile-value">${data.notes}</div>
+                    <div class="pulse-tile-sub">${data.responses - data.notes} mood-only</div>
+                </div>
+                <div class="pulse-tile">
+                    <div class="pulse-tile-label">Days with a pulse</div>
+                    <div class="pulse-tile-value">${(data.trend || []).length}</div>
+                    <div class="pulse-tile-sub">of the last ${data.days}</div>
+                </div>
+            </div>
+            <div class="pulse-grid">
+                <div class="pulse-card">
+                    <h4>What people are talking about</h4>
+                    <div class="pulse-card-sub">Words appearing across several different notes, sized by how often</div>
+                    ${renderWordCloud(data.word_cloud)}
+                </div>
+                <div class="pulse-card">
+                    <h4>How the days are landing</h4>
+                    <div class="pulse-card-sub">Share of responses at each mood</div>
+                    ${renderMoodMix(data.mood_counts || {}, data.responses)}
+                </div>
+            </div>
+            <div class="pulse-card" style="margin-top:14px;">
+                <h4>Themes</h4>
+                <div class="pulse-card-sub">Written from the whole pool of notes — patterns only, never a quote</div>
+                <div id="pulse-insight">${renderPulseInsight(data.insight)}</div>
+            </div>`;
+    }
+
+    async function loadPulse() {
+        const body = document.getElementById('pulse-body');
+        body.innerHTML = '<div class="pulse-empty"><div class="skeleton" style="width:200px; margin:0 auto;"></div></div>';
+        try {
+            const res = await fetch('/api/pulse/aggregate' + pulseQuery(),
+                                    { headers: getAuthHeaders(), credentials: 'omit' });
+            const data = await res.json();
+            if (!res.ok) {
+                body.innerHTML = `<div class="pulse-empty">${escHtml(data.error || 'Could not load the pulse.')}</div>`;
+                return;
+            }
+            renderPulse(data);
+        } catch (_) {
+            body.innerHTML = '<div class="pulse-empty">Request failed. Please try again.</div>';
+        }
+    }
+
+    document.querySelectorAll('#pulse-window button').forEach(btn => {
+        btn.addEventListener('click', () => {
+            pulseDays = parseInt(btn.dataset.days, 10);
+            document.querySelectorAll('#pulse-window button')
+                .forEach(b => b.classList.toggle('active', b === btn));
+            loadPulse();
+        });
+    });
+
+    document.getElementById('pulse-refresh-btn').addEventListener('click', async () => {
+        const btn = document.getElementById('pulse-refresh-btn');
+        const target = document.getElementById('pulse-insight');
+        btn.disabled = true;
+        btn.textContent = 'Summarising…';
+        if (target) target.innerHTML = '<div class="pulse-empty"><div class="skeleton" style="width:200px; margin:0 auto;"></div></div>';
+        try {
+            const res = await fetch('/api/pulse/insights/refresh' + pulseQuery(),
+                                    { method: 'POST', headers: getAuthHeaders(), credentials: 'omit' });
+            const payload = await res.json();
+            if (payload.ok && payload.insight) {
+                if (target) target.innerHTML = renderPulseInsight(payload.insight);
+                document.getElementById('pulse-updated').textContent = 'Summarised just now';
+            } else if (target) {
+                target.innerHTML = `<div class="pulse-empty">${escHtml(payload.error || 'Could not summarise these notes.')}</div>`;
+            }
+        } catch (_) {
+            if (target) target.innerHTML = '<div class="pulse-empty">Request failed. Please try again.</div>';
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Summarise';
+        }
+    });
+
+    loadPulse();
+{% else %}
+    const NOTE_MAX = {{ note_max }};
+
     const els = {
         loading: $('pulse-loading'), form: $('pulse-form'), done: $('pulse-done'),
         note: $('pulse-note'), count: $('note-count'), submit: $('pulse-submit'),
@@ -328,6 +671,7 @@
             show('form');
         }
     })();
+{% endif %}
 </script>
 </body>
 </html>
