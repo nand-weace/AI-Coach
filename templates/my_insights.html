@@ -127,12 +127,36 @@
         /* ── Trend detail ── (the hover panel's own content, not a modal) */
         .trend-modal-title { font-size: 1.1rem; font-weight: 600; color: var(--text-main); margin-bottom: 3px; }
         .trend-modal-meta  { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 24px; }
-        .trend-modal-score-row { display: flex; align-items: baseline; gap: 8px; margin-bottom: 20px; }
-        .trend-modal-score-num { font-size: 2.4rem; font-weight: 700; letter-spacing: -0.04em; line-height: 1; }
-        .trend-modal-score-sub { font-size: 0.78rem; color: var(--text-muted); }
         .trend-chart-wrap { width: 100%; overflow: hidden; }
         .trend-modal-divider { height: 1px; background: rgba(45, 32, 90, 0.10); margin: 20px 0; }
         .trend-modal-insight { font-size: 0.82rem; color: var(--text-muted); line-height: 1.6; }
+
+        /* ── Score gauge — a literal red/amber/green meter, distinct from the
+           app's violet chrome on purpose: this is the one place a viewer should
+           read "danger / caution / good" at a glance, the way a real gauge does. */
+        .gauge-wrap { display: flex; flex-direction: column; align-items: center; margin: 2px 0 18px; }
+        .gauge-svg { width: 200px; max-width: 100%; height: auto; overflow: visible; }
+        .gauge-zone-red   { stroke: #ef4444; }
+        .gauge-zone-amber { stroke: #e1a34e; }
+        .gauge-zone-green { stroke: #22c55e; }
+        .gauge-needle-group {
+            transform-origin: 100px 100px;
+            transition: transform 0.9s cubic-bezier(.22, 1.4, .36, 1);
+        }
+        .gauge-needle { stroke: var(--text-main); stroke-width: 3.5; stroke-linecap: round; }
+        .gauge-hub { fill: var(--text-main); stroke: var(--surface); stroke-width: 2; }
+        .gauge-value { font-size: 1.9rem; font-weight: 700; letter-spacing: -0.04em; margin-top: -12px; }
+        .gauge-sub { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
+        @media (prefers-reduced-motion: reduce) {
+            .gauge-needle-group { transition: none; }
+        }
+
+        /* Pinned via a click on the row — stays highlighted, and survives a
+           hover elsewhere the way the plain :hover tint doesn't. */
+        .insight-row .heat-row.is-selected {
+            background: rgba(109, 40, 217, 0.09);
+            border-radius: 8px;
+        }
 
         /* ── Theme Heat Analysis ── */
         .heat-card {
@@ -272,7 +296,7 @@
         .insight-row .heat-row {
             grid-template-columns: 18px minmax(96px, 1.1fr) 2.4fr 28px;
             gap: 10px;
-            cursor: default;
+            cursor: pointer;
             border-radius: 8px;
             transition: background 0.15s ease;
         }
@@ -440,19 +464,31 @@
            auto-fit is wrong here: a three-across row breaks the reading.
            The quadrant itself is no longer a card: its heading sits straight on
            the page and each item is its own white block, so the eye counts
-           items rather than panels. */
+           items rather than panels.
+
+           Each quad is a subgrid of its row-group (head row + up to
+           MAX_GROWTH_ITEMS item rows — 3 rows total), so a short item box in
+           one quad still lines up edge-to-edge with its counterpart in the
+           quad beside it instead of just leaving blank space at the bottom.
+           .growth-items is display:contents so its .growth-item children sit
+           directly in that subgrid without another layer of boxes; the empty
+           state has nothing to line up so it doesn't need to participate.
+           4 quads at 2 columns = 2 row-groups of 3 rows = 6 explicit rows. */
         .growth-grid {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
+            grid-template-rows: repeat(6, auto);
             gap: 34px 40px;
         }
-        @media (max-width: 1000px) {
-            .growth-grid { grid-template-columns: 1fr; }
+        .growth-quad {
+            display: grid;
+            grid-template-rows: subgrid;
+            grid-row: span 3;
+            row-gap: 18px;
         }
-        .growth-quad { display: flex; flex-direction: column; gap: 18px; }
         .growth-quad-title { font-size: 1.3rem; font-weight: 700; letter-spacing: -0.02em; line-height: 1.25; }
         .growth-quad-sub { font-size: 0.88rem; color: var(--text-muted); line-height: 1.5; margin-top: 5px; }
-        .growth-items { display: flex; flex-direction: column; gap: 22px; }
+        .growth-items { display: contents; }
         .growth-item {
             background: #fff;
             border-radius: 20px;
@@ -461,6 +497,11 @@
             flex-direction: column;
             gap: 10px;
             box-shadow: 0 14px 32px -24px rgba(24, 12, 60, 0.5);
+        }
+        @media (max-width: 1000px) {
+            .growth-grid { grid-template-columns: 1fr; grid-template-rows: none; }
+            .growth-quad { display: flex; flex-direction: column; grid-row: auto; }
+            .growth-items { display: flex; flex-direction: column; gap: 22px; }
         }
         .growth-item-label { font-size: 1.02rem; font-weight: 700; line-height: 1.3; letter-spacing: -0.01em; }
         .growth-item-summary { font-size: 0.9rem; color: var(--text-main); line-height: 1.6; }
@@ -1006,9 +1047,57 @@
 
     let currentSentimentData = null;
 
+    // ── Score gauge — a semicircular red/amber/green meter with an animated
+    // needle, matched to the same 0-35/35-65/65-100 bands as the heat rows.
+    function gaugeAngle(score) {
+        return Math.max(0, Math.min(100, score)) * 1.8 - 90;
+    }
+
+    function _gaugeArc(cx, cy, r, aStart, aEnd) {
+        const toRad = a => a * Math.PI / 180;
+        const p = a => [cx + r * Math.cos(toRad(a)), cy - r * Math.sin(toRad(a))];
+        const [x1, y1] = p(aStart);
+        const [x2, y2] = p(aEnd);
+        return `M ${x1.toFixed(2)} ${y1.toFixed(2)} A ${r} ${r} 0 0 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`;
+    }
+
+    function renderGauge(score, color) {
+        const cx = 100, cy = 100, r = 78, gap = 3;
+        return `<div class="gauge-wrap">
+            <svg class="gauge-svg" viewBox="0 0 200 112" aria-hidden="true">
+                <path d="${_gaugeArc(cx, cy, r, 180, 117 + gap)}" class="gauge-zone gauge-zone-red" stroke-width="14" fill="none" stroke-linecap="round"/>
+                <path d="${_gaugeArc(cx, cy, r, 117 - gap, 63 + gap)}" class="gauge-zone gauge-zone-amber" stroke-width="14" fill="none" stroke-linecap="round"/>
+                <path d="${_gaugeArc(cx, cy, r, 63 - gap, 0)}" class="gauge-zone gauge-zone-green" stroke-width="14" fill="none" stroke-linecap="round"/>
+                <g class="gauge-needle-group" id="hd-needle" style="transform: rotate(-90deg);">
+                    <line x1="100" y1="100" x2="100" y2="30" class="gauge-needle"/>
+                    <circle cx="100" cy="100" r="7" class="gauge-hub"/>
+                </g>
+            </svg>
+            <div class="gauge-value" style="color:${color}">${toTen(score)}</div>
+            <div class="gauge-sub">out of 10</div>
+        </div>`;
+    }
+
+    // The needle is inserted already pointing at the zero position (rotate in
+    // the markup above), then nudged to its real angle a frame later so the
+    // transition actually animates instead of snapping straight to target.
+    function animateGaugeNeedle(score) {
+        const needle = document.getElementById('hd-needle');
+        if (!needle) return;
+        const deg = gaugeAngle(score);
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+            needle.style.transform = `rotate(${deg}deg)`;
+        }));
+    }
+
     // ── Hover detail (right column) ─────────────────────────────────────────
     // Hovering a dimension on the left — a score row, or a trend line's legend
-    // entry — shows its full detail here: title, score, trend chart, insight.
+    // entry — shows its full detail here: title, gauge, trend chart, insight.
+    // Clicking a heat-row pins it (see pinnedDim below), so it's what a
+    // mouseleave falls back to instead of always resetting to the first
+    // dimension.
+    let pinnedDim = null;
+
     function showHoverDetail(dimKey) {
         const d = buildDimDetail(dimKey);
         if (!d) return;
@@ -1016,13 +1105,11 @@
         document.getElementById('hover-detail-body').innerHTML = `
             <div class="trend-modal-title">${escHtml(d.dim.title)}</div>
             <div class="trend-modal-meta">${escHtml(d.meta)}</div>
-            <div class="trend-modal-score-row">
-                <span class="trend-modal-score-num" style="color:${d.color}">${toTen(d.score)}</span>
-                <span class="trend-modal-score-sub">your score, out of 10</span>
-            </div>
+            ${renderGauge(d.score, d.color)}
             <div class="trend-chart-wrap">${d.chartHtml}</div>
             <div class="trend-modal-divider"></div>
             <div class="trend-modal-insight">${escHtml(d.dim.insight || '')}</div>`;
+        animateGaugeNeedle(d.score);
     }
 
     function clearHoverDetail() {
@@ -1032,13 +1119,31 @@
         if (body) body.innerHTML = '';
     }
 
-    // What the panel falls back to whenever nothing is actively hovered — the
-    // first dimension with data, so the panel never sits on the placeholder
-    // while there's something real to show.
+    // Highlights whichever row is pinned — the click sticks visually, not just
+    // in which detail is showing.
+    function markSelectedRow(dimKey) {
+        document.querySelectorAll('.insight-row .heat-row[data-dim-key]').forEach(row => {
+            row.classList.toggle('is-selected', row.dataset.dimKey === dimKey);
+        });
+    }
+
+    // Click a row to pin it — see selectDim. Absent a pin, this is what the
+    // panel falls back to whenever nothing is actively hovered: the first
+    // dimension with data, so the panel never sits on the placeholder while
+    // there's something real to show.
     function resetHoverDetail() {
-        const dim = currentSentimentData && (currentSentimentData.sentiments || [])[0];
-        if (dim) showHoverDetail(dim.key);
+        const dims = (currentSentimentData && currentSentimentData.sentiments) || [];
+        if (pinnedDim && !dims.some(dm => dm.key === pinnedDim)) pinnedDim = null;
+        const key = pinnedDim || (dims[0] && dims[0].key);
+        if (key) showHoverDetail(key);
         else clearHoverDetail();
+        markSelectedRow(key);
+    }
+
+    function selectDim(dimKey) {
+        pinnedDim = dimKey;
+        showHoverDetail(dimKey);
+        markSelectedRow(dimKey);
     }
 
     function renderTrendChart(trendData, color) {
@@ -1373,7 +1478,9 @@
         wrap.querySelectorAll('.heat-row[data-dim-key]').forEach(row => {
             row.addEventListener('mouseenter', () => showHoverDetail(row.dataset.dimKey));
             row.addEventListener('mouseleave', resetHoverDetail);
+            row.addEventListener('click', () => selectDim(row.dataset.dimKey));
         });
+        markSelectedRow(pinnedDim);
     }
 
     // Which reading of the merged card is showing — the current snapshot as
@@ -1407,6 +1514,7 @@
 
     function renderSentiment(data) {
         currentSentimentData = data;
+        pinnedDim = null;
         // Every per-dimension entry in the response carries its own 'title',
         // hidden dimensions included (only the 'sentiments' list leaves those
         // out) — collect them all so Growth Snapshot pills always resolve.
