@@ -95,6 +95,7 @@ body {
     transition: opacity 0.18s;
 }
 .sidebar-tip[hidden] { display: none; }
+.app-tab[hidden] { display: none; }
 .sidebar-tip.is-swapping { opacity: 0.4; }
 .sidebar-tip-head {
     display: flex;

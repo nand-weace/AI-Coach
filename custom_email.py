@@ -66,8 +66,6 @@ Before you start, kindly ensure that you:
 
 · Click submit once you have completed the 360°-assessment.
 
-360°-assessment closing date: <b>7th September 2026</b>
-
 Please note that no login credentials are required to access the assessment.
 
 If you face any difficulty accessing the assessment or have any queries, please write to leadership.development@emeritus.org. Our team will respond to your query within 24 hours.
@@ -95,8 +93,6 @@ HTML_TEMPLATE_SELF = """\
   <li>Click submit once you have completed the 360&deg;-assessment.</li>
 </ul>
 
-<p><b>360&deg;-assessment closing date: 7th September 2026</b></p>
-
 <p>Please note that no login credentials are required to access the assessment.</p>
 
 <p>If you face any difficulty accessing the assessment or have any queries, please write to
@@ -114,8 +110,6 @@ HTML_TEMPLATE_RATER = """\
 <p> As part of the BPCL eXcelerator Leadership Development Programme, {participant_name} has been nominated to undergo a 360° Leadership Assessment. </p>
 
 <p>You have been identified as a {rater_role} for this 360-assessment, and your candid and constructive feedback will play an important role in supporting their leadership development journey. Your feedback remains confidential.  </p>
-
-<p><b>We request you to complete the 360°-assessment by 7th September 2026. </b></p>
 
 <p>Click on the link below to begin your 360°-assessment feedback </p>
 
@@ -137,8 +131,6 @@ HTML_TEMPLATE_RATER_REMINDER = """\
 <p> A gentle reminder to complete your <b> 360° Feedback for {participant_name} </b> </p>
 
 <p>Your feedback is an important input to support the participant’s leadership development journey. </p>
-
-<p><b>360°-assessment closing date 7th September 2026. </b></p>
 
 <p>Click on the link below to begin your 360°-assessment feedback </p>
 
@@ -162,8 +154,6 @@ HTML_TEMPLATE_SELF_REMINDER = """\
 <p>Click on the link below to begin your 360°assessment feedback</p>
 
 <p><a href="{assessment_link}">360&deg;Leadership Assessment</a></p>
-
-<p><b>360°-assessment closing date 7th September 2026. </b></p>
 
 <p>If you have any questions or require assistance, please write to 
 <a href="mailto:leadership.development@emeritus.org">leadership.development@emeritus.org</a>.

@@ -61,6 +61,7 @@ from database import (
     get_pulse_insight,
 )
 import linkedin
+import calendar_context
 
 # Languages Nexa can coach in, as code -> (display label, name used in the prompt).
 # Keep in sync with the picker in static/script.js.
@@ -286,6 +287,16 @@ app = Flask(__name__)
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'dev-secret-change-in-prod')
 
 
+@app.context_processor
+def _inject_branding():
+    """Tenant logo/favicon for server-rendered pages (dashboard, admin, pulse…).
+
+    Read from the Flask session, where /session stored it at login; Nexa's own
+    assets before login or for tenants without white-labelling.
+    """
+    return {'branding': session.get('branding') or DEFAULT_BRANDING}
+
+
 @app.template_global()
 def asset(filename: str) -> str:
     """A /static URL stamped with the file's mtime.
@@ -351,27 +362,62 @@ def _reply_text(response) -> str:
     return "\n\n".join(parts)
 
 
-def _claude_reply(system: str | list, messages: list, max_tokens: int) -> str:
-    """Call Claude with web search available, resuming if the turn pauses.
+# Client-side tools Nexa can call mid-turn, executed here and fed back. Unlike
+# the server tools above these do need a loop. The list is fixed so the tools
+# prefix stays byte-identical for the prompt cache; a tool that has nothing to
+# work with (no calendar token, say) answers with an error result instead.
+CLIENT_TOOLS = [calendar_context.TOOL]
+
+# Round trips a single reply may make through client-side tools before Nexa is
+# asked to answer with what it has.
+MAX_TOOL_ROUNDS = 4
+
+
+def _claude_reply(system: str | list, messages: list, max_tokens: int,
+                  tool_handler=None) -> str:
+    """Call Claude with web search and Nexa's own tools, running the loop.
 
     `system` may be a plain string or a list of content blocks — the caller
     uses the block form to place a `cache_control` breakpoint after the
     stable part of the prompt. Tool definitions render before `system` in
-    the request, so a breakpoint there covers WEB_TOOLS too at no extra cost.
+    the request, so a breakpoint there covers the tools too at no extra cost.
+
+    `tool_handler(name, input) -> str` executes a CLIENT_TOOLS call; server
+    tools (web search) run on Anthropic's side and only ever pause the turn.
     """
     convo = list(messages)
     response = None
-    for _ in range(MAX_PAUSE_RESUMES + 1):
+    pauses = rounds = 0
+    while True:
         response = client.messages.create(
             model=AI_MODEL,
             max_tokens=max_tokens,
             system=system,
             messages=convo,
-            tools=WEB_TOOLS,
+            tools=WEB_TOOLS + CLIENT_TOOLS,
         )
-        if response.stop_reason != "pause_turn":
+        if response.stop_reason == "pause_turn" and pauses < MAX_PAUSE_RESUMES:
+            pauses += 1
+            convo.append({"role": "assistant", "content": response.content})
+            continue
+        if response.stop_reason != "tool_use" or rounds >= MAX_TOOL_ROUNDS:
             break
+        rounds += 1
+        calls = [b for b in response.content if b.type == "tool_use"]
+        results = []
+        for call in calls:
+            try:
+                out = tool_handler(call.name, dict(call.input)) if tool_handler \
+                    else f"Tool {call.name} is not available."
+                results.append({"type": "tool_result", "tool_use_id": call.id,
+                                "content": out})
+            except Exception as e:
+                logger.error("[tools] %s failed: %s", call.name, e)
+                results.append({"type": "tool_result", "tool_use_id": call.id,
+                                "content": f"{call.name} failed: {e}", "is_error": True})
+        # All results for one assistant turn go back in a single user message.
         convo.append({"role": "assistant", "content": response.content})
+        convo.append({"role": "user", "content": results})
     return _reply_text(response)
 
 
@@ -522,6 +568,131 @@ def _fetch_nexa_access(token: str) -> bool:
     except Exception as e:
         logger.error("[nexa] user-config API unreachable: %s", e)
         return False
+
+
+# --- Tenant branding (white-label) ---------------------------------------------
+#
+# A corporate can put its own logo and favicon on Nexa. Read from the WeAce
+# corporate-settings API per organisation, cached, and handed to the client in
+# every /session response and to server-rendered pages through the template
+# context. Nexa's own assets are the fallback whenever a tenant sets nothing.
+
+DEFAULT_BRANDING = {
+    'logo_url': '/static/nexa-logo.png',
+    'favicon_url': '/static/favicon-wit.png',
+    'name': 'Nexa',
+    'white_label': False,
+}
+
+_BRANDING_TTL = 900  # seconds
+_branding_cache: dict = {}  # org_id -> (expires_at, branding)
+
+_BRANDING_URL_RE = re.compile(r'^(https?://|data:image/|/)', re.I)
+
+_LOGO_KEYS = ('logoUrl', 'logo', 'companyLogo', 'companyLogoUrl', 'brandLogo', 'brandLogoUrl',
+              'tenantLogo', 'organizationLogo', 'orgLogo', 'nexaLogo', 'coachLogo')
+_FAVICON_KEYS = ('faviconUrl', 'favicon', 'companyFavicon', 'brandFavicon', 'tenantFavicon',
+                 'nexaFavicon', 'icon', 'iconUrl')
+_NAME_KEYS = ('brandName', 'coachName', 'nexaName', 'whiteLabelName', 'displayName',
+              'companyName', 'organizationName', 'name')
+_FLAG_KEYS = ('whiteLabel', 'isWhiteLabel', 'whiteLabelEnabled', 'enableWhiteLabel',
+              'whitelabel', 'nexaWhiteLabel')
+
+
+def _find_key(node, names: tuple, depth: int = 0):
+    """First value under any of `names`, searching nested dicts (case-insensitive)."""
+    if not isinstance(node, dict) or depth > 4:
+        return None
+    lower = {k.lower(): v for k, v in node.items()}
+    for n in names:
+        v = lower.get(n.lower())
+        if isinstance(v, dict):
+            # e.g. {"logo": {"url": "..."}} or {"logo": {"secure_url": "..."}}
+            v = v.get('url') or v.get('secure_url') or v.get('src') or v.get('path')
+        if isinstance(v, (str, bool)) and v != '':
+            return v
+    for v in node.values():
+        if isinstance(v, dict):
+            found = _find_key(v, names, depth + 1)
+            if found is not None:
+                return found
+    return None
+
+
+def _parse_branding(payload: dict) -> dict:
+    """Tenant branding from the corporate-settings payload, defaults filled in.
+
+    Only http(s), data: and root-relative URLs are accepted — anything else
+    would let a mis-set field inject a broken or unsafe src into every page.
+    """
+    data = (payload or {}).get('data') if isinstance(payload, dict) else None
+    data = data if isinstance(data, dict) else (payload or {})
+    branding = dict(DEFAULT_BRANDING)
+
+    logo = _find_key(data, _LOGO_KEYS)
+    if isinstance(logo, str) and _BRANDING_URL_RE.match(logo.strip()):
+        branding['logo_url'] = logo.strip()
+    favicon = _find_key(data, _FAVICON_KEYS)
+    if isinstance(favicon, str) and _BRANDING_URL_RE.match(favicon.strip()):
+        branding['favicon_url'] = favicon.strip()
+    # A tenant that only sets a logo still gets it as the tab icon — better
+    # than Nexa's icon next to their own logo.
+    if branding['logo_url'] != DEFAULT_BRANDING['logo_url'] \
+            and branding['favicon_url'] == DEFAULT_BRANDING['favicon_url']:
+        branding['favicon_url'] = branding['logo_url']
+
+    name = _find_key(data, _NAME_KEYS)
+    if isinstance(name, str) and name.strip():
+        branding['name'] = name.strip()[:60]
+
+    flag = _find_key(data, _FLAG_KEYS)
+    branding['white_label'] = bool(flag) if isinstance(flag, bool) else \
+        branding['logo_url'] != DEFAULT_BRANDING['logo_url']
+    if not branding['white_label']:
+        # Flag explicitly off — show Nexa as Nexa regardless of what's set.
+        return dict(DEFAULT_BRANDING)
+    return branding
+
+
+def _fetch_branding(org_id: str, token: str) -> dict:
+    try:
+        resp = http_requests.get(
+            f'{WEACE_API_URL}/api/v1/coaching/corporate-settings/{org_id}',
+            headers={'accept': 'application/json', 'Authorization': f'Bearer {token}'},
+            timeout=6,
+        )
+        if not resp.ok:
+            logger.warning("[branding] corporate-settings status=%s org=%s body=%r",
+                           resp.status_code, org_id, resp.text[:200])
+            return dict(DEFAULT_BRANDING)
+        payload = resp.json() or {}
+        data = payload.get('data') if isinstance(payload, dict) else None
+        logger.info("[branding] corporate-settings keys for org=%s: %s", org_id,
+                    sorted((data if isinstance(data, dict) else payload).keys())[:40])
+        branding = _parse_branding(payload)
+        logger.info("[branding] org=%s white_label=%s logo=%s favicon=%s name=%r", org_id,
+                    branding['white_label'], branding['logo_url'][:80],
+                    branding['favicon_url'][:80], branding['name'])
+        return branding
+    except Exception as e:
+        logger.error("[branding] fetch failed for org=%s: %s", org_id, e)
+        return dict(DEFAULT_BRANDING)
+
+
+def _get_branding_cached(org_id: str | None, token: str | None = None) -> dict:
+    """This org's branding, from cache or the API. Nexa defaults when unknown."""
+    org_id = (org_id or '').strip()
+    if not org_id:
+        return dict(DEFAULT_BRANDING)
+    now = time.time()
+    cached = _branding_cache.get(org_id)
+    if cached and cached[0] > now:
+        return cached[1]
+    if not token:
+        return cached[1] if cached else dict(DEFAULT_BRANDING)
+    branding = _fetch_branding(org_id, token)
+    _branding_cache[org_id] = (now + _BRANDING_TTL, branding)
+    return branding
 
 
 # Heading the profile block is written under — also how /chat tells whether the
@@ -781,6 +952,74 @@ def _linkedin_directive(user_id: str | None, user_name: str) -> str:
     return _linkedin_block(user_name, _get_linkedin_cached(user_id))
 
 
+# --- Calendar context ----------------------------------------------------------
+#
+# The user's week, pulled from the WeAce calendar API at login. It's what lets
+# Nexa open on the board review that's tomorrow, or ask how yesterday's client
+# call went, instead of a generic hello. See calendar_context.py.
+
+# How long session creation waits for the calendar before generating the
+# welcome without it. The fetch is a handful of parallel one-day calls, so it
+# normally lands well inside this.
+CALENDAR_WELCOME_WAIT = float(os.getenv('CALENDAR_WELCOME_WAIT', '8'))
+
+# A calendar changes rarely within a coaching session, but /chat wants it on
+# every turn — cache the summary per user.
+_CALENDAR_TTL = 900  # seconds
+_calendar_cache: dict = {}  # user_id -> (expires_at, summary)
+
+
+def _load_calendar(user_id: str, token: str) -> dict | None:
+    """Fetch and summarise, storing the result for later turns. None on failure."""
+    try:
+        t0 = time.perf_counter()
+        events = calendar_context.fetch_events(WEACE_API_URL, token, user_id)
+        summary = calendar_context.summarise(events)
+        _calendar_cache[user_id] = (time.time() + _CALENDAR_TTL, summary)
+        logger.info("[calendar] user_id=%s events=%s next_important=%r recent_important=%r in %s",
+                    user_id, len(events),
+                    summary['next_important']['title'] if summary and summary['next_important'] else None,
+                    summary['recent_important']['title'] if summary and summary['recent_important'] else None,
+                    _elapsed(t0))
+        return summary
+    except Exception as e:
+        logger.error("[calendar] load failed for user_id=%s: %s", user_id, e)
+        _calendar_cache[user_id] = (time.time() + 60, None)  # don't hammer a broken API
+        return None
+
+
+def _kickoff_calendar_fetch(user_id: str, token: str):
+    """Start the calendar fetch in the background; returns the thread, or None
+    when a fresh summary is already cached."""
+    if not user_id or not token:
+        return None
+    cached = _calendar_cache.get(user_id)
+    if cached and cached[0] > time.time():
+        return None
+    thread = threading.Thread(target=_load_calendar, args=(user_id, token),
+                              name=f'calendar-{user_id[:8]}', daemon=True)
+    thread.start()
+    return thread
+
+
+def _get_calendar_cached(user_id: str | None, token: str | None = None) -> dict | None:
+    """Cached calendar summary; refetched inline (bounded) when stale and a
+    token is available."""
+    if not user_id:
+        return None
+    cached = _calendar_cache.get(user_id)
+    if cached and cached[0] > time.time():
+        return cached[1]
+    if token:
+        return _load_calendar(user_id, token)
+    return cached[1] if cached else None
+
+
+def _calendar_directive(user_id: str | None, user_name: str, token: str | None = None) -> str:
+    """Calendar block for a single request."""
+    return calendar_context.block(user_name, _get_calendar_cached(user_id, token))
+
+
 def _build_personalized_prompt(user_name: str, highlights: list, profile_context: dict = None,
                                user_id: str = None) -> str:
     prompt = SYSTEM_INSTRUCTION + _profile_block(user_name, profile_context) \
@@ -847,7 +1086,7 @@ def _get_or_rebuild_history(session_uuid: str, user_id: str, user_name: str,
 
 def _generate_welcome(user_name: str, highlights: list, profile_context: dict = None,
                       returning: bool = False, language: str = None,
-                      user_id: str = None, mode: str = None):
+                      user_id: str = None, mode: str = None, calendar: dict = None):
     """Generate a personalised opening message for a new chat session.
 
     When the user has past coaching history, the message warmly references an
@@ -874,8 +1113,9 @@ def _generate_welcome(user_name: str, highlights: list, profile_context: dict = 
     system_content = _build_personalized_prompt(user_name, highlights, profile_context, user_id)
     details = _get_user_details_cached(user_id)
     has_linkedin = bool(_linkedin_directive(user_id, user_name))
-    system_content += _user_details_directive(user_id) + _mode_directive(mode) \
-        + _language_directive(language)
+    system_content += _user_details_directive(user_id) \
+        + calendar_context.block(user_name, calendar) \
+        + _mode_directive(mode) + _language_directive(language)
     if returning and highlights:
         instruction = (
             f"[SESSION START] Greet {user_name} to open a new coaching session. "
@@ -933,6 +1173,10 @@ def _generate_welcome(user_name: str, highlights: list, profile_context: dict = 
             "actual situation, not generic coaching topics."
         )
 
+    # Their calendar is the most current thing we know about them — a meeting
+    # tomorrow beats a theme from three weeks ago as the way in.
+    instruction += calendar_context.welcome_instruction(calendar)
+
     try:
         if AI_PROVIDER == "claude":
             response = client.messages.create(
@@ -987,6 +1231,7 @@ def me():
         'role': g.user.get('role', 'user'),
         'nexa_access': token_state.get('nexa_access', False),
         'pulse_access': _has_pulse(token_state.get('org_id')),
+        'branding': _get_branding_cached(token_state.get('org_id') or g.user.get('org_id'), g.access_token),
         'access_last_date': token_state.get('access_last_date'),
     })
 
@@ -1063,6 +1308,9 @@ def create_session():
     profile_image = (profile.get('profileImage') or '').strip()
     org_name = (profile.get('organizationName') or '').strip()
     org_slug = (profile.get('organizationId') or '').strip()
+    # The organisation id is what the corporate-settings API is keyed on; the
+    # auth profile's parentId is the same organisation on older accounts.
+    branding = _get_branding_cached(org_slug or g.user.get('org_id'), access_token)
     cohort_id = (profile.get('cohortId') or '').strip() or None
     cohort_name = (profile.get('cohortName') or '').strip() or None
     country = (profile.get('countryName') or '').strip() or None
@@ -1111,6 +1359,10 @@ def create_session():
             logger.info("[linkedin] background scrape started for user_id=%s", user_id)
     except Exception as e:
         logger.error("[linkedin] setup failed for user_id=%s: %s", user_id, e)
+
+    # The user's calendar — a few parallel one-day API calls, started now so it
+    # is usually back by the time the welcome message is generated.
+    calendar_thread = _kickoff_calendar_fetch(user_id, access_token)
 
     try:
         t0 = time.perf_counter()
@@ -1166,9 +1418,16 @@ def create_session():
             welcome_message, welcome_suggestions = '', []
             logger.info("[create_session] resumed session — skipping welcome generation")
         else:
+            if calendar_thread and CALENDAR_WELCOME_WAIT > 0:
+                t0 = time.perf_counter()
+                calendar_thread.join(timeout=CALENDAR_WELCOME_WAIT)
+                logger.info("[calendar] waited %s for the fetch (finished=%s)",
+                            _elapsed(t0), not calendar_thread.is_alive())
+            calendar = _get_calendar_cached(user_id)
             t0 = time.perf_counter()
             welcome_message, welcome_suggestions = _generate_welcome(
-                user_name, highlights, profile_context, returning, language, user_id, mode)
+                user_name, highlights, profile_context, returning, language, user_id, mode,
+                calendar)
             logger.info("[create_session] welcome generated in %s: chars=%s suggestions=%s",
                         _elapsed(t0), len(welcome_message or ''), len(welcome_suggestions or []))
 
@@ -1194,6 +1453,7 @@ def create_session():
         session['org_slug'] = org_slug
         session['cohort_id'] = cohort_id
         session['profile_context'] = profile_context
+        session['branding'] = branding
 
         # Super admins always have Nexa access; everyone else is decided by the
         # user-config API at login and cached for the admin dashboard.
@@ -1259,6 +1519,7 @@ def create_session():
             # Daily Pulse is a Nexa Pro feature — the header hides the tab when
             # this org isn't on it.
             'pulse_access': _has_pulse(org_slug),
+            'branding': branding,
             'access_last_date': access_last_date,
             'recent_messages': recent_messages,
             'welcome_message': welcome_message,
@@ -1333,6 +1594,7 @@ def resume_session():
             role = g.user.get('role') or []
             logger.info("[resume_session] token cache cold — rebuilt identity for user_id=%s from DB",
                         user_id)
+        branding = _get_branding_cached(org_slug or g.user.get('org_id'), g.access_token)
 
         # Warm the system prompt for this session; the conversation itself is
         # replayed from the DB on each /chat turn.
@@ -1365,6 +1627,7 @@ def resume_session():
         session['org_slug'] = org_slug
         session['cohort_id'] = cohort_id
         session['profile_context'] = profile_context
+        session['branding'] = branding
 
         auth_tokens[g.access_token] = {
             'user_id': user_id,
@@ -1400,6 +1663,7 @@ def resume_session():
             # Daily Pulse is a Nexa Pro feature — the header hides the tab when
             # this org isn't on it.
             'pulse_access': _has_pulse(org_slug),
+            'branding': branding,
             'access_last_date': access_last_date,
             'recent_messages': recent_messages,
             'welcome_message': '',
@@ -1449,8 +1713,10 @@ def new_session():
 
         language = get_user_language(user_id) or DEFAULT_LANGUAGE
         mode = get_user_mode(user_id) or DEFAULT_MODE
+        calendar = _get_calendar_cached(user_id, g.user.get('access_token'))
         welcome_message, welcome_suggestions = _generate_welcome(
-            user_name, highlights, profile_context, returning, language, user_id, mode)
+            user_name, highlights, profile_context, returning, language, user_id, mode,
+            calendar)
 
         role = g.user.get('role', [])
         if _has_role(role, 'weace_super_admin', 'corporate_super_admin'):
@@ -1479,6 +1745,7 @@ def new_session():
             # Daily Pulse is a Nexa Pro feature — the header hides the tab when
             # this org isn't on it.
             'pulse_access': _has_pulse(g.user.get('org_slug') or g.user.get('org_id')),
+            'branding': _get_branding_cached(g.user.get('org_slug') or g.user.get('org_id'), g.access_token),
             'access_last_date': access_last_date,
             'recent_messages': recent_messages,
             'welcome_message': welcome_message,
@@ -1748,7 +2015,19 @@ def chat():
         # Mode and language are read fresh every request and can change
         # mid-session, so they're kept out of the cached prefix — everything
         # above this line is byte-identical from one turn to the next.
-        volatile_directive = _mode_directive(mode) + _language_directive(language)
+        # The calendar goes here too: it carries the current time and "today"/
+        # "tomorrow" labels, so it can't sit in the cached prefix either.
+        weace_token = g.user.get('access_token')
+        volatile_directive = _calendar_directive(user_id, user_name, weace_token) \
+            + calendar_context.tool_hint() \
+            + _mode_directive(mode) + _language_directive(language)
+
+        def run_tool(name: str, args: dict) -> str:
+            if name == 'get_calendar':
+                logger.info("[calendar] lookup requested by model: user_id=%s args=%s", user_id, args)
+                return calendar_context.lookup(WEACE_API_URL, weace_token, user_id,
+                                               args.get('start_date'), args.get('end_date'))
+            return f"Unknown tool {name}."
 
         if AI_PROVIDER == "claude":
             api_messages = [m for m in conversation_history if m["role"] != "system"]
@@ -1771,7 +2050,8 @@ def chat():
                 system_blocks.append({"type": "text", "text": volatile_directive})
             # Search results land in context before the reply is written, so this
             # needs more headroom than a no-tools turn.
-            reply = _claude_reply(system_blocks, api_messages, max_tokens=2048)
+            reply = _claude_reply(system_blocks, api_messages, max_tokens=2048,
+                                  tool_handler=run_tool)
         else:
             response = client.chat.completions.create(
                 model=AI_MODEL,

@@ -49,6 +49,7 @@ const NexaHeader = (() => {
         'we_ace_user_name', 'we_ace_session_uuid', 'we_ace_profile_context',
         'we_ace_profile_roles', 'we_ace_session_token', 'we_ace_org_id',
         'we_ace_org_name', 'we_ace_cohort_id', 'we_ace_language', 'we_ace_mode',
+        'we_ace_branding',
     ];
     function clearStoredCredentials() {
         try { STORED_KEYS.forEach(k => localStorage.removeItem(k)); } catch (_) {}
@@ -304,6 +305,37 @@ const NexaHeader = (() => {
         loadTip();
     }
 
+    // ── Tenant branding (white-label) ───────────────────────────────────────
+    // /session returns the org's logo and favicon; the chat page is a static
+    // shell served before login, so the branding is applied here client-side
+    // and remembered so the next load doesn't flash Nexa's logo first.
+    // Server-rendered pages get it from the template context instead.
+    const DEFAULT_BRANDING = {
+        logo_url: '/static/nexa-logo.png', favicon_url: '/static/favicon-wit.png',
+        name: 'Nexa', white_label: false,
+    };
+    function storedBranding() {
+        try { return JSON.parse(localStorage.getItem('we_ace_branding') || 'null'); } catch (_) { return null; }
+    }
+    function applyBranding(branding, { persist = true } = {}) {
+        const b = Object.assign({}, DEFAULT_BRANDING, branding || {});
+        document.querySelectorAll('img.brand-logo').forEach(img => {
+            if (img.getAttribute('src') !== b.logo_url) img.src = b.logo_url;
+            img.alt = b.name;
+        });
+        const icon = $('app-favicon') || document.querySelector('link[rel="icon"]');
+        if (icon && icon.getAttribute('href') !== b.favicon_url) icon.href = b.favicon_url;
+        // A white-labelled tenant's users shouldn't be sent to WeAce's platform.
+        const platform = $('btn-weace-coaching');
+        if (platform) platform.hidden = !!b.white_label;
+        if (persist) {
+            try { localStorage.setItem('we_ace_branding', JSON.stringify(b)); } catch (_) {}
+        }
+    }
+    // Apply what the last session established, before the network round trip.
+    const remembered = storedBranding();
+    if (remembered) applyBranding(remembered, { persist: false });
+
     // ── Wiring ──────────────────────────────────────────────────────────────
     function init(opts = {}) {
         const chipWrap = $('user-chip-wrap');
@@ -471,7 +503,7 @@ const NexaHeader = (() => {
     }
 
     return { init, applyRoles, setNexaAccess, renderLanguageMenu, getLanguage, hasRole,
-             closeMenus, setDrawer, syncSubnav, loadTip, markTabNav };
+             closeMenus, setDrawer, syncSubnav, loadTip, markTabNav, applyBranding };
 })();
 
 window.NexaHeader = NexaHeader;

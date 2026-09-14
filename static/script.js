@@ -220,6 +220,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (data.language) localStorage.setItem('we_ace_language', data.language);
         if (data.mode) localStorage.setItem('we_ace_mode', data.mode);
         if (data.role) storeProfileRoles(data.role);
+        if (data.branding) NexaHeader.applyBranding(data.branding);
     }
 
     // Did this page load come from clicking a tab inside the app? header.js

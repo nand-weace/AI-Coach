@@ -10,14 +10,14 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('header.css') }}">
     <link rel="stylesheet" href="{{ asset('style.css') }}">
-    <link rel="icon" type="image/png" href="/static/favicon-wit.png">
+    <link rel="icon" id="app-favicon" href="{{ branding.favicon_url }}">
 </head>
 <body>
 
     <!-- Login overlay -->
     <div id="login-overlay" class="login-overlay">
         <div class="login-card">
-            <img src="/static/nexa-logo.png" alt="Nexa Logo" class="login-logo" />
+            <img src="{{ branding.logo_url }}" alt="{{ branding.name }}" class="login-logo brand-logo" />
             <h4>Welcome to Nexa</h4>
             <p class="login-subtitle">Sign in to start your coaching session</p>
             <div id="login-loader">

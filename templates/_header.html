@@ -39,7 +39,7 @@
 
 <aside class="app-sidebar" id="app-sidebar">
     <div class="sidebar-brand">
-        <a href="/" class="logo-home"><img src="/static/nexa-logo.png" alt="Nexa" class="logo-icon" /></a>
+        <a href="/" class="logo-home"><img src="{{ branding.logo_url }}" alt="{{ branding.name }}" class="logo-icon brand-logo" /></a>
         <span class="dot pulse" title="Online"></span>
     </div>
 
@@ -133,7 +133,10 @@
                href="/admin/cost">Cost Analysis</a>
         </div>
 
-        <button type="button" class="app-tab" id="btn-weace-coaching">
+        {# Hidden for a white-labelled tenant — their users see their brand,
+           not WeAce's. header.js keeps this in step on the chat page, which
+           is served before the tenant is known. #}
+        <button type="button" class="app-tab" id="btn-weace-coaching"{% if branding.white_label %} hidden{% endif %}>
             <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
                 <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
