@@ -131,6 +131,120 @@
         .trend-modal-divider { height: 1px; background: rgba(45, 32, 90, 0.10); margin: 20px 0; }
         .trend-modal-insight { font-size: 0.82rem; color: var(--text-muted); line-height: 1.6; }
 
+        /* ── The qualitative read behind a score ──
+           A number on its own invites "says who?". These blocks answer it in
+           the order a reader asks: why that score, the words it rests on, the
+           patterns behind it, and a moment it actually showed up in. */
+        .hd-block { margin-top: 18px; }
+        .hd-block-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.68rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+        .hd-rationale { font-size: 0.82rem; color: var(--text-main); line-height: 1.65; }
+        /* A footnote on the reasoning, not a caveat on the score — set small and
+           muted so it never reads as "and therefore trust the number less". */
+        .hd-evidence-base {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            line-height: 1.45;
+            margin-top: 7px;
+        }
+        /* Their own words, so it is set as a quotation and nothing else in the
+           panel uses italics — a paraphrase must never be mistaken for one. */
+        .hd-quote {
+            font-size: 0.82rem;
+            font-style: italic;
+            color: var(--text-main);
+            line-height: 1.55;
+            padding: 8px 0 8px 12px;
+            border-left: 3px solid var(--primary-ring);
+            margin-bottom: 8px;
+        }
+        .hd-quote:last-child { margin-bottom: 0; }
+        .hd-signals { display: flex; flex-wrap: wrap; gap: 6px; }
+        .hd-signal {
+            font-size: 0.72rem;
+            color: #4c1d95;
+            background: rgba(109, 40, 217, 0.08);
+            border: 1px solid rgba(109, 40, 217, 0.16);
+            border-radius: 999px;
+            padding: 4px 10px;
+        }
+        .hd-anecdote {
+            font-size: 0.82rem;
+            color: var(--text-main);
+            line-height: 1.6;
+            background: rgba(255, 255, 255, 0.5);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 12px 14px;
+        }
+
+        /* ── Scoring legend ──
+           Sits above the analysis, because the bands and the 0-10 scale have to
+           be understood before any row below means anything. The per-dimension
+           definitions are folded away: needed once, not on every visit. */
+        .score-legend {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 18px;
+            padding: 18px 22px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+        .legend-head {
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            letter-spacing: 0.02em;
+            margin-bottom: 14px;
+        }
+        /* The scale is the explanation — one continuous 0-10 track split into
+           its three bands, sized in proportion to the ranges they cover, so the
+           widths themselves say where the thresholds fall. */
+        .legend-track { display: flex; gap: 3px; margin-bottom: 8px; }
+        .legend-seg { height: 8px; border-radius: 4px; }
+        .legend-seg:nth-child(1) { flex: 34; }
+        .legend-seg:nth-child(2) { flex: 30; }
+        .legend-seg:nth-child(3) { flex: 36; }
+        .legend-marks { display: flex; gap: 3px; }
+        .legend-mark { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+        .legend-mark-name { font-size: 0.76rem; font-weight: 600; }
+        .legend-mark-range { font-size: 0.7rem; color: var(--text-muted); }
+
+        /* The rules that used to be two paragraphs. Four phrases, each with a
+           glyph doing the explaining — scannable in one pass, not read. */
+        .legend-facts {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 18px;
+            margin-top: 16px;
+            padding-top: 14px;
+            border-top: 1px solid rgba(45, 32, 90, 0.08);
+        }
+        .legend-fact {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+        .legend-fact svg { width: 13px; height: 13px; flex-shrink: 0; opacity: 0.75; }
+        @media (max-width: 640px) {
+            /* The ranges stop fitting under their segments long before the track
+               itself does, so only the labels stack — the scale stays a scale. */
+            .legend-marks { flex-direction: column; gap: 4px; }
+            .legend-mark { flex-direction: row; gap: 8px; align-items: baseline; }
+        }
+
         /* ── Score gauge — a literal red/amber/green meter, distinct from the
            app's violet chrome on purpose: this is the one place a viewer should
            read "danger / caution / good" at a glance, the way a real gauge does. */
@@ -149,6 +263,77 @@
         .gauge-sub { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
         @media (prefers-reduced-motion: reduce) {
             .gauge-needle-group { transition: none; }
+        }
+
+        /* What this dimension's own 0 and 10 mean. The two numbers on their own
+           read as scores rather than the ends of a scale, so they are pinned to
+           a rail that carries the same red-amber-green as the gauge above, with
+           this dimension's own score marked on it — the numbers are then
+           obviously the two ends of the line the marker sits on. */
+        .hd-scale {
+            margin: -4px 0 20px;
+            padding-top: 14px;
+            border-top: 1px solid rgba(45, 32, 90, 0.08);
+        }
+        .hd-scale .hd-block-label { margin-bottom: 26px; }
+        .hd-scale-rail { position: relative; }
+        .hd-scale-track {
+            height: 6px;
+            border-radius: 3px;
+            background: linear-gradient(to right, #ef4444 0%, #e1a34e 50%, #22c55e 100%);
+            opacity: 0.75;
+        }
+        .hd-scale-marker {
+            position: absolute;
+            bottom: 0;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .hd-scale-marker-value {
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: var(--text-main);
+            background: var(--surface, #fff);
+            border: 1px solid rgba(45, 32, 90, 0.14);
+            border-radius: 999px;
+            padding: 1px 7px;
+            white-space: nowrap;
+        }
+        .hd-scale-marker-stem { width: 1px; height: 5px; background: rgba(45, 32, 90, 0.3); }
+        .hd-scale-marker-dot {
+            width: 11px;
+            height: 11px;
+            margin-bottom: -2.5px;
+            border-radius: 50%;
+            background: var(--text-main);
+            border: 2.5px solid var(--surface, #fff);
+        }
+        /* Each end reads as a column headed by its number, rather than two loose
+           numbers with text trailing after them. */
+        .hd-scale-ends {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 16px;
+            margin-top: 9px;
+        }
+        .hd-scale-end { flex: 1; min-width: 0; }
+        .hd-scale-high { text-align: right; }
+        .hd-scale-num {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--text-main);
+            line-height: 1.2;
+        }
+        .hd-scale-text {
+            display: block;
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            line-height: 1.4;
+            margin-top: 1px;
         }
 
         /* Pinned via a click on the row — stays highlighted, and survives a
@@ -318,7 +503,10 @@
                 grid-template-columns: 18px minmax(160px, 1.2fr) 3fr 32px;
                 gap: 14px;
             }
-            .hover-detail-card { display: none; }
+            /* Kept on narrow screens rather than hidden: the reasoning, quotes
+               and anecdote behind a score only live in this card, and a tap on a
+               row pins one the same way a hover does on desktop. */
+            .hover-detail-placeholder { font-size: 0.82rem; padding: 12px; }
         }
 
         /* ── Recurring themes ── */
@@ -858,6 +1046,56 @@
             <button class="refresh-btn" id="sentiment-refresh-btn">Recalculate</button>
         </div>
     </div>
+    <!-- How to read everything below it. Built from the API's own dimension
+         list (see renderLegend) so a dimension never has a definition here that
+         disagrees with the one the hover panel shows. -->
+    <!-- How to read everything below it. Deliberately near-wordless: the three
+         bands are a scale you look at, not a paragraph you read, and the rules
+         that used to be prose are three short facts. Anything specific to one
+         dimension lives on that dimension's detail card instead. -->
+    <div class="score-legend" id="score-legend" style="display:none;">
+        <div class="legend-head">How to read these scores</div>
+        <div class="legend-scale">
+            <div class="legend-track">
+                <span class="legend-seg" style="background: red;"></span>
+                <span class="legend-seg" style="background: #e1a34e;"></span>
+                <span class="legend-seg" style="background: green;"></span>
+            </div>
+            <div class="legend-marks">
+                <div class="legend-mark" style="flex: 34;">
+                    <span class="legend-mark-name" style="color: red;">Needs attention</span>
+                    <span class="legend-mark-range">0 – 3.4</span>
+                </div>
+                <div class="legend-mark" style="flex: 30;">
+                    <span class="legend-mark-name" style="color: #e1a34e;">Developing</span>
+                    <span class="legend-mark-range">3.5 – 6.4</span>
+                </div>
+                <div class="legend-mark" style="flex: 36;">
+                    <span class="legend-mark-name" style="color: green;">Strong</span>
+                    <span class="legend-mark-range">6.5 – 10</span>
+                </div>
+            </div>
+        </div>
+        <div class="legend-facts">
+            <span class="legend-fact">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                Read from your words only
+            </span>
+            <span class="legend-fact">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+                Higher is always better
+            </span>
+            <span class="legend-fact">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/></svg>
+                How clearly it reads, not how often
+            </span>
+            <span class="legend-fact">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                Click any dimension for the why
+            </span>
+        </div>
+    </div>
+
     <div class="insight-row" id="insight-row" style="display:none;">
         <div class="heat-card combo-merged" id="combo-card">
             <div class="heat-card-header">
@@ -1098,6 +1336,105 @@
     // dimension.
     let pinnedDim = null;
 
+    // Plain-language name for each band, shared by the gauge caption and the
+    // legend so a score reads the same wherever it appears.
+    const BAND_NAMES = { 'score-green': 'Strong', 'score-amber': 'Developing', 'score-red': 'Needs attention' };
+
+    // What the two ends of this dimension's scale actually mean. It sits with
+    // the gauge rather than in the legend: the anchors are per-dimension, so
+    // they only make sense next to the needle they explain.
+    function renderDimScale(dim) {
+        if (!dim.scale_low || !dim.scale_high) return '';
+        const score = Math.max(0, Math.min(100, dim.score || 0));
+        // The marker is centred on its own position, so at the extremes it would
+        // hang off the track. Clamped to keep the whole pill on the rail.
+        const pos = Math.max(9, Math.min(91, score));
+        return `<div class="hd-scale">
+            <div class="hd-block-label">What 0 and 10 mean here</div>
+            <div class="hd-scale-rail">
+                <div class="hd-scale-track"></div>
+                <div class="hd-scale-marker" style="left:${pos}%">
+                    <span class="hd-scale-marker-value">${escHtml(toTen(score))}</span>
+                    <span class="hd-scale-marker-stem"></span>
+                    <span class="hd-scale-marker-dot"></span>
+                </div>
+            </div>
+            <div class="hd-scale-ends">
+                <div class="hd-scale-end">
+                    <span class="hd-scale-num">0</span>
+                    <span class="hd-scale-text">${escHtml(dim.scale_low)}</span>
+                </div>
+                <div class="hd-scale-end hd-scale-high">
+                    <span class="hd-scale-num">10</span>
+                    <span class="hd-scale-text">${escHtml(dim.scale_high)}</span>
+                </div>
+            </div>
+        </div>`;
+    }
+
+    // How much there was to read behind a score. It is worded as a footnote to
+    // the reasoning, never as a qualifier on the number: the score says how
+    // strongly the sentiment reads, and a clear signal seen twice scores exactly
+    // as low as one seen twenty times (see sentiment_job._SELF_PROMPT).
+    const EVIDENCE_BASE = {
+        limited:  'seen in only a message or two, but scored on how clearly it reads',
+        moderate: 'seen across several of your messages',
+        strong:   'a consistent thread across many of your messages',
+    };
+
+    function renderEvidenceBase(dim) {
+        const note = EVIDENCE_BASE[dim.evidence_strength];
+        if (!note) return '';
+        const count = dim.mentions > 0
+            ? `${dim.mentions} message${dim.mentions === 1 ? '' : 's'} \u00b7 `
+            : '';
+        return `<div class="hd-evidence-base">${escHtml(count)}${escHtml(note)}</div>`;
+    }
+
+    // The answer to "says who?" underneath the number: why it landed where it
+    // did, the user's own words behind it (verified server-side — see
+    // sentiment_job._self_detail), the language markers that moved it, and a
+    // moment from their sessions where it showed. Every section is dropped
+    // entirely when the report has nothing for it, so an older report that
+    // predates these fields still renders as it always did.
+    function renderDimQualitative(dim, cls) {
+        const band = BAND_NAMES[cls.num] || '';
+        const out = [];
+
+        if (dim.rationale) {
+            out.push(`<div class="hd-block">
+                <div class="hd-block-label">Why this scores ${escHtml(toTen(dim.score || 0))}${band ? ' \u00b7 ' + escHtml(band) : ''}</div>
+                <div class="hd-rationale">${escHtml(dim.rationale)}</div>
+                ${renderEvidenceBase(dim)}
+            </div>`);
+        }
+
+        const evidence = dim.evidence || [];
+        if (evidence.length) {
+            out.push(`<div class="hd-block">
+                <div class="hd-block-label">In your own words</div>
+                ${evidence.map(q => `<div class="hd-quote">\u201c${escHtml(q)}\u201d</div>`).join('')}
+            </div>`);
+        }
+
+        const signals = dim.signals || [];
+        if (signals.length) {
+            out.push(`<div class="hd-block">
+                <div class="hd-block-label">Language patterns behind it</div>
+                <div class="hd-signals">${signals.map(sg => `<span class="hd-signal">${escHtml(sg)}</span>`).join('')}</div>
+            </div>`);
+        }
+
+        if (dim.anecdote) {
+            out.push(`<div class="hd-block">
+                <div class="hd-block-label">A moment from your sessions</div>
+                <div class="hd-anecdote">${escHtml(dim.anecdote)}</div>
+            </div>`);
+        }
+
+        return out.join('');
+    }
+
     function showHoverDetail(dimKey) {
         const d = buildDimDetail(dimKey);
         if (!d) return;
@@ -1106,9 +1443,11 @@
             <div class="trend-modal-title">${escHtml(d.dim.title)}</div>
             <div class="trend-modal-meta">${escHtml(d.meta)}</div>
             ${renderGauge(d.score, d.color)}
+            ${renderDimScale(d.dim)}
             <div class="trend-chart-wrap">${d.chartHtml}</div>
             <div class="trend-modal-divider"></div>
-            <div class="trend-modal-insight">${escHtml(d.dim.insight || '')}</div>`;
+            <div class="trend-modal-insight">${escHtml(d.dim.insight || '')}</div>
+            ${renderDimQualitative(d.dim, d.cls)}`;
         animateGaugeNeedle(d.score);
     }
 
@@ -1512,6 +1851,17 @@
         b.setAttribute('aria-selected', b.dataset.view === comboView ? 'true' : 'false');
     });
 
+    // The legend covers only what is true of every dimension: the 0-10 scale and
+    // the three bands. What an individual dimension measures, and what its own
+    // two ends mean, belongs on the detail card beside that dimension's gauge —
+    // see renderDimScale — not in a list a reader has to hold in their head.
+    function renderLegend(data) {
+        const legend = document.getElementById('score-legend');
+        if (!legend) return;
+        const dims = (data && data.sentiments) || [];
+        legend.style.display = dims.length ? '' : 'none';
+    }
+
     function renderSentiment(data) {
         currentSentimentData = data;
         pinnedDim = null;
@@ -1522,6 +1872,7 @@
             if (v && typeof v === 'object' && !Array.isArray(v) && v.title) DIM_LABEL[key] = v.title;
         });
         const hasDims = data && data.sentiments && data.sentiments.length > 0;
+        renderLegend(data);
         if (!hasDims) {
             document.getElementById('insight-row').style.display = '';
             document.getElementById('hover-detail-card').style.display = 'none';

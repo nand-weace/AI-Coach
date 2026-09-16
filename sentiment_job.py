@@ -43,7 +43,27 @@ _MAX_CHARS = 40_000   # org-level prompt cap (~10k tokens)
 _USER_MAX_CHARS = 6_000  # per-user cap (keeps per-user calls cheap)
 _SELF_MAX_CHARS = 24_000  # personal insights prompt cap (one user, richer output)
 _MIN_SELF_MESSAGES = 5    # below this there is nothing meaningful to read
+# Qualitative backing shown behind each sentiment score. Evidence is verbatim and
+# verified against the user's own messages, so the cap is low on purpose: two
+# spans that are genuinely theirs read better than four the model half-recalled.
+_SELF_EVIDENCE = 2        # verbatim quotes kept per dimension
+_SELF_SIGNALS = 3         # language markers kept per dimension
+# How thin the evidence behind a score was. Deliberately separate from the score
+# itself: a clear signal seen twice scores as low as one seen twenty times, and
+# this is where that thinness is reported instead of being averaged into it.
+_SELF_STRENGTHS = ('limited', 'moderate', 'strong')
 _MAX_USERS = 30       # cap to avoid excessive API calls on large orgs
+# The org and admin dashboards pool many people's private coaching messages into
+# one read for an administrator, so their qualitative detail is de-identified by
+# construction: no verbatim quotes at all, and a pattern is only reported if it
+# holds for at least this many different people.
+_ORG_MIN_PEOPLE = 2   # people a reported pattern must span
+_ORG_PATTERNS = 2     # 'how it shows up' lines kept per dimension
+_ORG_PHRASINGS = 2    # typical phrasings kept per dimension
+_ORG_ACTIONS = 3      # corrective actions kept per dimension
+# How soon an HR team could act. Anything the model returns outside this set is
+# dropped rather than shown as a label nobody can sort or plan against.
+_ORG_HORIZONS = ('quick win', 'this quarter', 'ongoing')
 
 # Both reports read recent history, not all of it: a theme that only shows up in
 # messages older than this cap has stopped being current anyway.
@@ -116,7 +136,13 @@ does not fit the requested shape, leave that field empty rather than replying wi
 _ORG_PROMPT = """You are a professional psycholinguistic analyst specialising in leadership psychology. \
 Analyse the following collection of questions and messages written by organisational leaders during AI coaching sessions.
 
-Score each dimension 0–100 based purely on the language patterns present:
+These messages come from MANY DIFFERENT PEOPLE and are read by an administrator who must never be able to \
+work out who said what. Never quote anyone verbatim. Never reproduce a distinctive phrase, name, role, \
+team, project, client, or personal circumstance. Report only patterns that appear across at least \
+{min_people} different people, described in your own general words. If a pattern comes from one person, \
+leave it out entirely.
+
+Score each dimension 0-100 based purely on the language patterns present:
 
 - work_life_balance: 0=severe imbalance/always-on language, 100=healthy boundaries and balance
 - job_satisfaction: 0=very dissatisfied/disengaged, 100=highly fulfilled and motivated
@@ -127,16 +153,86 @@ Score each dimension 0–100 based purely on the language patterns present:
 - growth_mindset: 0=fixed-mindset language, 100=strong growth/learning/effort framing
 - psychological_safety: 0=no vulnerability shared, 100=high openness about failures and fears
 
-Return ONLY a valid JSON object with no markdown fences:
+These bands are how the score is read back, so score consistently with them:
+0-34 = needs attention, 35-64 = developing, 65-100 = strong.
+
+HOW TO SCORE — read this carefully, it is the part most often got wrong:
+
+The score measures HOW STRONGLY the language indicates that reading at its clearest. It is NOT a measure \
+of how often the dimension came up, how many sessions or people it appeared in, or what share of the \
+messages touched it.
+
+- Judge the dimension only from the messages that actually bear on it. Messages about something else, \
+and logistics or admin chatter, are not evidence either way — never average them in, and never let them \
+pull a score toward the middle.
+- Do NOT soften a score because the dimension surfaced in only a few messages. If the language clearly \
+indicates low job satisfaction, score it 0-34 even if it came up in a handful. A clear signal seen a few \
+times is a clear signal.
+- Equally, do not inflate one. A single passing remark is not a clear signal; a consistent way of talking \
+about something is, however few messages it spans.
+- A mid-range score (35-64) means the evidence is genuinely MIXED or moderate — strong pull in both \
+directions, or a reading that is real but qualified. It must never mean "there wasn't much to go on".
+- If a dimension is barely evidenced at all, still score the strength of what little is there, and say so \
+in "evidence_strength" and "mentions" below. That is where thin evidence is reported — never in the score.
+
+For EVERY dimension, show your working. A score with no reasoning behind it tells an administrator nothing:
+
+- "insight": ONE concise sentence on what the language across the group suggests.
+- "rationale": TWO or THREE short sentences explaining WHY the score landed where it did. Name the \
+specific language patterns that pushed it up and the ones that held it down, and say why that puts it in \
+its band. Never restate the insight in other words; never describe the scale in the abstract.
+- "signals": up to {signals} language markers you actually observed, each 2-4 words, e.g. \
+"hedging before decisions", "always-on phrasing". Describe the pattern, not a quote.
+- "patterns": up to {patterns} short sentences, max 22 words each, on HOW this shows up in the group — \
+the shape of the situations people describe, generalised across them. Each must hold for at least \
+{min_people} different people. No quotes, no names, no identifying detail. Omit any you cannot generalise.
+- "phrasings": up to {phrasings} SHORT typical phrasings, max 12 words each, of the kind of thing people \
+say when this dimension shows up — the texture behind the score. These are NOT quotes. Write each one in \
+plain, generic wording that could have come from any of several people, and only include a phrasing whose \
+pattern recurs across at least {min_people} of them. Never copy an actual sentence, and never keep a \
+distinctive turn of phrase, detail, or circumstance that would let a reader recognise who said it. If a \
+phrasing cannot be generalised that far, leave it out.
+- "anecdote": ONE short COMPOSITE situation, max 40 words, blended from what several people described — \
+the kind of moment where this dimension shows up. It must be a blend, never one person's story retold. \
+No names, roles, teams, projects, clients, or personal circumstances. Empty string if you cannot build \
+one from at least {min_people} people.
+- "actions": up to {actions} corrective actions an HR or people team could take to move this score, most \
+worthwhile first. Each is an organisational intervention — something HR can run, change, or put in \
+place — never advice aimed at one person, and never "talk to the individuals concerned". Ground each one \
+in the patterns you just described, not in generic best practice. Each takes the shape: \
+{"action": "<short imperative, max 10 words>", "detail": "<ONE sentence on what it involves and why it \
+addresses what you observed, max 30 words>", "horizon": "quick win|this quarter|ongoing"}.
+- "mentions": how many messages genuinely bear on this dimension. Count them; do not estimate.
+- "evidence_strength": how much there was to read, INDEPENDENT of the score — "limited" (a message or \
+two touch it), "moderate" (several do), "strong" (a consistent thread across many). A score of 15 on \
+limited evidence is still a score of 15; this field says how thin the base is, it does not discount it.
+
+Describe the group, never an individual. This is a read of collective language, not an assessment of \
+any person in it. The reader needs enough texture to act on the score, and none of it may be traceable \
+back to whoever wrote the words.
+
+Return ONLY a valid JSON object with no markdown fences. Every dimension takes this same shape:
 {
-  "work_life_balance": {"score": <0-100 int>, "insight": "<one concise sentence>"},
-  "job_satisfaction": {"score": <0-100 int>, "insight": "<one concise sentence>"},
-  "emotional_resilience": {"score": <0-100 int>, "insight": "<one concise sentence>"},
-  "self_confidence": {"score": <0-100 int>, "insight": "<one concise sentence>"},
-  "empathy": {"score": <0-100 int>, "insight": "<one concise sentence>"},
-  "frustration_disengagement": {"score": <0-100 int>, "insight": "<one concise sentence>"},
-  "growth_mindset": {"score": <0-100 int>, "insight": "<one concise sentence>"},
-  "psychological_safety": {"score": <0-100 int>, "insight": "<one concise sentence>"}
+  "work_life_balance": {
+    "score": <0-100 int>,
+    "insight": "<one concise sentence>",
+    "rationale": "<2-3 short sentences on why this score>",
+    "signals": ["<2-4 word language marker>"],
+    "patterns": ["<how it shows up across the group, no quotes>"],
+    "phrasings": ["<generic typical phrasing, not a quote>"],
+    "anecdote": "<composite situation blended across people, or empty string>",
+    "actions": [{"action": "<short imperative>", "detail": "<one sentence>",
+                 "horizon": "quick win|this quarter|ongoing"}],
+    "mentions": <int, messages bearing on this dimension>,
+    "evidence_strength": "limited|moderate|strong"
+  },
+  "job_satisfaction": { ...same shape... },
+  "emotional_resilience": { ...same shape... },
+  "self_confidence": { ...same shape... },
+  "empathy": { ...same shape... },
+  "frustration_disengagement": { ...same shape... },
+  "growth_mindset": { ...same shape... },
+  "psychological_safety": { ...same shape... }
 }
 
 Messages to analyse:
@@ -162,10 +258,23 @@ Messages:
 # Personal insights prompt — same dimensions as the org prompt, but the insight
 # is written back to the person themselves, so it is second-person and coaching
 # in tone rather than an observation about a population.
+#
+# The score is a reading of STRENGTH, not of prevalence: a dimension the person
+# was clearly negative about in one session scores as low as one they were
+# negative about in ten, so a clear signal is never diluted by the neutral
+# messages around it. How thin the evidence was rides alongside in
+# 'evidence_strength'/'mentions' instead of being folded into the number.
+#
+# It also has to answer the question a bare score never does: WHY that number?
+# So every dimension carries a rationale, the verbatim evidence it rests on, the
+# language markers that moved it, and — where their messages support one — a
+# short anecdote of a moment they actually described. Quotes are checked against
+# their own messages on our side and dropped if they are not genuinely theirs,
+# so the prompt insists on verbatim spans rather than tidied paraphrase.
 _SELF_PROMPT = """You are a professional psycholinguistic analyst supporting an executive coaching programme. \
 Analyse the following messages written by ONE leader during their AI coaching sessions.
 
-Score each dimension 0–100 based purely on the language patterns present:
+Score each dimension 0-100 based purely on the language patterns present:
 
 - work_life_balance: 0=severe imbalance/always-on language, 100=healthy boundaries and balance
 - job_satisfaction: 0=very dissatisfied/disengaged, 100=highly fulfilled and motivated
@@ -176,19 +285,60 @@ Score each dimension 0–100 based purely on the language patterns present:
 - growth_mindset: 0=fixed-mindset language, 100=strong growth/learning/effort framing
 - psychological_safety: 0=no vulnerability shared, 100=high openness about failures and fears
 
-Write each insight in the second person ("you"), one concise sentence, describing what \
-their own language suggests. Be specific and constructive, never clinical or diagnostic.
+These bands are how the score is read back to them, so score consistently with them:
+0-34 = needs attention, 35-64 = developing, 65-100 = strong.
 
-Return ONLY a valid JSON object with no markdown fences:
+HOW TO SCORE — read this carefully, it is the part most often got wrong:
+
+The score measures HOW STRONGLY their language indicates that reading at its clearest. It is NOT a measure of how often the dimension came up, how many sessions it appeared in, or what share of their messages touched it.
+
+- Judge the dimension only from the messages that actually bear on it. Messages about something else, and logistics or admin chatter, are not evidence either way — never average them in, and never let them pull a score toward the middle.
+- Do NOT soften a score because the dimension surfaced in only one or two sessions. If their words clearly indicate low job satisfaction, score it 0-34 even if it came up once. A clear signal seen once is a clear signal.
+- Equally, do not inflate one. A single passing remark is not a clear signal; a consistent way of talking about something is, however few messages it spans.
+- A mid-range score (35-64) means the evidence is genuinely MIXED or moderate — strong pull in both directions, or a reading that is real but qualified. It must never mean "there wasn't much to go on".
+- If a dimension is barely evidenced at all, still score the strength of what little is there, and say so in "evidence_strength" and "mentions" below. That is where thin evidence is reported — never in the score.
+
+For EVERY dimension, show your working. A score with no reasoning behind it is useless to them:
+
+- "insight": ONE concise second-person sentence on what their language suggests.
+- "rationale": TWO or THREE short second-person sentences explaining WHY the score landed where it did. \
+Name the specific language patterns that pushed it up and the ones that held it down, and say why that \
+puts it in its band. Never restate the insight in other words; never describe the scale in the abstract.
+- "evidence": up to {evidence} VERBATIM spans of 6-25 words copied EXACTLY from their messages below, \
+word for word, with nothing added, reworded, corrected, or re-punctuated, and without the date prefix. \
+Pick the spans that most directly justify the score — including one that cuts against it where the \
+picture is mixed. If you cannot copy an exact span, return an empty array rather than paraphrasing.
+- "signals": up to {signals} language markers you actually observed, each 2-4 words, e.g. \
+"hedging before decisions", "always-on phrasing". Describe the pattern, not a quote.
+- "anecdote": ONE short second-person retelling, max 40 words, of a SPECIFIC situation they described \
+that illustrates this dimension — what was happening and how they talked about it. Only use a situation \
+genuinely present in their messages. If none is, return an empty string. Never invent or embellish one.
+- "mentions": how many of their messages genuinely bear on this dimension. Count them; do not estimate.
+- "evidence_strength": how much there was to read, INDEPENDENT of the score — "limited" (one or two \
+messages touch it), "moderate" (several do), "strong" (a consistent thread across many). A score of 15 \
+on limited evidence is still a score of 15; this field says how thin the base is, it does not discount it.
+
+Be specific and constructive, never clinical or diagnostic, and never a judgement of them as a person.
+
+Return ONLY a valid JSON object with no markdown fences. Every dimension takes this same shape:
 {
-  "work_life_balance": {"score": <0-100 int>, "insight": "<one concise sentence>"},
-  "job_satisfaction": {"score": <0-100 int>, "insight": "<one concise sentence>"},
-  "emotional_resilience": {"score": <0-100 int>, "insight": "<one concise sentence>"},
-  "self_confidence": {"score": <0-100 int>, "insight": "<one concise sentence>"},
-  "empathy": {"score": <0-100 int>, "insight": "<one concise sentence>"},
-  "frustration_disengagement": {"score": <0-100 int>, "insight": "<one concise sentence>"},
-  "growth_mindset": {"score": <0-100 int>, "insight": "<one concise sentence>"},
-  "psychological_safety": {"score": <0-100 int>, "insight": "<one concise sentence>"}
+  "work_life_balance": {
+    "score": <0-100 int>,
+    "insight": "<one concise sentence>",
+    "rationale": "<2-3 short sentences on why this score>",
+    "evidence": ["<verbatim span from their messages>"],
+    "signals": ["<2-4 word language marker>"],
+    "anecdote": "<short specific moment, or empty string>",
+    "mentions": <int, messages bearing on this dimension>,
+    "evidence_strength": "limited|moderate|strong"
+  },
+  "job_satisfaction": { ...same shape... },
+  "emotional_resilience": { ...same shape... },
+  "self_confidence": { ...same shape... },
+  "empathy": { ...same shape... },
+  "frustration_disengagement": { ...same shape... },
+  "growth_mindset": { ...same shape... },
+  "psychological_safety": { ...same shape... }
 }
 
 Messages to analyse:
@@ -575,6 +725,58 @@ def _score_user(messages: list, client, ai_provider: str, ai_model: str) -> dict
 
 # ── Personal (single-user) analysis ──────────────────────────────────────────
 
+def _self_detail(entry: dict, score: int, haystack: str, dim: str, user_id: str) -> dict:
+    """One dimension's score plus the qualitative backing shown behind it.
+
+    Trims every free-text field to a sane length and keeps only the evidence
+    spans that are genuinely the user's own words — anything the model could not
+    copy verbatim out of the messages it was given is dropped rather than shown
+    to them in quote marks.
+    """
+    evidence = []
+    raw_evidence = entry.get('evidence')
+    if isinstance(raw_evidence, str):          # a lone quote instead of a list
+        raw_evidence = [raw_evidence]
+    if isinstance(raw_evidence, list):
+        for q in raw_evidence:
+            quote = str(q or '').strip().strip('"\u201c\u201d')
+            if not quote:
+                continue
+            if _normalise_quote(quote) not in haystack:
+                print(f"  Dropped unverified {dim} evidence for {user_id}: {quote[:80]!r}")
+                continue
+            evidence.append(quote[:260])
+            if len(evidence) >= _SELF_EVIDENCE:
+                break
+
+    signals = []
+    if isinstance(entry.get('signals'), list):
+        for sig in entry['signals'][:_SELF_SIGNALS]:
+            text = str(sig or '').strip()
+            if text:
+                signals.append(text[:60])
+
+    strength = str(entry.get('evidence_strength', '') or '').strip().lower()
+    if strength not in _SELF_STRENGTHS:
+        strength = ''
+    try:
+        mentions = max(0, int(entry.get('mentions') or 0))
+    except (TypeError, ValueError):
+        mentions = 0
+
+    return {
+        'score':     score,
+        'insight':   str(entry.get('insight', '') or '')[:300],
+        'rationale': str(entry.get('rationale', '') or '')[:600],
+        'evidence':  evidence,
+        'signals':   signals,
+        'anecdote':  str(entry.get('anecdote', '') or '')[:400],
+        # How much there was to read — reported beside the score, never inside it.
+        'evidence_strength': strength,
+        'mentions':  mentions,
+    }
+
+
 def analyze_user_sentiment(user_id: str) -> dict | None:
     """
     Scores one user's own messages and writes second-person insights for their
@@ -596,9 +798,14 @@ def analyze_user_sentiment(user_id: str) -> dict | None:
     if len(combined) > _SELF_MAX_CHARS:
         combined = combined[:_SELF_MAX_CHARS] + '\n[...truncated]'
 
+    prompt = (_SELF_PROMPT
+              .replace('{evidence}', str(_SELF_EVIDENCE))
+              .replace('{signals}', str(_SELF_SIGNALS))
+              .replace('{messages}', combined))
+
     raw = None
     try:
-        raw = _call_llm(_SELF_PROMPT.replace('{messages}', combined), client, ai_provider, ai_model)
+        raw = _call_llm(prompt, client, ai_provider, ai_model)
         result = _extract_json(raw)
     except Exception as e:
         print(f"Personal sentiment analysis failed for {user_id}: {e}")
@@ -606,14 +813,21 @@ def analyze_user_sentiment(user_id: str) -> dict | None:
             print(f"  Raw snippet: {raw[:300]}")
         return None
 
+    # Evidence is quoted back to the user as their own words, so every span is
+    # checked against the messages the model was actually given and dropped if
+    # it is not there — a paraphrase presented as a quote is worse than none.
+    haystack = _normalise_quote(combined)
+
     scores = {}
     for dim in _DIMS:
         entry = result.get(dim)
-        if isinstance(entry, dict) and entry.get('score') is not None:
-            try:
-                scores[dim] = max(0, min(100, int(entry['score'])))
-            except (TypeError, ValueError):
-                continue
+        if not isinstance(entry, dict) or entry.get('score') is None:
+            continue
+        try:
+            scores[dim] = max(0, min(100, int(entry['score'])))
+        except (TypeError, ValueError):
+            continue
+        result[dim] = _self_detail(entry, scores[dim], haystack, dim, user_id)
     if not scores:
         return None
 
@@ -1118,6 +1332,92 @@ def generate_tips(user_id: str) -> dict | None:
 
 # ── Main analysis ────────────────────────────────────────────────────────────
 
+def _org_detail(entry: dict) -> dict:
+    """One org dimension's score plus its de-identified qualitative backing.
+
+    Mirrors _self_detail, with one deliberate difference: there is no verbatim
+    evidence. Quotes exist on the personal page because the reader there is the
+    author of the words; here the reader is an administrator and the words belong
+    to their staff. The reader still needs texture to act on a score, so it
+    arrives de-identified by construction — phrasings generic enough that several
+    people could have written them, and an anecdote blended across people rather
+    than one person's story retold. Plus the corrective actions an HR team could
+    actually take, which is what the reader is on this page to decide.
+    """
+    try:
+        score = max(0, min(100, int(entry.get('score'))))
+    except (TypeError, ValueError):
+        score = None
+
+    signals = []
+    if isinstance(entry.get('signals'), list):
+        for sig in entry['signals'][:_SELF_SIGNALS]:
+            text = str(sig or '').strip()
+            if text:
+                signals.append(text[:60])
+
+    patterns = []
+    if isinstance(entry.get('patterns'), list):
+        for pat in entry['patterns'][:_ORG_PATTERNS]:
+            text = str(pat or '').strip()
+            if text:
+                patterns.append(text[:220])
+
+    # Typical phrasings, not quotes: the prompt asks for generic wording that
+    # several people could have written, so there is nothing to verify against
+    # any one message — the safeguard is that a verbatim span is never requested.
+    phrasings = []
+    if isinstance(entry.get('phrasings'), list):
+        for ph in entry['phrasings'][:_ORG_PHRASINGS]:
+            text = str(ph or '').strip().strip('"\u201c\u201d')
+            if text:
+                phrasings.append(text[:140])
+
+    actions = []
+    if isinstance(entry.get('actions'), list):
+        for act in entry['actions']:
+            if not isinstance(act, dict):
+                continue
+            label = str(act.get('action', '') or '').strip()
+            if not label:
+                continue
+            horizon = str(act.get('horizon', '') or '').strip().lower()
+            actions.append({
+                'action':  label[:90],
+                'detail':  str(act.get('detail', '') or '')[:220],
+                'horizon': horizon if horizon in _ORG_HORIZONS else '',
+            })
+            if len(actions) >= _ORG_ACTIONS:
+                break
+
+    strength = str(entry.get('evidence_strength', '') or '').strip().lower()
+    if strength not in _SELF_STRENGTHS:
+        strength = ''
+    try:
+        mentions = max(0, int(entry.get('mentions') or 0))
+    except (TypeError, ValueError):
+        mentions = 0
+
+    detail = {
+        'insight':   str(entry.get('insight', '') or '')[:300],
+        'rationale': str(entry.get('rationale', '') or '')[:600],
+        'signals':   signals,
+        'patterns':  patterns,
+        'phrasings': phrasings,
+        'anecdote':  str(entry.get('anecdote', '') or '')[:400],
+        'actions':   actions,
+        # How much there was to read — reported beside the score, never inside it.
+        'evidence_strength': strength,
+        'mentions':  mentions,
+    }
+    # Nothing else off the raw entry is carried over: a value this function
+    # rejected (an unparseable score, say) must not reappear by the back door.
+    # Bands are attached after this, by the caller, from the per-user scores.
+    if score is not None:
+        detail['score'] = score
+    return detail
+
+
 def analyze_org_sentiment(org_slug: str) -> dict | None:
     """
     Runs sentiment analysis for the org, processing only messages newer than
@@ -1152,8 +1452,19 @@ def analyze_org_sentiment(org_slug: str) -> dict | None:
 
     raw = None
     try:
-        raw = _call_llm(_ORG_PROMPT.replace('{messages}', combined), client, ai_provider, ai_model)
+        org_prompt = (_ORG_PROMPT
+                      .replace('{min_people}', str(_ORG_MIN_PEOPLE))
+                      .replace('{signals}', str(_SELF_SIGNALS))
+                      .replace('{patterns}', str(_ORG_PATTERNS))
+                      .replace('{phrasings}', str(_ORG_PHRASINGS))
+                      .replace('{actions}', str(_ORG_ACTIONS))
+                      .replace('{messages}', combined))
+        raw = _call_llm(org_prompt, client, ai_provider, ai_model)
         result = _extract_json(raw)
+        for dim in _DIMS:
+            entry = result.get(dim)
+            if isinstance(entry, dict):
+                result[dim] = _org_detail(entry)
         result['messages_analyzed'] = len(new_messages)
     except Exception as e:
         print(f"Org-level sentiment analysis failed for {org_slug}: {e}")

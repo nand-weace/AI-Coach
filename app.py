@@ -33,6 +33,7 @@ from database import (
     get_user_insight_report,
     upsert_user_insight_report,
     get_user_stats,
+    get_user_last_message_at,
     upsert_user_login,
     get_user_access_settings,
     get_user_profile_context,
@@ -2251,6 +2252,46 @@ def my_analytics():
         return jsonify({'error': 'Session not initialised — call /session first'}), 401
     try:
         return jsonify(get_user_stats(g.user['user_id']))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/last-message')
+@require_weace_token
+def last_message():
+    """When a user last wrote to Nexa.
+
+    Defaults to the caller. A user_id may be passed to ask about someone else,
+    which only the admin roles may do — a corporate super admin is confined to
+    their own organisation, and a user outside it reads as "never wrote",
+    exactly as an unknown user_id does, so the endpoint cannot be used to
+    discover which accounts exist elsewhere.
+    """
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+
+    caller_id = g.user['user_id']
+    user_id = request.args.get('user_id', '').strip() or caller_id
+    org_scope = None
+
+    if user_id != caller_id:
+        role = g.user.get('role')
+        if _has_role(role, 'weace_super_admin'):
+            pass                       # may ask about anyone
+        elif _has_role(role, 'corporate_super_admin'):
+            org_scope = (g.user.get('org_id') or '').strip() or None
+            if not org_scope:
+                return jsonify({'error': 'No organisation associated with this account'}), 400
+        else:
+            return jsonify({'error': 'Forbidden'}), 403
+
+    try:
+        last_at = get_user_last_message_at(user_id, org_slug=org_scope)
+        return jsonify({
+            'user_id': user_id,
+            'last_message_at': last_at,
+            'has_messages': last_at is not None,
+        })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

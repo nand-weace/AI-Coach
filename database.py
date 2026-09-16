@@ -52,6 +52,21 @@ _SENTIMENT_DESCRIPTIONS = {
     'psychological_safety':      'How openly you discuss mistakes and doubts',
 }
 
+# What the two ends of the 0-100 scale actually mean for each dimension, for
+# the scoring legend on My Insights. Kept beside the descriptions rather than in
+# the template so the legend cannot drift from the anchors the LLM is scored
+# against in sentiment_job._SELF_PROMPT.
+_SENTIMENT_SCALES = {
+    'work_life_balance':         ('always-on, no boundaries', 'clear boundaries, protected time'),
+    'job_satisfaction':          ('disengaged, going through motions', 'motivated and finding meaning'),
+    'emotional_resilience':      ('overwhelmed by pressure', 'calm and composed under pressure'),
+    'self_confidence':           ('hesitant, self-doubting', 'assured in your own judgement'),
+    'empathy':                   ("little attention to others' views", "consistently reads how others feel"),
+    'frustration_disengagement': ('frequent cynicism or detachment', 'little frustration in your words'),
+    'growth_mindset':            ('setbacks framed as fixed limits', 'setbacks framed as things to learn'),
+    'psychological_safety':      ('mistakes and doubts kept back', 'open about failures and fears'),
+}
+
 # My Insights hides these from its Scores/Trend views (see HIDDEN_DIMS in
 # templates/my_insights.html) — still scored and kept in the per-key result
 # for callers that need them (e.g. Growth Snapshot pills), just left out of
@@ -160,15 +175,6 @@ def init_db():
                     sentiment_data JSON NOT NULL,
                     calculated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     INDEX idx_org_slug (org_slug)
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-            """)
-            _execute(cur,"""
-                CREATE TABLE IF NOT EXISTS org_sentiment_history (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    org_slug VARCHAR(255) NOT NULL,
-                    scores JSON NOT NULL,
-                    calculated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    INDEX idx_org_slug_date (org_slug, calculated_at)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """)
             _execute(cur,"""
@@ -1669,21 +1675,42 @@ def get_org_sentiment_data(org_slug, trend_limit: int = 12, date_from=None, date
                 'negligible': round(sum(1 for s in scores if s <= 25)       / n * 100),
             }
             old_entry = insight_data.get(dim)
+            detail = old_entry if isinstance(old_entry, dict) else {}
             # 'title' rides along on every per-key entry (not just 'sentiments'
             # below) so a caller with a bare dimension key never needs its own
             # copy of these names — mirrors get_user_sentiment_data.
             entry = {
                 'score': avg,
-                'insight': old_entry.get('insight', '') if isinstance(old_entry, dict) else '',
+                'insight': detail.get('insight', ''),
+                # Why the score reads as it does, and how thin the base was.
+                # No quotes here, unlike the personal view: these reports pool
+                # many people's messages for an administrator, so the detail
+                # stays at the level of patterns (see sentiment_job._org_detail).
+                'rationale': detail.get('rationale', ''),
+                'signals': detail.get('signals') or [],
+                'patterns': detail.get('patterns') or [],
+                # Texture the reader needs to act on the score, de-identified by
+                # construction: phrasings generic enough that several people
+                # could have written them, and an anecdote blended across people.
+                'phrasings': detail.get('phrasings') or [],
+                'anecdote': detail.get('anecdote', ''),
+                # What an HR team could do to move this score.
+                'actions': detail.get('actions') or [],
+                'evidence_strength': detail.get('evidence_strength', ''),
+                'mentions': detail.get('mentions', 0),
                 'bands': bands,
                 'trend': dim_trends.get(dim, []),
                 'title': _SENTIMENT_TITLES.get(dim, dim),
             }
             result[dim] = entry
             if dim not in _SENTIMENT_LIST_HIDDEN:
+                low, high = _SENTIMENT_SCALES.get(dim, ('', ''))
                 sentiments.append({
                     'key': dim,
                     'description': _SENTIMENT_DESCRIPTIONS.get(dim, ''),
+                    # What 0 and 10 mean here, for the scoring legend.
+                    'scale_low': low,
+                    'scale_high': high,
                     **entry,
                 })
 
@@ -1864,6 +1891,41 @@ def get_user_stats(user_id: str) -> dict:
         conn.close()
 
 
+def get_user_last_message_at(user_id: str, org_slug: str = None) -> str | None:
+    """When this user last wrote to Nexa, or None if they never have.
+
+    Counts the user's own messages only, matching what 'last_message_at' means
+    in get_user_stats — an assistant reply is not the user turning up.
+
+    Pass org_slug to confine the lookup to one organisation. An out-of-scope
+    user_id then returns None exactly as an unknown one does, so a corporate
+    admin cannot use this to probe for accounts outside their own org.
+    """
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            if org_slug:
+                _execute(cur,
+                    """
+                    SELECT MAX(m.created_at) AS last_message_at
+                    FROM ai_coach_messages m
+                    JOIN ai_coach_sessions s ON m.session_id = s.session_id
+                    WHERE m.user_id = %s AND m.role = 'user' AND s.org_slug = %s
+                    """,
+                    (user_id, org_slug),
+                )
+            else:
+                _execute(cur,
+                    "SELECT MAX(created_at) AS last_message_at FROM ai_coach_messages "
+                    "WHERE user_id = %s AND role = 'user'",
+                    (user_id,),
+                )
+            row = cur.fetchone() or {}
+            return str(row['last_message_at']) if row.get('last_message_at') else None
+    finally:
+        conn.close()
+
+
 def get_user_sentiment_data(user_id: str, trend_limit: int = 12,
                             date_from=None, date_to=None) -> dict | None:
     """
@@ -1957,17 +2019,34 @@ def get_user_sentiment_data(user_id: str, trend_limit: int = 12,
             # 'sentiments' list below) so a caller with a bare dimension key —
             # e.g. Growth Snapshot labelling a pill — never needs its own
             # copy of these names, hidden dimensions included.
+            detail = old_entry if isinstance(old_entry, dict) else {}
+            # The qualitative backing behind the number — why it landed there,
+            # the user's own words it rests on, the markers that moved it, and a
+            # moment from their sessions. Reports written before these existed
+            # simply carry empty values, so an old row still renders.
             entry = {
                 'score': dim_scores[dim],
-                'insight': old_entry.get('insight', '') if isinstance(old_entry, dict) else '',
+                'insight': detail.get('insight', ''),
+                'rationale': detail.get('rationale', ''),
+                'evidence': detail.get('evidence') or [],
+                'signals': detail.get('signals') or [],
+                'anecdote': detail.get('anecdote', ''),
+                # How thin the evidence behind the score was — shown beside the
+                # score, never folded into it (see sentiment_job._SELF_PROMPT).
+                'evidence_strength': detail.get('evidence_strength', ''),
+                'mentions': detail.get('mentions', 0),
                 'trend': dim_trends.get(dim, []),
                 'title': _SENTIMENT_TITLES.get(dim, dim),
             }
             result[dim] = entry
             if dim not in _SENTIMENT_LIST_HIDDEN:
+                low, high = _SENTIMENT_SCALES.get(dim, ('', ''))
                 sentiments.append({
                     'key': dim,
                     'description': _SENTIMENT_DESCRIPTIONS.get(dim, ''),
+                    # What 0 and 10 mean here, for the scoring legend.
+                    'scale_low': low,
+                    'scale_high': high,
                     **entry,
                 })
 
