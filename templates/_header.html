@@ -125,10 +125,10 @@
            marked from `active_subtab` rather than by header.js. #}
         <div class="app-subnav" id="admin-subnav"
              {% if not show_admin %}style="display:none;"{% endif %}>
-            <a class="app-subtab{% if active_subtab == 'platform' %} active{% endif %}"
-               href="/admin">Platform</a>
             <a class="app-subtab{% if active_subtab == 'corporates' %} active{% endif %}"
-               href="/admin/corporates">Corporates</a>
+                    href="/admin/corporates">Corporates</a>
+            <a class="app-subtab{% if active_subtab == 'platform' %} active{% endif %}"
+               href="/admin">Dashboard</a>
             <a class="app-subtab{% if active_subtab == 'cost' %} active{% endif %}"
                href="/admin/cost">Cost Analysis</a>
         </div>
@@ -144,7 +144,7 @@
             WeAce Platform
         </button>
     </nav>
-    
+
     {# Tip of the day — moved out of My Insights so it is there on every page.
        header.js fills it in after load and leaves the block hidden when there
        is no session yet, no tip, or the request fails. #}

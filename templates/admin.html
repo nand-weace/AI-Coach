@@ -947,7 +947,10 @@
 
     // Global organisation filter — drives stats, All Users, and Sentiment sections.
     const ALL_ORGS = '__all__';
-    let currentOrgSlug = ALL_ORGS;
+    // Deep-linked from the Corporates page (click a corporate name there to land
+    // here with it pre-selected) — falls back to "All organisations" otherwise.
+    const requestedOrgSlug = new URLSearchParams(window.location.search).get('org_slug');
+    let currentOrgSlug = requestedOrgSlug || ALL_ORGS;
 
     function getAuthHeaders(extra) {
         const token = localStorage.getItem('we_ace_access_token') || '';
@@ -1326,8 +1329,13 @@
     NexaHeader.init();
 
     updateSortHeaders();
-    loadUsers();
-    loadNexaCounts();
+    // loadOrgs() (further down) resolves the deep-linked ?org_slug=, adjusting
+    // currentOrgSlug before it calls loadUsers/loadNexaCounts/etc. itself, so
+    // these initial calls only need to run when there's no such param.
+    if (!requestedOrgSlug) {
+        loadUsers();
+        loadNexaCounts();
+    }
     // A dimension's key, title and description all come from the API response
     // (see 'sentiments' in /api/sentiment) — nothing about what a dimension is
     // called or measures is duplicated here. What stays local is purely
@@ -2077,6 +2085,20 @@
                 opt.textContent = o.name;
                 sel.appendChild(opt);
             });
+            // Reflect a deep-linked ?org_slug= in the dropdown once its option
+            // exists, then run the loads it would normally trigger on change.
+            // If the slug isn't a real option, fall back to "All" — those loads
+            // already ran on page load in that case.
+            if (requestedOrgSlug) {
+                const hasMatch = Array.from(sel.options).some(opt => opt.value === requestedOrgSlug);
+                sel.value = hasMatch ? requestedOrgSlug : ALL_ORGS;
+                currentOrgSlug = sel.value;
+                updateRecalcState();
+                loadUsers();
+                loadNexaCounts();
+                loadUsageTrend();
+                loadSentiment();
+            }
         } catch (_) {}
     }
 
@@ -2151,9 +2173,14 @@
     }
 
     loadOrgs();
-    updateRecalcState();
-    loadUsageTrend();
-    loadSentiment();
+    // When there's no deep-linked ?org_slug=, these run immediately alongside
+    // loadOrgs() rather than waiting on it (loadOrgs only (re)runs them itself
+    // when a requested org needs to be applied — see above).
+    if (!requestedOrgSlug) {
+        updateRecalcState();
+        loadUsageTrend();
+        loadSentiment();
+    }
     loadLinkedInEnriched();
 
 </script>

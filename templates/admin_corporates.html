@@ -104,6 +104,11 @@
         th.sorted .sort-arrow { opacity: 1; }
 
         .cell-name { font-weight: 500; }
+        .cell-name-link {
+            font-weight: 500; color: var(--text-main); text-decoration: none;
+            cursor: pointer; transition: color 0.15s ease;
+        }
+        .cell-name-link:hover { color: var(--primary-color); text-decoration: underline; }
         .cell-muted { color: var(--text-muted); font-size: 0.82rem; }
         .empty-row td { text-align: center; color: var(--text-muted); padding: 40px; }
         .skeleton { background: linear-gradient(90deg, #f3f0f8 25%, #e4dfec 50%, #f3f0f8 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 4px; height: 14px; }
@@ -383,7 +388,7 @@
         }
         tbody.innerHTML = orgs.map(o => `
             <tr>
-                <td class="cell-name">${escHtml(o.org_name)}</td>
+                <td class="cell-name"><a class="cell-name-link" href="/admin?org_slug=${encodeURIComponent(o.org_slug)}" title="View ${escHtml(o.org_name)} on the Platform page">${escHtml(o.org_name)}</a></td>
                 <td class="num">${num(o.total_users)}</td>
                 <td class="num">${num(o.user_messages)}</td>
                 <td class="num">${num(o.total_sessions)}</td>
