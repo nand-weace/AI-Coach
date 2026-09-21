@@ -444,11 +444,23 @@ def _get_bearer_token() -> str | None:
     return None
 
 
+# Roles treated as equivalent: a user holding the key role is granted everything
+# the listed roles are granted. weace_admin == weace_super_admin.
+_ROLE_ALIASES = {
+    'weace_admin': ('weace_super_admin',),
+}
+
+
 def _has_role(role_val, *slugs) -> bool:
-    """Check whether role_val (array of role objects or legacy string) contains any of the given slugs."""
+    """Check whether role_val (array of role objects or legacy string) contains any of the given slugs.
+    Role aliases in _ROLE_ALIASES are honoured (e.g. weace_admin counts as weace_super_admin)."""
     if isinstance(role_val, list):
-        return any(r.get('slug', '') in slugs for r in role_val if isinstance(r, dict))
-    return role_val in slugs
+        user_slugs = {r.get('slug', '') for r in role_val if isinstance(r, dict)}
+    else:
+        user_slugs = {role_val}
+    for s in list(user_slugs):
+        user_slugs.update(_ROLE_ALIASES.get(s, ()))
+    return any(s in user_slugs for s in slugs)
 
 
 def require_weace_token(f):

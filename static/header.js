@@ -133,11 +133,17 @@ const NexaHeader = (() => {
         if (!open) closeMenus();
     }
 
+    // Roles treated as equivalent: weace_admin is granted everything weace_super_admin is.
+    const ROLE_ALIASES = { weace_admin: ['weace_super_admin'] };
+
     // role can be an array of role objects [{slug: '...'}] or a legacy string
     function hasRole(roleVal, ...slugs) {
-        if (Array.isArray(roleVal))
-            return roleVal.some(r => r && typeof r === 'object' && slugs.includes(r.slug));
-        return slugs.includes(roleVal);
+        const userSlugs = Array.isArray(roleVal)
+            ? roleVal.filter(r => r && typeof r === 'object').map(r => r.slug)
+            : [roleVal];
+        const expanded = new Set(userSlugs);
+        userSlugs.forEach(s => (ROLE_ALIASES[s] || []).forEach(a => expanded.add(a)));
+        return slugs.some(s => expanded.has(s));
     }
 
     // ── Language ────────────────────────────────────────────────────────────
