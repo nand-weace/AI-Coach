@@ -7,8 +7,9 @@
     active_subtab  'platform' | 'corporates' | 'cost' — which Admin page is open, for the
                    sub-nav under the Admin tab.
     show_pulse     true when the user's organisation is on a licence that
-                   includes Daily Pulse (Nexa Pro). The chat page leaves it
-                   hidden and header.js reveals it from /session.
+                   includes Daily Pulse and Career Horoscope (Nexa Pro). The
+                   chat page leaves both hidden and header.js reveals them
+                   from /session.
     show_org_tabs  true to render Sentiment Analysis / Corporate Knowledge as
                    visible (the dashboard, which is role-gated server-side).
                    The chat page leaves them hidden and lets script.js reveal
@@ -76,6 +77,20 @@
             <a class="app-subtab" href="/my-insights#growth" data-subtab="growth">Growth Mirror</a>
             <a class="app-subtab" href="/my-insights#recs" data-subtab="recs">Resources</a>
         </div>
+
+        {# Career Horoscope — a Vedic (Jyotish) career reading from the user's
+           birth details. Personal to the user, so it sits alongside the other
+           personal tabs and is hidden for a WeAce super admin. Ships with
+           Nexa Pro, same as Daily Pulse — `show_pulse` gates both. #}
+        <a id="career-horoscope-link" href="/career-horoscope"
+           class="app-tab{% if active_tab == 'career-horoscope' %} active{% endif %}"
+           {% if active_tab == 'career-horoscope' %}aria-current="page"{% endif %}
+           {% if show_admin or not show_pulse %}style="display:none;"{% endif %}>
+            <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2l2.4 6.9H22l-6 4.4 2.3 7-6.3-4.6L5.7 20l2.3-7-6-4.4h7.6z"/>
+            </svg>
+            Career Horoscope
+        </a>
 
         {# Daily Pulse ships with Nexa Pro, so `show_pulse` decides whether this
            tab exists at all for the user's organisation. For a corporate super

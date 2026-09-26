@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexa - Career Horoscope</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Lora:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ asset('header.css') }}">
+    <link rel="icon" id="app-favicon" href="{{ branding.favicon_url }}">
+    <style>
+        :root {
+            --primary-color: #6d28d9;
+            --primary-hover: #5b21b6;
+            --text-main: #1e1b33;
+            --text-muted: #5b5674;
+            --accent-gradient: linear-gradient(135deg, #5b21b6 0%, #7c3aed 52%, #a855f7 100%);
+            --primary-soft: rgba(109, 40, 217, 0.09);
+            --primary-ring: rgba(109, 40, 217, 0.30);
+            --surface: rgba(255, 255, 255, 0.92);
+            --card-shadow: 0 12px 32px -14px rgba(49, 32, 110, 0.30);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: oklch(94.7% .018 290);
+            color: var(--text-main);
+            min-height: 100vh;
+            background-attachment: fixed;
+        }
+
+        .page { margin: 0 auto; padding: 24px 15px 60px; }
+
+        .horo-head {
+            display: flex; align-items: center; gap: 10px; margin-bottom: 14px;
+            white-space: nowrap; overflow: hidden;
+        }
+        .horo-head .horo-badge {
+            flex: 0 0 auto;
+            font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em;
+            text-transform: uppercase; color: var(--primary-color);
+            background: var(--primary-soft); border-radius: 999px; padding: 4px 12px;
+        }
+        .horo-head h2 {
+            flex: 0 0 auto; font-size: 1.2rem; font-weight: 700; letter-spacing: -0.03em;
+        }
+        .horo-head p {
+            flex: 1 1 auto; margin: 0; font-size: 0.82rem; color: var(--text-muted);
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .horo-head #regenerate-btn { flex: 0 0 auto; margin-left: auto; }
+        @media (max-width: 640px) {
+            .horo-head p { display: none; }
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid rgba(76, 59, 138, 0.12);
+            border-radius: 20px;
+            box-shadow: var(--card-shadow);
+            padding: 26px;
+        }
+
+        .form-grid {
+            display: grid; gap: 16px 18px;
+            grid-template-columns: 1fr 1fr;
+        }
+        .field { display: flex; flex-direction: column; gap: 6px; }
+        .field.full { grid-column: 1 / -1; }
+        .field-label { font-size: 0.85rem; font-weight: 600; color: var(--text-main); }
+        .field-hint { font-weight: 400; color: var(--text-muted); font-size: 0.78rem; }
+        .field input, .field textarea {
+            width: 100%; font-family: inherit; font-size: 0.92rem;
+            color: var(--text-main); background: #fff;
+            border: 1px solid rgba(76, 59, 138, 0.20); border-radius: 12px;
+            padding: 11px 13px; transition: border-color .15s, box-shadow .15s;
+        }
+        .field textarea { resize: vertical; min-height: 84px; }
+        .field input:focus, .field textarea:focus {
+            outline: none; border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px var(--primary-ring);
+        }
+
+        .submit-row {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 12px; margin-top: 20px; flex-wrap: wrap;
+        }
+        .submit-error { color: #b42318; font-size: 0.85rem; }
+        .submit-btn {
+            border: none; cursor: pointer; color: #fff;
+            background: var(--accent-gradient);
+            font-family: inherit; font-size: 0.92rem; font-weight: 600;
+            padding: 12px 22px; border-radius: 999px;
+            box-shadow: 0 10px 22px -12px rgba(109, 40, 217, 0.8);
+            transition: transform .12s, opacity .12s;
+        }
+        .submit-btn:hover:not(:disabled) { transform: translateY(-1px); }
+        .submit-btn:disabled { opacity: 0.55; cursor: default; }
+
+        .loading-card { text-align: center; margin-top: 20px; }
+        .spinner {
+            width: 40px; height: 40px; margin: 4px auto 16px;
+            border: 3px solid var(--primary-soft); border-top-color: var(--primary-color);
+            border-radius: 50%; animation: spin 0.9s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-title { font-size: 1.15rem; font-weight: 700; margin-bottom: 8px; }
+        .loading-lead { color: var(--text-muted); font-size: 0.92rem; line-height: 1.6; max-width: 460px; margin: 0 auto; }
+        .loading-sub {
+            margin-top: 16px; color: var(--primary-hover); font-size: 0.88rem; font-weight: 600;
+            display: inline-flex; align-items: center; gap: 8px; justify-content: center;
+        }
+        .loading-sub::before {
+            content: ''; width: 7px; height: 7px; border-radius: 50%;
+            background: var(--primary-color); animation: pulse-dot 1.2s ease-in-out infinite;
+        }
+        @keyframes pulse-dot { 0%,100% { opacity: .35; } 50% { opacity: 1; } }
+        .loading-note {
+            margin-top: 16px; color: var(--text-muted); font-size: 0.86rem; line-height: 1.6;
+            max-width: 460px; margin-left: auto; margin-right: auto;
+            background: var(--primary-soft); border-radius: 12px; padding: 12px 16px;
+        }
+        .loading-actions { margin-top: 16px; }
+        .ghost-btn {
+            border: 1px solid rgba(76,59,138,.22); background: #fff; cursor: pointer;
+            color: var(--primary-hover); font-family: inherit; font-size: 0.85rem; font-weight: 600;
+            padding: 9px 18px; border-radius: 999px; transition: background .12s, border-color .12s;
+        }
+        .ghost-btn:hover:not(:disabled) { background: var(--primary-soft); }
+        .ghost-btn:disabled { opacity: .55; cursor: default; }
+
+        .skeleton-sec {
+            background: var(--surface); border: 1px solid rgba(76,59,138,.12);
+            border-radius: 18px; box-shadow: var(--card-shadow); padding: 22px;
+        }
+        .skeleton-line {
+            height: 12px; border-radius: 6px; margin-bottom: 10px;
+            background: linear-gradient(90deg, rgba(109,40,217,.08) 25%, rgba(109,40,217,.16) 37%, rgba(109,40,217,.08) 63%);
+            background-size: 400% 100%; animation: shimmer 1.4s ease infinite;
+        }
+        .skeleton-line.short { width: 45%; }
+        .skeleton-line.med { width: 75%; }
+        @keyframes shimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
+
+
+        /* Results */
+        .result { margin-top: 16px; display: flex; flex-direction: column; gap: 16px; }
+        .result-summary {
+            background: var(--surface); border: 1px solid rgba(76, 59, 138, 0.12);
+            border-radius: 20px; box-shadow: var(--card-shadow); padding: 24px;
+        }
+        .result-summary .archetype {
+            font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em;
+            text-transform: uppercase; color: var(--primary-color); margin-bottom: 8px;
+        }
+        .result-summary h3 { font-size: 1.2rem; margin-bottom: 8px; }
+        .result-summary p { color: var(--text-muted); line-height: 1.65; font-size: 0.95rem; }
+
+        .sec { background: var(--surface); border: 1px solid rgba(76, 59, 138, 0.12);
+               border-radius: 18px; box-shadow: var(--card-shadow); padding: 22px; }
+        .sec > h4 {
+            font-size: 0.75rem; font-weight: 700; letter-spacing: 0.06em;
+            text-transform: uppercase; color: var(--primary-color); margin-bottom: 14px;
+        }
+        .sec p { color: var(--text-main); line-height: 1.6; font-size: 0.92rem; }
+        .sec .muted { color: var(--text-muted); }
+
+        .kv { margin-bottom: 20px; }
+        .kv:last-child { margin-bottom: 0; }
+        .kv-title { font-weight: 700; font-size: 1rem; margin-bottom: 5px; letter-spacing: -0.01em; }
+        .kv-meta {
+            font-size: 0.78rem; color: var(--primary-hover); margin-bottom: 7px;
+            background: var(--primary-soft); display: inline-block;
+            padding: 3px 10px; border-radius: 999px; font-weight: 600;
+        }
+
+        .spectrum-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+        @media (max-width: 780px) { .spectrum-grid { grid-template-columns: 1fr; } }
+        .spectrum-card {
+            background: #fff; border: 1px solid rgba(76,59,138,.12);
+            border-radius: 14px; padding: 16px 18px;
+        }
+        .spectrum-ends {
+            display: flex; justify-content: space-between;
+            font-size: 0.78rem; font-weight: 600; color: var(--text-muted); margin-bottom: 10px;
+        }
+        .spectrum-track {
+            position: relative; height: 8px; border-radius: 999px;
+            background: var(--primary-soft);
+        }
+        .spectrum-dot {
+            position: absolute; top: 50%; width: 16px; height: 16px;
+            border-radius: 50%; background: var(--accent-gradient);
+            transform: translate(-50%, -50%); box-shadow: 0 2px 6px rgba(109,40,217,.4);
+        }
+        .spectrum-verdict { font-weight: 700; font-size: 0.9rem; color: var(--text-main); margin-top: 10px; }
+        .spectrum-basis { font-size: 0.83rem; color: var(--text-muted); margin-top: 6px; line-height: 1.55; }
+
+        /* Sub-sections within a chapter (e.g. Where You Thrive) */
+        .subsec { margin-bottom: 24px; }
+        .subsec:last-child { margin-bottom: 0; }
+        .subsec-head {
+            font-size: 0.72rem; font-weight: 700; letter-spacing: .08em;
+            text-transform: uppercase; color: var(--primary-color); margin-bottom: 12px;
+        }
+        .subsec-note { font-size: 0.85rem; color: var(--text-muted); margin: -6px 0 14px; line-height: 1.5; }
+
+        /* Lighter cards for lists of arbitrary length (roles, fields, strengths,
+           growth themes, blind spots, prospects) — not tied to the fixed
+           4-colour scheme the career-house cards use, so any item count scales. */
+        .item-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; }
+        .item-card {
+            background: rgba(109,40,217,.035); border: 1px solid rgba(76,59,138,.10);
+            border-radius: 14px; padding: 16px 18px;
+        }
+        .item-card .ic-title { font-size: 0.95rem; font-weight: 700; color: var(--primary-hover); margin-bottom: 6px; }
+        .item-card .ic-basis {
+            font-size: 0.78rem; color: var(--text-muted); margin-bottom: 10px;
+            padding: 6px 10px; background: rgba(255,255,255,.6); border-radius: 8px;
+            border: 1px solid rgba(0,0,0,.06); line-height: 1.5;
+        }
+        .item-card p { color: var(--text-main); line-height: 1.6; font-size: 0.9rem; margin: 0; }
+
+        .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+        .chip {
+            background: var(--primary-soft); color: var(--primary-hover);
+            border-radius: 999px; padding: 6px 13px; font-size: 0.82rem; font-weight: 600;
+        }
+
+        .list { list-style: none; display: flex; flex-direction: column; gap: 16px; }
+        .list li {
+            padding: 14px 16px 14px 34px; position: relative; line-height: 1.7; font-size: 0.97rem;
+            background: rgba(109,40,217,.035); border-radius: 12px;
+            border: 1px solid rgba(76,59,138,.08);
+        }
+        .list li::before {
+            content: ''; position: absolute; left: 15px; top: 21px;
+            width: 7px; height: 7px; border-radius: 50%; background: var(--accent-gradient);
+        }
+        .list li strong { color: var(--text-main); }
+
+        .timing { display: flex; flex-direction: column; gap: 12px; }
+        .timing-row {
+            display: flex; gap: 12px; align-items: flex-start;
+            padding: 12px 14px; border: 1px solid rgba(76,59,138,.12);
+            border-radius: 14px; background: #fff;
+        }
+        .timing-when {
+            flex: 0 0 auto; min-width: 120px; font-weight: 700; font-size: 0.85rem;
+            color: var(--primary-hover);
+        }
+        .timing-body { flex: 1; }
+        .timing-act { font-weight: 600; font-size: 0.9rem; text-transform: capitalize; }
+        .timing-basis { font-size: 0.83rem; color: var(--text-muted); margin-top: 2px; line-height: 1.5; }
+        .tag {
+            font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: .04em; padding: 2px 8px; border-radius: 999px; margin-left: 8px;
+        }
+        .tag.strong { background: #dcfce7; color: #166534; }
+        .tag.moderate { background: #fef3c7; color: #92400e; }
+
+        .lucky-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+        .lucky-block {
+            background: rgba(109,40,217,.035); border: 1px solid rgba(76,59,138,.10);
+            border-radius: 14px; padding: 16px 18px;
+        }
+        .lucky-block h5 {
+            font-size: 0.72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+            margin-bottom: 10px; color: var(--primary-hover);
+        }
+        .swatch { display: inline-flex; align-items: center; gap: 7px; margin: 0 8px 8px 0; font-size: 0.82rem; }
+        .swatch-dot { width: 14px; height: 14px; border-radius: 4px; border: 1px solid rgba(0,0,0,.12); }
+
+        /* Grid for cards (2 columns on desktop, 1 on mobile) */
+        .grid2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 18px;
+        }
+        @media (max-width: 620px) {
+            .grid2 { grid-template-columns: 1fr; }
+        }
+
+        .ic-title {
+            font-size: 1.05rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            letter-spacing: -0.01em;
+            line-height: 1.3;
+        }
+        .ic-basis {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.6);
+            border-radius: 8px;
+            border: 1px solid rgba(0, 0, 0, 0.06);
+            line-height: 1.5;
+        }
+        /* ── The reading, as an interactive book ─────────────────────── */
+        .book { width: 100%; }
+
+        /* Chapter table of contents */
+        .book-toc {
+            display: flex; gap: 8px; overflow-x: auto; padding: 4px 2px 14px;
+            scrollbar-width: thin; -webkit-overflow-scrolling: touch;
+        }
+        .book-toc::-webkit-scrollbar { height: 5px; }
+        .book-toc::-webkit-scrollbar-thumb { background: var(--primary-ring); border-radius: 999px; }
+        .toc-chip {
+            flex: 0 0 auto; cursor: pointer; font-family: inherit;
+            display: inline-flex; align-items: center; gap: 6px;
+            background: #fff; border: 1px solid rgba(76,59,138,.16);
+            color: var(--text-muted); font-size: 0.8rem; font-weight: 600;
+            padding: 7px 13px; border-radius: 999px; white-space: nowrap;
+            transition: all .15s;
+        }
+        .toc-chip:hover { border-color: var(--primary-ring); color: var(--primary-hover); }
+        .toc-chip.active {
+            background: var(--accent-gradient); border-color: transparent; color: #fff;
+            box-shadow: 0 6px 16px -8px rgba(109,40,217,.7);
+        }
+        .toc-chip .toc-ico { font-size: 0.95rem; line-height: 1; }
+
+        /* The paging stage: one chapter visible, the rest slid off to the side */
+        .book-stage {
+            position: relative; overflow: hidden;
+            border-radius: 22px;
+            transition: height .45s cubic-bezier(.4,0,.2,1);
+        }
+        .book-track { display: flex; flex-wrap: nowrap; transition: transform .45s cubic-bezier(.4,0,.2,1); align-items: flex-start; will-change: transform; }
+        .book-page {
+            flex: 0 0 100%; width: 100%;
+            background: var(--surface); border: 1px solid rgba(76,59,138,.12);
+            border-radius: 22px; box-shadow: var(--card-shadow);
+            padding: 30px 32px 34px;
+            position: relative;
+            opacity: .3; transform: scale(.985);
+            transition: opacity .4s ease, transform .4s cubic-bezier(.4,0,.2,1);
+        }
+        .book-page.is-active { opacity: 1; transform: scale(1); }
+        /* A faint gradient seam down the left, like a book's gutter */
+        .book-page::before {
+            content: ''; position: absolute; left: 0; top: 22px; bottom: 22px; width: 4px;
+            background: var(--accent-gradient); border-radius: 999px; opacity: .5;
+        }
+        .book-page-head {
+            display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+            padding-bottom: 14px; margin-bottom: 20px;
+            border-bottom: 1px solid rgba(76,59,138,.10);
+        }
+        .book-chapter {
+            font-family: 'Inter', sans-serif; font-size: 1.35rem; font-weight: 600;
+            color: var(--text-main); letter-spacing: -0.01em;
+        }
+        .book-count {
+            flex: 0 0 auto; font-size: 0.72rem; font-weight: 700; letter-spacing: .08em;
+            text-transform: uppercase; color: var(--primary-color);
+            background: var(--primary-soft); padding: 4px 10px; border-radius: 999px;
+        }
+        .book-page-body { font-family: 'Inter', sans-serif; }
+        .book-page-body p { color: #35304f; line-height: 1.78; font-size: 1rem; margin-bottom: 12px; }
+        .book-page-body p:last-child { margin-bottom: 0; }
+        .book-page-body .muted { color: var(--text-muted); }
+        .book-page-body .list li,
+        .book-page-body .spectrum-basis,
+        .book-page-body .timing-basis { font-family: 'Inter', sans-serif; }
+        .book-page-body .cover-summary { font-size: 1.08rem; line-height: 1.85; color: #45405f; }
+        .mini-head {
+            font-family: 'Inter', sans-serif; font-size: 0.72rem; font-weight: 700;
+            letter-spacing: .08em; text-transform: uppercase; color: var(--primary-color);
+            margin: 26px 0 12px;
+        }
+        .book-page-body .mini-head:first-child { margin-top: 0; }
+        .book-page-body .lucky-block h5,
+        .book-page-body .spectrum-ends { font-family: 'Inter', sans-serif; }
+
+        /* The opening chapter reads like a title page */
+        .book-page.is-cover { text-align: center; padding: 40px 34px 44px; }
+        .book-page.is-cover::before { display: none; }
+        .book-page.is-cover .book-page-head { display: none; }
+        .cover-archetype {
+            font-family: 'Inter', sans-serif;
+            font-size: 0.75rem; font-weight: 700; letter-spacing: 0.14em;
+            text-transform: uppercase; color: var(--primary-color); margin-bottom: 14px;
+        }
+        .cover-archetype::before, .cover-archetype::after { content: '\2726'; margin: 0 8px; opacity: .6; }
+        .cover-desc {
+            font-family: 'Inter', sans-serif; font-size: 1.7rem; line-height: 1.3; font-weight: 600;
+            color: var(--text-main); margin-bottom: 16px; letter-spacing: -0.02em;
+        }
+        .cover-summary {
+            font-family: 'Inter', sans-serif; font-size: 1.06rem; line-height: 1.8; color: #45405f;
+            max-width: 560px; margin: 0 auto;
+        }
+
+        /* Prev / dots / next */
+        .book-nav {
+            display: flex; align-items: center; justify-content: center; gap: 16px;
+            margin-top: 18px;
+        }
+        .book-arrow {
+            width: 46px; height: 46px; border-radius: 50%; cursor: pointer;
+            border: 1px solid rgba(76,59,138,.18); background: #fff; color: var(--primary-hover);
+            font-size: 1.5rem; line-height: 1; display: flex; align-items: center; justify-content: center;
+            box-shadow: var(--card-shadow); transition: transform .12s, background .12s, opacity .12s;
+        }
+        .book-arrow:hover:not(:disabled) { transform: translateY(-2px); background: var(--primary-soft); }
+        .book-arrow:disabled { opacity: .35; cursor: default; box-shadow: none; }
+        .book-dots { display: flex; gap: 9px; align-items: center; }
+        .book-dot {
+            width: 9px; height: 9px; border-radius: 50%; cursor: pointer; padding: 0;
+            border: none; background: var(--primary-ring); transition: all .2s;
+        }
+        .book-dot:hover { transform: scale(1.25); }
+        .book-dot.active { background: var(--accent-gradient); width: 26px; border-radius: 999px; }
+
+        .book-teaser { text-align: center; padding: 40px 30px; }
+
+        @media (max-width: 620px) {
+            .form-grid { grid-template-columns: 1fr; }
+            .lucky-grid { grid-template-columns: 1fr; }
+            .timing-row { flex-direction: column; }
+            .timing-when { min-width: 0; }
+            .book-page { padding: 24px 20px 28px; }
+            .book-page.is-cover { padding: 32px 22px; }
+            .cover-desc { font-size: 1.35rem; }
+            .book-chapter { font-size: 1.15rem; }
+            .book-nav { gap: 10px; }
+        }
+    </style>
+</head>
+<body>
+
+{% include '_header.html' %}
+
+<div class="page">
+    <div class="horo-head">
+        <h2>Career Horoscope</h2>
+        <p>A Vedic career reading drawn from your birth details</p>
+        <button type="button" class="ghost-btn" id="regenerate-btn" title="" style="display:none;">Regenerate</button>
+    </div>
+
+    <div class="card" id="horo-form">
+        <div class="form-grid">
+            <div class="field">
+                <label class="field-label" for="f-place">Place of birth</label>
+                <input type="text" id="f-place" autocomplete="off" placeholder="City, Country"
+                       value="{{ birth.place_of_birth if birth else '' }}">
+            </div>
+            <div class="field">
+                <label class="field-label" for="f-date">Date of birth</label>
+                <input type="date" id="f-date" value="{{ birth.birth_date if birth else '' }}">
+            </div>
+            <div class="field">
+                <label class="field-label" for="f-time">
+                    Time of birth <span class="field-hint">— optional</span>
+                </label>
+                <input type="time" id="f-time" value="{{ birth.birth_time if birth else '' }}">
+            </div>
+            {% if not has_linkedin %}
+            <div class="field full">
+                <label class="field-label" for="f-context">
+                    Professional context <span class="field-hint">— optional, sharpens the reading</span>
+                </label>
+                <textarea id="f-context" placeholder="Your current role, industry, years of experience, and what you'd like guidance on."></textarea>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="submit-row">
+            <span class="submit-error" id="horo-error"></span>
+            <button type="button" class="submit-btn" id="horo-generate">Generate Horoscope</button>
+        </div>
+    </div>
+
+    <div class="loading-card card" id="horo-loading" style="display:none;">
+        <div class="spinner"></div>
+        <h3 class="loading-title">Casting your chart…</h3>
+        <p class="loading-lead">
+            A proper Vedic reading is worth the wait — we're preparing a careful,
+            personalised career horoscope just for you. This usually takes
+            <strong>around 5 minutes</strong>.
+        </p>
+        <p class="loading-sub" id="loading-stage">Reading the birth chart…</p>
+        <p class="loading-note">
+            You don't have to wait on this screen — feel free to carry on, and
+            <strong>we'll let you know the moment it's ready</strong>. It'll be
+            here waiting for you when you come back.
+        </p>
+        <div class="loading-actions">
+            <button type="button" class="ghost-btn" id="notify-btn">Notify me when it's ready</button>
+        </div>
+    </div>
+
+
+    <div class="result" id="horo-result" style="display:none;"></div>
+</div>
+
+<script src="{{ asset('header.js') }}"></script>
+<script>
+    NexaHeader.init();
+
+    function getAuthHeaders(extra) {
+        const token = localStorage.getItem('we_ace_access_token') || '';
+        return Object.assign({ 'Authorization': `Bearer ${token}` }, extra || {});
+    }
+
+    const $ = id => document.getElementById(id);
+
+    function escHtml(str) {
+        return String(str == null ? '' : str)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    const COLOUR_MAP = {
+        'orange': '#f97316', 'gold': '#d4af37', 'white': '#f8fafc', 'silver': '#cbd5e1',
+        'red': '#dc2626', 'green': '#16a34a', 'yellow': '#eab308', 'light pink': '#f9a8d4',
+        'pink': '#f472b6', 'dark blue': '#1e3a8a', 'blue': '#2563eb', 'black': '#111827',
+        'smoky grey': '#78716c', 'grey': '#9ca3af', 'gray': '#9ca3af', 'brown': '#92400e',
+        'multicolour': 'linear-gradient(90deg,#ef4444,#eab308,#22c55e,#3b82f6)'
+    };
+    function colourSwatch(name) {
+        const key = String(name || '').toLowerCase().trim();
+        for (const k in COLOUR_MAP) { if (key.includes(k)) return COLOUR_MAP[k]; }
+        return '#c4b5fd';
+    }
+
+    function section(title, inner) {
+        return `<div class="sec"><h4>${escHtml(title)}</h4>${inner}</div>`;
+    }
+    function listOf(items, render) {
+        if (!Array.isArray(items) || !items.length) return '';
+        return `<ul class="list">${items.map(render).join('')}</ul>`;
+    }
+
+    function houseBlock(label, h) {
+        if (!h) return '';
+        const meta = [h.sign ? `Sign: ${escHtml(h.sign)}` : '',
+                      h.lord_placement ? `Lord: ${escHtml(h.lord_placement)}` : '',
+                      (h.occupants && h.occupants.length) ? `Occupants: ${h.occupants.map(escHtml).join(', ')}` : '',
+                      h.second ? `2nd: ${escHtml(h.second)}` : '',
+                      h.eleventh ? `11th: ${escHtml(h.eleventh)}` : '']
+                      .filter(Boolean).join(' · ');
+        return `<div class="kv">
+            <div class="kv-title">${escHtml(label)}</div>
+            ${meta ? `<div class="kv-meta">${meta}</div>` : ''}
+            <p class="muted">${escHtml(h.reading || '')}</p>
+        </div>`;
+    }
+
+    function spectrum(leftLabel, rightLabel, s) {
+        if (!s) return '';
+        const score = Math.max(0, Math.min(100, Number(s.score) || 0));
+        return `<div class="spectrum-card">
+            <div class="spectrum-ends"><span>${escHtml(leftLabel)}</span><span>${escHtml(rightLabel)}</span></div>
+            <div class="spectrum-track"><div class="spectrum-dot" style="left:${score}%"></div></div>
+            ${s.verdict ? `<div class="spectrum-verdict">${escHtml(s.verdict)}</div>` : ''}
+            ${s.basis ? `<div class="spectrum-basis">${escHtml(s.basis)}</div>` : ''}
+        </div>`;
+    }
+
+    function skeletonSec() {
+        return `<div class="skeleton-sec">
+            <div class="skeleton-line short"></div>
+            <div class="skeleton-line"></div>
+            <div class="skeleton-line med"></div>
+            <div class="skeleton-line"></div>
+        </div>`;
+    }
+
+    function render(h) {
+        if (!h || typeof h !== 'object') {
+            $('horo-result').innerHTML = `<div class="book-teaser card"><p>No reading was returned. Please try again.</p></div>`;
+            $('horo-result').style.display = 'flex';
+            return;
+        }
+
+        const arch = h.career_archetype || {};
+        const coverBody = `
+            ${arch.title ? `<div class="cover-archetype">${escHtml(arch.title)}</div>` : ''}
+            ${arch.description ? `<h3 class="cover-desc">${escHtml(arch.description)}</h3>` : ''}
+            ${h.summary ? `<p class="cover-summary">${escHtml(h.summary)}</p>` : ''}`;
+
+        const chapters = [{ title: 'Your Reading', cover: true, body: coverBody }];
+
+        // Small builders for the roomier, card-based layout.
+        const subsec = (label, body, note) => body ? `<section class="subsec">
+            <div class="subsec-head">${escHtml(label)}</div>
+            ${note ? `<p class="subsec-note">${escHtml(note)}</p>` : ''}
+            <div class="subsec-body">${body}</div></section>` : '';
+        const grid = inner => `<div class="grid2">${inner}</div>`;
+        const itemGrid = items => `<div class="item-grid">${items.join('')}</div>`;
+        const itemCard = (title, meta, body) => `<div class="item-card">
+            <div class="ic-title">${title}</div>
+            ${meta ? `<div class="ic-basis">${meta}</div>` : ''}
+            ${body ? `<p>${body}</p>` : ''}
+        </div>`;
+
+        // ── Career Houses — a card each, so the page fills out.
+        const ha = h.house_analysis || {};
+        const houseCard = (label, x) => x ? itemCard(escHtml(label),
+            [x.sign ? `Sign: ${escHtml(x.sign)}` : '',
+             x.lord_placement ? `Lord: ${escHtml(x.lord_placement)}` : '',
+             (x.occupants && x.occupants.length) ? `Occupants: ${x.occupants.map(escHtml).join(', ')}` : '',
+             x.second ? `2nd: ${escHtml(x.second)}` : '',
+             x.eleventh ? `11th: ${escHtml(x.eleventh)}` : ''].filter(Boolean).join(' · '),
+            escHtml(x.reading || '')) : '';
+        const houses = [houseCard('10th · Karma Bhava (profession)', ha.tenth_house),
+                        houseCard('6th (service & employment)', ha.sixth_house),
+                        houseCard('2nd & 11th (wealth & gains)', ha.wealth_houses),
+                        houseCard('7th (business & partnership)', ha.seventh_house)]
+                        .filter(Boolean);
+        if (houses.length) chapters.push({ title: 'Career Houses', icon: '☉',
+            intro: 'How the houses that govern work, service, wealth and partnership are set up in your chart.',
+            body: itemGrid(houses) });
+
+        // ── Where You Thrive — spectrums, then roles and fields side by side.
+        const ie = h.ideal_environment || {};
+        const spectrums = spectrum('Startup', 'Corporate', ie.startup_vs_corporate)
+                        + spectrum('Leadership', 'Specialist', ie.leadership_vs_specialist)
+                        + spectrum('Creative', 'Analytical', ie.creative_vs_analytical);
+        let envBody = spectrums ? subsec('Your spectrum', `<div class="spectrum-grid">${spectrums}</div>`) : '';
+        if (ie.ideal_roles && ie.ideal_roles.length)
+            envBody += subsec('Ideal roles', itemGrid(ie.ideal_roles.map(r =>
+                itemCard(escHtml(r.role), '', escHtml(r.why || '')))));
+        if (ie.suitable_fields && ie.suitable_fields.length)
+            envBody += subsec('Suitable fields', itemGrid(ie.suitable_fields.map(f =>
+                itemCard(escHtml(f.field), '', escHtml(f.why || '')))));
+        if (envBody) chapters.push({ title: 'Where You Thrive', icon: '🧭', body: envBody });
+
+        // ── Current cycle + timing together.
+        const cp = h.current_period || {};
+        let timingBody = '';
+        if (cp.dasha || cp.theme || (cp.opportunities || []).length || (cp.cautions || []).length) {
+            let cur = '';
+            if (cp.dasha) cur += `<div class="kv-meta">${escHtml(cp.dasha)}</div>`;
+            if (cp.theme) cur += `<p>${escHtml(cp.theme)}</p>`;
+            let cols = '';
+            if (cp.opportunities && cp.opportunities.length)
+                cols += `<div><div class="mini-head">Opportunities</div>${listOf(cp.opportunities, o => `<li>${escHtml(o)}</li>`)}</div>`;
+            if (cp.cautions && cp.cautions.length)
+                cols += `<div><div class="mini-head">Things to watch</div>${listOf(cp.cautions, c => `<li>${escHtml(c)}</li>`)}</div>`;
+            if (cols) cur += grid(cols);
+            timingBody += subsec('Where you are now', cur);
+        }
+        if (h.favourable_timing && h.favourable_timing.length) {
+            const rows = h.favourable_timing.map(t => `<div class="timing-row">
+                <div class="timing-when">${escHtml(t.window || '')}</div>
+                <div class="timing-body">
+                    <div class="timing-act">${escHtml(t.activity || '')}${t.strength ? `<span class="tag ${escHtml(String(t.strength).toLowerCase())}">${escHtml(t.strength)}</span>` : ''}</div>
+                    ${t.basis ? `<div class="timing-basis">${escHtml(t.basis)}</div>` : ''}
+                </div></div>`).join('');
+            timingBody += subsec('Windows to watch for', grid(rows));
+        }
+        if (timingBody) chapters.push({ title: 'Timing & Current Cycle', icon: '☾', body: timingBody });
+
+        // ── Lucky factors.
+        const lf = h.lucky_factors || {};
+        if (Object.keys(lf).length) {
+            const numFmt = n => `${escHtml(n.number)}${n.planet ? ` <span class="muted">(${escHtml(n.planet)})</span>` : ''}`;
+            const colFmt = c => `<span class="swatch"><span class="swatch-dot" style="background:${colourSwatch(c.colour)}"></span>${escHtml(c.colour)}${c.usage_tip ? ` <span class="muted">— ${escHtml(c.usage_tip)}</span>` : ''}</span>`;
+            let inner = '<div class="lucky-grid">';
+            if (lf.lucky_numbers && lf.lucky_numbers.length)
+                inner += `<div class="lucky-block"><h5>Lucky numbers</h5><div>${lf.lucky_numbers.map(numFmt).join(', ')}</div></div>`;
+            if (lf.unlucky_numbers && lf.unlucky_numbers.length)
+                inner += `<div class="lucky-block"><h5>Numbers to be mindful of</h5><div>${lf.unlucky_numbers.map(numFmt).join(', ')}</div></div>`;
+            if (lf.lucky_colours && lf.lucky_colours.length)
+                inner += `<div class="lucky-block"><h5>Lucky colours</h5><div>${lf.lucky_colours.map(colFmt).join('')}</div></div>`;
+            if (lf.colours_to_avoid && lf.colours_to_avoid.length)
+                inner += `<div class="lucky-block"><h5>Colours To Avoid</h5><div>${lf.colours_to_avoid.map(colFmt).join('')}</div></div>`;
+            if (lf.lucky_days && lf.lucky_days.length)
+                inner += `<div class="lucky-block"><h5>Lucky days</h5><div class="chips">${lf.lucky_days.map(d => `<span class="chip">${escHtml(d)}</span>`).join('')}</div></div>`;
+            inner += '</div>';
+            chapters.push({ title: 'Lucky & Unlucky', icon: '❖',
+                intro: 'Traditional associations you can lean on lightly — for interviews, launches and key meetings.',
+                body: inner });
+        }
+
+        // ── Future prospects — near and long term side by side.
+        const fp = h.future_prospects || {};
+        if (fp.near_term_1_3_years || fp.long_term_3_10_years) {
+            const nt = fp.near_term_1_3_years, lt = fp.long_term_3_10_years;
+            let cards = '';
+            if (nt) {
+                let c = '';
+                if (nt.outlook) c += `<p>${escHtml(nt.outlook)}</p>`;
+                if (nt.key_developments && nt.key_developments.length) c += listOf(nt.key_developments, k => `<li>${escHtml(k)}</li>`);
+                if (nt.basis) c += `<p class="muted" style="font-size:.9rem;">${escHtml(nt.basis)}</p>`;
+                cards += `<div class="item-card"><div class="ic-title">Near term · 1–3 years</div>${c}</div>`;
+            }
+            if (lt) {
+                let c = '';
+                if (lt.outlook) c += `<p>${escHtml(lt.outlook)}</p>`;
+                if (lt.career_trajectory) c += `<p>${escHtml(lt.career_trajectory)}</p>`;
+                if (lt.peak_phases && lt.peak_phases.length)
+                    c += `<div class="mini-head">Peak phases</div>` + listOf(lt.peak_phases, p => `<li><strong>${escHtml(p.period)}</strong>${p.why ? ` — ${escHtml(p.why)}` : ''}</li>`);
+                if (lt.basis) c += `<p class="muted" style="font-size:.9rem;">${escHtml(lt.basis)}</p>`;
+                cards += `<div class="item-card"><div class="ic-title">Long term · 3–10 years</div>${c}</div>`;
+            }
+            chapters.push({ title: 'Future Prospects', icon: '➶', body: `<div class="item-grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr))">${cards}</div>` });
+        }
+
+        renderBook(chapters);
+    }
+
+    function renderBook(chapters) {
+        const toc = chapters.map((c, i) =>
+            `<button class="toc-chip" data-i="${i}">${c.icon ? `<span class="toc-ico">${c.icon}</span>` : ''}${escHtml(c.title)}</button>`).join('');
+        const pages = chapters.map((c, i) => `
+            <article class="book-page${c.cover ? ' is-cover' : ''}" data-i="${i}">
+                <div class="book-page-head">
+                    <span class="book-chapter">${escHtml(c.title)}</span>
+                    <span class="book-count">${i + 1} / ${chapters.length}</span>
+                </div>
+                ${c.intro ? `<p class="chapter-intro" style="padding-bottom:2em">${escHtml(c.intro)}</p>` : ''}
+                <div class="book-page-body">${c.body}</div>
+            </article>`).join('');
+        const dots = chapters.map((_, i) => `<button class="book-dot" data-i="${i}" aria-label="Chapter ${i + 1}"></button>`).join('');
+        const el = $('horo-result');
+        el.innerHTML = `
+            <div class="book" id="book">
+                <div class="book-toc" id="book-toc">${toc}</div>
+                <div class="book-stage" id="book-stage"><div class="book-track" id="book-track">${pages}</div></div>
+                <div class="book-nav">
+                    <button class="book-arrow" id="book-prev" aria-label="Previous chapter">‹</button>
+                    <div class="book-dots" id="book-dots">${dots}</div>
+                    <button class="book-arrow" id="book-next" aria-label="Next chapter">›</button>
+                </div>
+            </div>`;
+        el.style.display = 'flex';
+        initBook(chapters.length);
+    }
+
+    let bookKeyHandler = null;
+    function initBook(n) {
+        let i = 0;
+        const track = $('book-track'), stage = $('book-stage');
+        const prev = $('book-prev'), next = $('book-next');
+        const dots = Array.from(document.querySelectorAll('#book-dots .book-dot'));
+        const chips = Array.from(document.querySelectorAll('#book-toc .toc-chip'));
+        const pages = Array.from(document.querySelectorAll('#book-track .book-page'));
+
+        function setHeight() { const p = pages[i]; if (p) stage.style.height = p.offsetHeight + 'px'; }
+        function update() {
+            track.style.transform = `translateX(${-i * 100}%)`;
+            prev.disabled = (i === 0);
+            next.disabled = (i === n - 1);
+            dots.forEach((d, k) => d.classList.toggle('active', k === i));
+            chips.forEach((c, k) => c.classList.toggle('active', k === i));
+            pages.forEach((p, k) => p.classList.toggle('is-active', k === i));
+            const chip = chips[i];
+            if (chip && chip.scrollIntoView) chip.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+            setHeight();
+        }
+        function goTo(k) { i = Math.max(0, Math.min(n - 1, k)); update(); }
+
+        prev.addEventListener('click', () => goTo(i - 1));
+        next.addEventListener('click', () => goTo(i + 1));
+        dots.forEach(d => d.addEventListener('click', () => goTo(+d.dataset.i)));
+        chips.forEach(c => c.addEventListener('click', () => { goTo(+c.dataset.i); $('book').scrollIntoView({ behavior: 'smooth', block: 'start' }); }));
+
+        // Arrow keys flip pages (but let form fields keep their own key handling).
+        if (bookKeyHandler) document.removeEventListener('keydown', bookKeyHandler);
+        bookKeyHandler = (e) => {
+            if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+            if (e.key === 'ArrowLeft') goTo(i - 1);
+            else if (e.key === 'ArrowRight') goTo(i + 1);
+        };
+        document.addEventListener('keydown', bookKeyHandler);
+
+        // Swipe on touch devices.
+        let x0 = null;
+        stage.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; }, { passive: true });
+        stage.addEventListener('touchend', e => {
+            if (x0 == null) return;
+            const dx = e.changedTouches[0].clientX - x0;
+            if (Math.abs(dx) > 50) goTo(i + (dx < 0 ? 1 : -1));
+            x0 = null;
+        }, { passive: true });
+
+        window.addEventListener('resize', setHeight);
+        // Recompute once the serif font has loaded, so nothing gets clipped.
+        if (document.fonts && document.fonts.ready) document.fonts.ready.then(setHeight);
+        requestAnimationFrame(() => { update(); setTimeout(setHeight, 60); });
+    }
+
+    // ── Async generation ─────────────────────────────────────────────
+    // The reading takes minutes, so the POST only starts a background job; the
+    // page then polls for progress and the result, which also means it survives
+    // a reload or the user wandering off and coming back.
+    const POLL_MS = 4000;
+    const STAGE_TEXT = {
+        reading: 'Casting your chart and interpreting your career houses, dashas and transits…',
+        done:    'Your reading is ready.'
+    };
+    let pollTimer = null;
+    let notifyWanted = false;
+    let lastStatus = null;
+
+    function showForm()    { $('horo-form').style.display = ''; $('horo-loading').style.display = 'none'; }
+    function showLoading() { $('horo-form').style.display = 'none'; $('horo-loading').style.display = 'block'; }
+
+    function setStage(stage) {
+        const el = $('loading-stage');
+        if (el && stage && STAGE_TEXT[stage]) el.textContent = STAGE_TEXT[stage];
+    }
+
+    function fireNotification() {
+        if (!notifyWanted) return;
+        if (!('Notification' in window) || Notification.permission !== 'granted') return;
+        // Only nudge if they've actually looked away.
+        if (!document.hidden) return;
+        try {
+            const n = new Notification('Your career horoscope is ready', {
+                body: 'Your personalised Vedic career reading has finished. Tap to view it.',
+                icon: document.getElementById('app-favicon') ? document.getElementById('app-favicon').href : undefined
+            });
+            n.onclick = () => { window.focus(); n.close(); };
+        } catch (e) { /* notifications are best-effort */ }
+    }
+
+    function stopPolling() { if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; } }
+
+    function formatWhen(ts) {
+        if (!ts) return '';
+        try {
+            const d = new Date(ts * 1000);
+            return 'Generated ' + d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
+                 + ' at ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+        } catch (e) { return ''; }
+    }
+
+    function showSavedBar(ts) {
+        const btn = $('regenerate-btn');
+        if (!btn) return;
+        btn.title = formatWhen(ts);
+        btn.style.display = 'inline-block';
+    }
+    function hideSavedBar() { const b = $('regenerate-btn'); if (b) b.style.display = 'none'; }
+
+    function prefillInputs(inputs) {
+        if (!inputs) return;
+        if (inputs.place_of_birth && $('f-place')) $('f-place').value = inputs.place_of_birth;
+        if (inputs.birth_date && $('f-date')) $('f-date').value = inputs.birth_date;
+        if (inputs.birth_time && $('f-time')) $('f-time').value = inputs.birth_time;
+    }
+
+    // The saved-report view: reading on show, the form tucked away behind the
+    // Regenerate button, and the birth details kept for when they regenerate.
+    function presentDone(data) {
+        $('horo-loading').style.display = 'none';
+        $('horo-form').style.display = 'none';
+        render(data.result);
+        showSavedBar(data.done_at);
+        prefillInputs(data.inputs);
+    }
+
+    function applyState(data) {
+        const status = data.status;
+        const btn = $('horo-generate');
+
+        if (status === 'running') {
+            hideSavedBar();
+            showLoading();
+            setStage(data.stage || 'reading');
+            btn.disabled = true;
+        } else if (status === 'done') {
+            stopPolling();
+            presentDone(data);
+            btn.disabled = false;
+            if (lastStatus && lastStatus !== 'done') fireNotification();
+        } else if (status === 'error') {
+            stopPolling();
+            // A failed run keeps any earlier saved reading — show it rather than
+            // leaving the user with nothing.
+            if (data.result) { render(data.result); showSavedBar(data.done_at); }
+            prefillInputs(data.inputs);
+            $('horo-form').style.display = '';
+            $('horo-loading').style.display = 'none';
+            $('horo-error').textContent = data.error || 'Could not generate the horoscope. Please try again.';
+            btn.disabled = false;
+        } else {
+            // idle — nothing has ever run
+            btn.disabled = false;
+        }
+        lastStatus = status;
+    }
+
+    async function pollOnce() {
+        try {
+            const res = await fetch('/api/career-horoscope/status', {
+                headers: getAuthHeaders(), credentials: 'include'
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Status check failed.');
+            applyState(data);
+            if (data.status === 'running') {
+                pollTimer = setTimeout(pollOnce, POLL_MS);
+            }
+        } catch (e) {
+            // Transient network blips shouldn't kill the poll loop — try again.
+            pollTimer = setTimeout(pollOnce, POLL_MS);
+        }
+    }
+
+    function startPolling() { stopPolling(); pollOnce(); }
+
+    async function generate() {
+        const place = $('f-place').value.trim();
+        const date = $('f-date').value;
+        const time = $('f-time').value;
+        const contextEl = $('f-context');
+        const context = contextEl ? contextEl.value.trim() : '';
+        const errEl = $('horo-error');
+        errEl.textContent = '';
+
+        if (!place || !date) {
+            errEl.textContent = 'Please fill in your place of birth and date of birth.';
+            return;
+        }
+
+        const btn = $('horo-generate');
+        btn.disabled = true;
+        hideSavedBar();
+        $('horo-result').style.display = 'none';
+        $('horo-result').innerHTML = '';
+        showLoading();
+        setStage('chart');
+        requestNotifyPermission();  // offer the notification up front
+
+        try {
+            const res = await fetch('/api/career-horoscope', {
+                method: 'POST',
+                headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+                credentials: 'include',
+                body: JSON.stringify({
+                    place_of_birth: place, birth_date: date,
+                    birth_time: time, professional_context: context
+                })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Something went wrong.');
+            lastStatus = 'running';
+            startPolling();
+        } catch (e) {
+            errEl.textContent = e.message || 'Could not start the horoscope. Please try again.';
+            showForm();
+            btn.disabled = false;
+        }
+    }
+
+    function requestNotifyPermission() {
+        if (!('Notification' in window)) return;
+        if (Notification.permission === 'granted') { notifyWanted = true; return; }
+        if (Notification.permission !== 'denied') {
+            Notification.requestPermission().then(p => { notifyWanted = (p === 'granted'); });
+        }
+    }
+
+    $('horo-generate').addEventListener('click', generate);
+    const notifyBtn = $('notify-btn');
+    if (notifyBtn) notifyBtn.addEventListener('click', () => {
+        requestNotifyPermission();
+        notifyBtn.textContent = ('Notification' in window && Notification.permission === 'granted')
+            ? "We'll notify you when it's ready ✓" : notifyBtn.textContent;
+    });
+
+    // Regenerate reveals the (pre-filled) form so the user can rerun as-is or
+    // tweak a detail first. The saved reading stays on screen below until they
+    // actually start a new run.
+    const regenBtn = $('regenerate-btn');
+    if (regenBtn) regenBtn.addEventListener('click', () => {
+        hideSavedBar();
+        $('horo-error').textContent = '';
+        $('horo-form').style.display = '';
+        $('horo-form').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if ($('f-place')) $('f-place').focus();
+    });
+
+    // On load, pick up any run already in progress — or a previously saved
+    // reading — so a reload or a return visit lands the user right back where
+    // they left off.
+    (function resume() {
+        fetch('/api/career-horoscope/status', { headers: getAuthHeaders(), credentials: 'include' })
+            .then(r => r.ok ? r.json() : null)
+            .then(data => {
+                if (!data) return;
+                if (data.status === 'running') {
+                    lastStatus = data.status;
+                    applyState(data);
+                    startPolling();
+                } else {
+                    // done / error / idle — applyState shows the saved reading (if
+                    // any) and pre-fills the form. lastStatus is still null here,
+                    // so a finished reading won't fire a notification on load.
+                    applyState(data);
+                }
+            })
+            .catch(() => { /* not critical on load */ });
+    })();
+</script>
+</body>
+</html>

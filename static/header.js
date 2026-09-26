@@ -487,6 +487,8 @@ const NexaHeader = (() => {
         show('tab-talk', !isWeaceAdmin);
         show('language-menu-wrap', !isWeaceAdmin);
         show('my-insights-link', !isWeaceAdmin);
+        // Career Horoscope ships with Nexa Pro, same as Daily Pulse.
+        show('career-horoscope-link', !isWeaceAdmin && hasPulse);
         show('pulse-link', !isWeaceAdmin && hasPulse);
         // Mirrors the server-rendered label in _header.html: a corporate super
         // admin gets the org-wide Pulse Dashboard at the same /pulse route, not

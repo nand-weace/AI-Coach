@@ -9,7 +9,12 @@ from functools import wraps
 from flask import Flask, request, jsonify, render_template, session, redirect, g
 from dotenv import load_dotenv
 from ai_coach import SYSTEM_INSTRUCTION
-from prompt import COACHING_MODE, MENTORING_MODE
+from prompt import (
+    COACHING_MODE,
+    MENTORING_MODE,
+    CAREER_HOROSCOPE_PROMPT,
+    CAREER_DAILY_HOROSCOPE_PROMPT,
+)
 from database import (
     init_db,
     create_chat_session,
@@ -209,6 +214,9 @@ _org_licence_cache: dict = {}  # org_slug -> (expires_at, licence)
 PULSE_LICENCE = 'pro'   # the tier Daily Pulse is bundled with
 PULSE_UPGRADE_MESSAGE = ('Daily Pulse is part of Nexa Pro. '
                          'Talk to WeAce about upgrading your organisation.')
+# Career Horoscope ships with the same licence tier as Daily Pulse.
+HOROSCOPE_UPGRADE_MESSAGE = ('Career Horoscope is part of Nexa Pro. '
+                             'Talk to WeAce about upgrading your organisation.')
 
 
 def _get_org_licence_cached(org_slug: str | None) -> str:
@@ -2254,6 +2262,362 @@ def my_insights():
         show_org_tabs=_has_role(session.get('role'), 'corporate_super_admin'),
         show_admin=_has_role(session.get('role'), 'weace_super_admin'),
     )
+
+
+# Birth details are remembered per user, separate from any single reading, so
+# the form comes back pre-filled every time — even before a first reading, and
+# regardless of whether the last run finished. Kept as its own row in the
+# generic per-user JSON store (no schema change needed).
+_HOROSCOPE_BIRTH = 'career_birth_details'
+
+
+def _get_birth_details(user_id: str) -> dict:
+    try:
+        d = get_user_insight_report(user_id, _HOROSCOPE_BIRTH) or {}
+    except Exception:
+        d = {}
+    return {
+        'place_of_birth': d.get('place_of_birth') or '',
+        'birth_date': d.get('birth_date') or '',
+        'birth_time': d.get('birth_time') or '',
+    }
+
+
+def _save_birth_details(user_id: str, place: str, birth_date: str, birth_time: str):
+    try:
+        upsert_user_insight_report(user_id, _HOROSCOPE_BIRTH, {
+            'place_of_birth': place,
+            'birth_date': birth_date,
+            'birth_time': birth_time,
+        })
+    except Exception:
+        logger.warning('[career-horoscope] could not save birth details for user_id=%s',
+                       user_id, exc_info=True)
+
+
+@app.route('/career-horoscope')
+def career_horoscope_page():
+    """Career Horoscope — a Vedic (Jyotish) career reading generated from the
+    user's birth details. Renders the input form; the reading itself is produced
+    on demand by /api/career-horoscope. Ships with Nexa Pro, same as Daily
+    Pulse — an organisation on Nexa Regular doesn't have the page to open."""
+    if 'user_id' not in session:
+        return redirect('/')
+    if not _has_pulse(session.get('org_slug')):
+        return redirect('/')
+    name = session['user_name']
+    initials = ''.join(w[0].upper() for w in name.split()[:2])
+    # When we already hold a scraped LinkedIn profile, the reading draws its
+    # professional context from there, so the form doesn't ask for it again.
+    has_linkedin = bool(_get_linkedin_cached(session['user_id']).get('profile'))
+    return render_template('career_horoscope.html',
+        user_name=name,
+        initials=initials,
+        profile_image=session.get('profile_image', ''),
+        org_name=session.get('org_name', 'Organisation'),
+        refresh_token=session.get('refresh_token', ''),
+        has_linkedin=has_linkedin,
+        birth=_get_birth_details(session['user_id']),
+        # shared header (_header.html)
+        active_tab='career-horoscope',
+        show_pulse=_has_pulse(session.get('org_slug')),
+        show_org_tabs=_has_role(session.get('role'), 'corporate_super_admin'),
+        show_admin=_has_role(session.get('role'), 'weace_super_admin'),
+    )
+
+
+def _parse_json_reply(text: str) -> dict:
+    """Pull a JSON object out of a model reply that may be fenced or padded."""
+    import json
+    raw = (text or '').strip()
+    if raw.startswith('```'):
+        # Strip a leading ```json / ``` fence and its closing fence.
+        raw = re.sub(r'^```[a-zA-Z]*\n?', '', raw)
+        raw = re.sub(r'\n?```\s*$', '', raw).strip()
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        # Fall back to the outermost braces if there's stray prose around it.
+        start, end = raw.find('{'), raw.rfind('}')
+        if start != -1 and end != -1 and end > start:
+            return json.loads(raw[start:end + 1])
+        raise
+
+
+def _horoscope_reply(system: str, user_block: str, max_tokens: int = 16000) -> str:
+    """A single, tool-free Claude call that returns the horoscope JSON.
+
+    The reading needs no web access, so this deliberately skips WEB_TOOLS /
+    CLIENT_TOOLS and the pause/resume loop in `_claude_reply` — those only add
+    latency and extra round-trips that can push the request past the worker
+    timeout (seen as a 502). The token budget is large because the schema is
+    big: too small and the reply is cut off mid-JSON, which then fails to parse.
+    """
+    resp = client.messages.create(
+        model=AI_MODEL,
+        max_tokens=max_tokens,
+        system=system,
+        messages=[{"role": "user", "content": user_block}],
+    )
+    if getattr(resp, 'stop_reason', None) == 'max_tokens':
+        logger.warning('[career-horoscope] hit max_tokens (%s); JSON likely truncated',
+                       max_tokens)
+    return _reply_text(resp)
+
+
+# A full career reading is a long generation (minutes, not seconds), so it can't
+# sit inside a request without tripping the worker timeout. It runs on a
+# background thread instead, and the page polls for progress.
+#
+# State lives in the DB (user_insight_reports), not memory: gunicorn runs several
+# workers, and the thread that owns the run is rarely the one a later poll lands
+# on. A stored row is the same answer from every worker and survives a restart.
+_HOROSCOPE_JOB = 'career_horoscope'
+_HOROSCOPE_STALE_SECS = 900   # a run still 'running' past this is assumed dead
+
+
+def _horoscope_job_set(user_id: str, **fields):
+    """Merge `fields` into the stored job row, stamping when it started."""
+    job = get_user_insight_report(user_id, _HOROSCOPE_JOB) or {}
+    job.update(fields)
+    if 'started_at' not in job:
+        job['started_at'] = time.time()
+    upsert_user_insight_report(user_id, _HOROSCOPE_JOB, job)
+
+
+def _horoscope_job_state(user_id: str) -> dict:
+    """The run as any worker sees it. Status is one of 'idle' (never run),
+    'running', 'done', or 'error'. A 'running' row older than the stale window
+    is reported as an error — the thread that owned it is gone and nothing
+    will finish it."""
+    job = get_user_insight_report(user_id, _HOROSCOPE_JOB)
+    if not job:
+        return {'status': 'idle'}
+    status = job.get('status') or 'idle'
+    if status == 'running' and \
+            time.time() - (job.get('started_at') or 0) > _HOROSCOPE_STALE_SECS:
+        # The run is dead, but any earlier saved reading is still worth keeping.
+        return {'status': 'error',
+                'error': 'That reading stopped before it finished. Please try again.',
+                'result': job.get('result'),
+                'inputs': job.get('inputs'),
+                'done_at': job.get('done_at')}
+    return {
+        'status': status,
+        'stage': job.get('stage'),
+        'result': job.get('result'),
+        'inputs': job.get('inputs'),
+        'error': job.get('error'),
+        'started_at': job.get('started_at'),
+        'done_at': job.get('done_at'),
+    }
+
+
+def _run_horoscope_job(user_id: str, system_full: str, user_block: str):
+    """Single-call generation on a background thread.
+
+    Earlier this ran a fast "teaser" call first (headline + archetype) so the
+    page had something to show within seconds, then a second call for the full
+    reading. That doubled the model calls — and the input tokens (the birth
+    details / professional-context block) for a run that already returns the
+    summary and archetype as the first fields of the full JSON. It's cheaper
+    to make one call and let the page just show a loading state until it lands.
+    """
+    started = time.time()
+    try:
+        horoscope = _parse_json_reply(_horoscope_reply(system_full, user_block))
+    except Exception:
+        logger.exception('[career-horoscope] reading failed for user_id=%s', user_id)
+        _horoscope_job_set(user_id, status='error',
+                           error='Could not complete the reading. Please try again.',
+                           started_at=started)
+        return
+    _horoscope_job_set(user_id, status='done', stage='done',
+                       result=horoscope, error=None,
+                       started_at=started, done_at=time.time())
+
+
+@app.route('/api/career-horoscope', methods=['POST'])
+@require_weace_token
+def career_horoscope_generate():
+    """Kick off a career-horoscope run and return straight away.
+
+    The reading takes minutes, so this starts a background job and the page
+    polls /api/career-horoscope/status for progress and the result.
+
+    The astrologer prompt is written to read a *pre-computed* chart. This
+    deployment has no ephemeris/chart service wired in yet, so we pass the raw
+    birth details and let the reader work from them at reduced confidence —
+    integrate a chart provider here to feed real D1/D10, dasha and transit data.
+    """
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    if not _has_pulse((g.user.get('org_id') or '').strip()):
+        return jsonify({'error': HOROSCOPE_UPGRADE_MESSAGE}), 403
+    if client is None:
+        return jsonify({'error': 'The horoscope service is not available right now.'}), 503
+
+    user_id = g.user['user_id']
+    # A second click while one is in flight joins the run already going rather
+    # than starting a competing one.
+    if _horoscope_job_state(user_id)['status'] == 'running':
+        return jsonify({'ok': True, 'status': 'running'})
+
+    data = request.get_json(silent=True) or {}
+    # Name is the authenticated user's, never taken from the form.
+    name = g.user['user_name']
+    place = (data.get('place_of_birth') or '').strip()
+    birth_date = (data.get('birth_date') or '').strip()
+    birth_time = (data.get('birth_time') or '').strip()
+
+    # Professional context comes from the scraped LinkedIn profile when we have
+    # one; only then is the form's free-text field asked for and used.
+    linkedin_data = _get_linkedin_cached(user_id)
+    linkedin_summary = linkedin.profile_summary(linkedin_data.get('profile') or {}) \
+        if linkedin_data else ''
+    if linkedin_summary:
+        context = f"From the user's LinkedIn profile:\n{linkedin_summary}"
+    else:
+        context = (data.get('professional_context') or '').strip()
+
+    missing = [label for label, val in (
+        ('place of birth', place), ('birth date', birth_date)
+    ) if not val]
+    if missing:
+        return jsonify({'error': f"Please provide: {', '.join(missing)}."}), 400
+
+    # Remember the birth details for next time, so the form is pre-filled on
+    # return regardless of how this run turns out.
+    _save_birth_details(user_id, place, birth_date, birth_time)
+
+    # Write the reading in the user's chosen coaching language, mapped to the
+    # prompt-facing name (e.g. 'Chinese' -> 'Chinese (Simplified)').
+    lang_code = get_user_language(user_id) or DEFAULT_LANGUAGE
+    language = SUPPORTED_LANGUAGES.get(lang_code, (lang_code, lang_code))[1]
+    system = CAREER_HOROSCOPE_PROMPT.replace('{{language}}', language)
+
+    time_line = birth_time if birth_time else 'Unknown / not provided (interpret from Chandra lagna and lower the confidence for house-based sections)'
+    user_block = (
+        "BIRTH_DETAILS\n"
+        f"- Name: {name}\n"
+        f"- Place of birth: {place}\n"
+        f"- Date of birth: {birth_date}\n"
+        f"- Time of birth: {time_line}\n\n"
+        "PROFESSIONAL_CONTEXT\n"
+        f"{context if context else 'Not provided.'}\n\n"
+        "NOTE_ON_DATA\n"
+        "No pre-computed chart, dasha or transit data has been supplied by a "
+        "chart service for this request. Derive the reading as best you can from "
+        "the birth details above, mark anything you cannot determine as "
+        "unavailable rather than inventing it, and lower your confidence in "
+        "house-based sections accordingly. Return ONLY the JSON object from the schema."
+    )
+
+    # Keep any previously saved reading in place while the new one is generated,
+    # so a regenerate never blanks the report the user already had (and a failed
+    # regenerate leaves the old one intact). `inputs` are stored so the form can
+    # be pre-filled when they come back to regenerate.
+    _horoscope_job_set(user_id, status='running', stage='reading',
+                       error=None, started_at=time.time(),
+                       inputs={'place_of_birth': place, 'birth_date': birth_date,
+                               'birth_time': birth_time})
+    threading.Thread(
+        target=_run_horoscope_job,
+        args=(user_id, system, user_block),
+        daemon=True,
+    ).start()
+    return jsonify({'ok': True, 'status': 'running'}), 202
+
+
+@app.route('/api/career-horoscope/status')
+@require_weace_token
+def career_horoscope_status():
+    """Where the run is: status, the progress stage, and the full reading once
+    it's done. The page polls this."""
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    if not _has_pulse((g.user.get('org_id') or '').strip()):
+        return jsonify({'error': HOROSCOPE_UPGRADE_MESSAGE}), 403
+    try:
+        return jsonify(_horoscope_job_state(g.user['user_id']))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ── Daily Horoscope ─────────────────────────────────────────────────────────
+# A short, separate note from the full reading above: one quick call, cached
+# per calendar day, with a manual refresh button on the page. It needs the
+# same birth details as the full reading, so it only lights up once those are
+# on file (i.e. after a first career horoscope has been generated).
+_HOROSCOPE_DAILY = 'career_daily_horoscope'
+
+
+def _generate_daily_horoscope(name: str, birth: dict, language: str) -> dict:
+    from datetime import date
+    today = date.today().isoformat()
+    system = CAREER_DAILY_HOROSCOPE_PROMPT.replace('{{language}}', language)
+    time_line = birth.get('birth_time') or 'Unknown / not provided'
+    user_block = (
+        "BIRTH_DETAILS\n"
+        f"- Name: {name}\n"
+        f"- Place of birth: {birth.get('place_of_birth', '')}\n"
+        f"- Date of birth: {birth.get('birth_date', '')}\n"
+        f"- Time of birth: {time_line}\n\n"
+        f"TODAY'S DATE: {today}\n\n"
+        "Return ONLY the JSON object from the schema, written for today's date above."
+    )
+    data = _parse_json_reply(_horoscope_reply(system, user_block, max_tokens=800))
+    data['date'] = today
+    return data
+
+
+def _daily_horoscope_response(user_id: str, name: str, force: bool):
+    birth = _get_birth_details(user_id)
+    if not birth.get('place_of_birth') or not birth.get('birth_date'):
+        return jsonify({'error': 'Generate your career horoscope first so we know your birth details.'}), 400
+    if client is None:
+        return jsonify({'error': 'The horoscope service is not available right now.'}), 503
+
+    from datetime import date
+    today = date.today().isoformat()
+    if not force:
+        cached = get_user_insight_report(user_id, _HOROSCOPE_DAILY)
+        if cached and cached.get('date') == today:
+            return jsonify({'daily': cached})
+
+    lang_code = get_user_language(user_id) or DEFAULT_LANGUAGE
+    language = SUPPORTED_LANGUAGES.get(lang_code, (lang_code, lang_code))[1]
+    try:
+        data = _generate_daily_horoscope(name, birth, language)
+    except Exception:
+        logger.exception('[career-horoscope] daily generation failed for user_id=%s', user_id)
+        return jsonify({'error': "Could not load today's horoscope. Please try again."}), 502
+
+    upsert_user_insight_report(user_id, _HOROSCOPE_DAILY, data)
+    return jsonify({'daily': data})
+
+
+@app.route('/api/career-horoscope/daily')
+@require_weace_token
+def career_horoscope_daily():
+    """Today's short career note. Cached for the day — generated once, then
+    served as-is until the manual refresh button or the date rolls over."""
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    if not _has_pulse((g.user.get('org_id') or '').strip()):
+        return jsonify({'error': HOROSCOPE_UPGRADE_MESSAGE}), 403
+    return _daily_horoscope_response(g.user['user_id'], g.user['user_name'], force=False)
+
+
+@app.route('/api/career-horoscope/daily/refresh', methods=['POST'])
+@require_weace_token
+def career_horoscope_daily_refresh():
+    """Manually regenerate today's note, replacing whatever was cached."""
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    if not _has_pulse((g.user.get('org_id') or '').strip()):
+        return jsonify({'error': HOROSCOPE_UPGRADE_MESSAGE}), 403
+    return _daily_horoscope_response(g.user['user_id'], g.user['user_name'], force=True)
 
 
 @app.route('/api/my-analytics')
