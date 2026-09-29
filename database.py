@@ -255,6 +255,43 @@ def init_db():
                     UNIQUE KEY uniq_user_report (user_id, report_type)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """)
+            # Every "What's likely to happen?" question on the Career page and
+            # the reading it got, kept in full. The latest one is also cached in
+            # user_insight_reports ('career_situation_reading') for the page.
+            _execute(cur,"""
+                CREATE TABLE IF NOT EXISTS career_situation_readings (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id VARCHAR(36) NOT NULL,
+                    org_slug VARCHAR(255) DEFAULT NULL,
+                    situation TEXT NOT NULL,
+                    outlook VARCHAR(20) DEFAULT NULL,
+                    prediction TEXT,
+                    basis TEXT,
+                    chart_working TEXT,
+                    language VARCHAR(50) DEFAULT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    INDEX idx_user_created (user_id, created_at)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """)
+            # One-off backfill: readings saved before the history table existed
+            # only survive as each user's latest cached row. Carry those over
+            # the first time the table is empty so no past reading is lost.
+            _execute(cur, "SELECT COUNT(*) AS cnt FROM career_situation_readings")
+            if cur.fetchone()['cnt'] == 0:
+                _execute(cur,"""
+                    INSERT INTO career_situation_readings
+                        (user_id, situation, outlook, prediction, basis, created_at)
+                    SELECT user_id,
+                           JSON_UNQUOTE(JSON_EXTRACT(report_data, '$.situation')),
+                           JSON_UNQUOTE(JSON_EXTRACT(report_data, '$.outlook')),
+                           JSON_UNQUOTE(COALESCE(JSON_EXTRACT(report_data, '$.prediction'),
+                                                 JSON_EXTRACT(report_data, '$.likely_outcome'))),
+                           JSON_UNQUOTE(JSON_EXTRACT(report_data, '$.basis')),
+                           calculated_at
+                    FROM user_insight_reports
+                    WHERE report_type = 'career_situation_reading'
+                      AND JSON_EXTRACT(report_data, '$.situation') IS NOT NULL
+                """)
             # ── Daily Pulse ──────────────────────────────────────────────
             # Deliberately split in two so no row anywhere ties a note to the
             # person who wrote it.
@@ -1852,6 +1889,52 @@ def upsert_user_insight_report(user_id: str, report_type: str, report_data: dict
                 (user_id, report_type, json.dumps(report_data)),
             )
         conn.commit()
+    finally:
+        conn.close()
+
+
+def add_career_situation_reading(user_id: str, reading: dict, org_slug: str = None,
+                                 chart_working: str = None, language: str = None) -> int:
+    """Append one situation question and its reading to the user's history."""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur,
+                """
+                INSERT INTO career_situation_readings
+                    (user_id, org_slug, situation, outlook, prediction, basis,
+                     chart_working, language)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                (user_id, org_slug or None, reading.get('situation') or '',
+                 reading.get('outlook') or None, reading.get('prediction') or '',
+                 reading.get('basis') or '', chart_working or None, language or None),
+            )
+            new_id = cur.lastrowid
+        conn.commit()
+        return new_id
+    finally:
+        conn.close()
+
+
+def get_career_situation_history(user_id: str, limit: int = 50) -> list:
+    """The user's situation readings, newest first. chart_working is the
+    model's private grounding and is deliberately not returned."""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur,
+                """
+                SELECT id, situation, outlook, prediction, basis, created_at
+                FROM career_situation_readings
+                WHERE user_id = %s
+                ORDER BY id DESC
+                LIMIT %s
+                """,
+                (user_id, limit),
+            )
+            rows = cur.fetchall()
+        return [dict(r, created_at=str(r['created_at'])) for r in rows]
     finally:
         conn.close()
 

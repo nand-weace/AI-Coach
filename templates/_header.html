@@ -7,8 +7,9 @@
     active_subtab  'platform' | 'corporates' | 'cost' — which Admin page is open, for the
                    sub-nav under the Admin tab.
     show_pulse     true when the user's organisation is on a licence that
-                   includes Daily Pulse (Nexa Pro). The chat page leaves it
-                   hidden and header.js reveals it from /session.
+                   includes Daily Pulse and Career Horoscope (Nexa Pro). The
+                   chat page leaves both hidden and header.js reveals them
+                   from /session.
     show_org_tabs  true to render Sentiment Analysis / Corporate Knowledge as
                    visible (the dashboard, which is role-gated server-side).
                    The chat page leaves them hidden and lets script.js reveal
@@ -75,6 +76,30 @@
              <a class="app-subtab" href="/my-insights#sentiment" data-subtab="sentiment">Sentiment Analysis</a>
             <a class="app-subtab" href="/my-insights#growth" data-subtab="growth">Growth Mirror</a>
             <a class="app-subtab" href="/my-insights#recs" data-subtab="recs">Resources</a>
+        </div>
+
+        {# Career — the career horoscope from the user's birth details, with
+           its three views as a sub-nav below. Personal to the user, so it sits
+           alongside the other personal tabs and is hidden for a WeAce super
+           admin. Ships with Nexa Pro, same as Daily Pulse — `show_pulse` gates
+           both. #}
+        <a id="career-horoscope-link" href="/career-horoscope"
+           class="app-tab{% if active_tab == 'career-horoscope' %} active{% endif %}"
+           {% if active_tab == 'career-horoscope' %}aria-current="page"{% endif %}
+           {% if show_admin or not show_pulse %}style="display:none;"{% endif %}>
+            <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2l2.4 6.9H22l-6 4.4 2.3 7-6.3-4.6L5.7 20l2.3-7-6-4.4h7.6z"/>
+            </svg>
+            Career
+        </a>
+
+        {# The views on /career-horoscope, addressed by URL hash like the
+           My Insights reports; Daily Horoscope is the page's default (no hash). #}
+        <div class="app-subnav" id="career-subnav"
+             {% if show_admin or not show_pulse %}style="display:none;"{% endif %}>
+            <a class="app-subtab" href="/career-horoscope#daily" data-subtab="daily">Daily Horoscope</a>
+            <a class="app-subtab" href="/career-horoscope#reading" data-subtab="reading">Career Reading</a>
+            <a class="app-subtab" href="/career-horoscope#futures" data-subtab="futures">Career Futures</a>
         </div>
 
         {# Daily Pulse ships with Nexa Pro, so `show_pulse` decides whether this
@@ -145,28 +170,6 @@
         </button>
     </nav>
 
-    {# Tip of the day — moved out of My Insights so it is there on every page.
-       header.js fills it in after load and leaves the block hidden when there
-       is no session yet, no tip, or the request fails. #}
-    <div class="sidebar-tip" id="sidebar-tip" hidden>
-        <div class="sidebar-tip-head">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M9 18h6"/><path d="M10 22h4"/>
-                <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/>
-            </svg>
-            <span>Tip of the day</span>
-            <button type="button" class="sidebar-tip-new" id="sidebar-tip-refresh"
-                    title="Write me a different tip" aria-label="Write me a different tip">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <polyline points="23 4 23 10 17 10"/>
-                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
-                </svg>
-            </button>
-        </div>
-        <div class="sidebar-tip-headline" id="sidebar-tip-headline"></div>
-        <div class="sidebar-tip-do" id="sidebar-tip-do"></div>
-    </div>
-
     {# Fills the gap between the nav and the user chip. The claim is deliberately
        exact: org admins can see activity counts on the dashboard, never message
        content or anyone's personal insights. #}
@@ -176,9 +179,7 @@
         </svg>
         <div>
             <div class="sidebar-privacy-title">Private to you</div>
-            <p>Your conversations with Nexa, and the insights drawn from them, are
-               visible only to you — never your manager, your team, or anyone at
-               your organisation.</p>
+            <p>Your chats and insights are visible only to you, never your organisation.</p>
         </div>
     </div>
 
