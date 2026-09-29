@@ -105,21 +105,25 @@ const NexaHeader = (() => {
         }
     }
 
-    // ── My Insights sub-nav ─────────────────────────────────────────────────
-    // The reports are addressed by URL hash, so the highlight follows the hash
+    // ── Hash-addressed sub-navs (My Insights, Career) ───────────────────────
+    // The views are addressed by URL hash, so the highlight follows the hash
     // rather than a click: it also has to be right after a back/forward or a
-    // tab switched from inside the page itself. 'sentiment' is the report
-    // my_insights.html opens on when the hash is empty (its DEFAULT_TAB).
-    const DEFAULT_SUBTAB = 'sentiment';
+    // tab switched from inside the page itself. The default is the view each
+    // page opens on when the hash is empty.
+    const HASH_SUBNAVS = [
+        { nav: 'my-insights-subnav', path: '/my-insights',      def: 'sentiment' },
+        { nav: 'career-subnav',      path: '/career-horoscope', def: 'daily' },
+    ];
 
     function syncSubnav() {
-        // Scoped to My Insights: the Admin sub-nav is server-rendered and marks
-        // its own current page, so clearing every .app-subtab would unmark it.
-        const subs = document.querySelectorAll('#my-insights-subnav .app-subtab');
-        if (!subs.length) return;
-        const onPage = window.location.pathname.replace(/\/+$/, '') === '/my-insights';
-        const current = onPage ? (window.location.hash.slice(1) || DEFAULT_SUBTAB) : null;
-        subs.forEach(a => a.classList.toggle('active', a.dataset.subtab === current));
+        // Scoped to these sub-navs: the Admin sub-nav is server-rendered and
+        // marks its own current page, so clearing every .app-subtab would unmark it.
+        const here = window.location.pathname.replace(/\/+$/, '');
+        HASH_SUBNAVS.forEach(({ nav, path, def }) => {
+            const subs = document.querySelectorAll(`#${nav} .app-subtab`);
+            const current = here === path ? (window.location.hash.slice(1) || def) : null;
+            subs.forEach(a => a.classList.toggle('active', a.dataset.subtab === current));
+        });
     }
 
     // ── Off-canvas panel (under 900px) ──────────────────────────────────────
@@ -247,68 +251,6 @@ const NexaHeader = (() => {
         $('corp-content-cancel').addEventListener('click', closeModal);
         $('corp-content-close').addEventListener('click', closeModal);
         overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
-    }
-
-    // ── Tip of the day ──────────────────────────────────────────────────────
-    // One tip per day, written server-side and cached against the date. It used
-    // to live at the top of My Insights' Resources tab; in the panel it is on
-    // every page, so the block stays hidden unless a tip actually comes back —
-    // no session (the sign-in page), a WeAce admin, or too little conversation
-    // all just leave the panel as it was.
-    const escText = str => String(str == null ? '' : str);
-
-    function renderTip(data) {
-        const box = $('sidebar-tip');
-        if (!box) return;
-        const text = (data && (data.headline || data.tip)) || '';
-        if (!text) { box.hidden = true; return; }
-        $('sidebar-tip-headline').textContent = escText(text);
-        const doEl = $('sidebar-tip-do');
-        // textContent for the tip itself; the label is the only markup here.
-        doEl.textContent = '';
-        if (data.try_today) {
-            const strong = document.createElement('strong');
-            strong.textContent = 'Try today: ';
-            doEl.appendChild(strong);
-            doEl.appendChild(document.createTextNode(escText(data.try_today)));
-        }
-        if (data.tip) $('sidebar-tip-headline').title = escText(data.tip);
-        box.hidden = false;
-        box.classList.remove('is-swapping');
-    }
-
-    async function loadTip() {
-        if (!$('sidebar-tip') || !accessToken()) return;
-        try {
-            const res = await fetch('/api/my-tip', { headers: authHeaders(), credentials: 'omit' });
-            if (!res.ok) return;
-            const data = await res.json();
-            if (!data || data.error) return;
-            renderTip(data);
-        } catch (_) { /* the panel simply keeps no tip */ }
-    }
-
-    function initTip() {
-        const btn = $('sidebar-tip-refresh');
-        if (!btn) return;
-        btn.addEventListener('click', async () => {
-            const box = $('sidebar-tip');
-            btn.disabled = true;
-            btn.classList.add('is-spinning');
-            box.classList.add('is-swapping');
-            try {
-                const res = await fetch('/api/my-tip/refresh',
-                    { method: 'POST', headers: authHeaders(), credentials: 'omit' });
-                const data = await res.json().catch(() => ({}));
-                if (res.ok && data.ok && data.data) renderTip(data.data);
-            } catch (_) { /* keep the tip they have */ }
-            finally {
-                btn.disabled = false;
-                btn.classList.remove('is-spinning');
-                box.classList.remove('is-swapping');
-            }
-        });
-        loadTip();
     }
 
     // ── Tenant branding (white-label) ───────────────────────────────────────
@@ -461,7 +403,6 @@ const NexaHeader = (() => {
         });
 
         initCorpContent();
-        initTip();
         renderLanguageMenu();
     }
 
@@ -489,6 +430,7 @@ const NexaHeader = (() => {
         show('my-insights-link', !isWeaceAdmin);
         // Career Horoscope ships with Nexa Pro, same as Daily Pulse.
         show('career-horoscope-link', !isWeaceAdmin && hasPulse);
+        show('career-subnav', !isWeaceAdmin && hasPulse);
         show('pulse-link', !isWeaceAdmin && hasPulse);
         // Mirrors the server-rendered label in _header.html: a corporate super
         // admin gets the org-wide Pulse Dashboard at the same /pulse route, not
@@ -500,7 +442,6 @@ const NexaHeader = (() => {
         show('btn-corp-content', isOrgAdmin && !isWeaceAdmin);
         show('dashboard-link', isOrgAdmin);
         show('tab-admin', isWeaceAdmin);
-        if (isWeaceAdmin) { const t = $('sidebar-tip'); if (t) t.hidden = true; }
     }
 
     function setNexaAccess(allowed) {
@@ -511,7 +452,7 @@ const NexaHeader = (() => {
     }
 
     return { init, applyRoles, setNexaAccess, renderLanguageMenu, getLanguage, hasRole,
-             closeMenus, setDrawer, syncSubnav, loadTip, markTabNav, applyBranding };
+             closeMenus, setDrawer, syncSubnav, markTabNav, applyBranding };
 })();
 
 window.NexaHeader = NexaHeader;

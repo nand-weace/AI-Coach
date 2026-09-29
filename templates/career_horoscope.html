@@ -11,7 +11,7 @@
     <link rel="icon" id="app-favicon" href="{{ branding.favicon_url }}">
     <style>
         :root {
-            --primary-color: #6d28d9;
+            --primary-color: #4338ca;
             --primary-hover: #5b21b6;
             --text-main: #1e1b33;
             --text-muted: #5b5674;
@@ -49,7 +49,10 @@
             flex: 1 1 auto; margin: 0; font-size: 0.82rem; color: var(--text-muted);
             overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
         }
-        .horo-head #regenerate-btn { flex: 0 0 auto; margin-left: auto; }
+        .horo-head #regenerate-btn,
+        .horo-head #futures-refresh { flex: 0 0 auto; margin-left: auto; }
+        /* Career Futures' Refresh lives in the head, only on that tab. */
+        .page:not(.on-futures) #futures-refresh { display: none; }
         @media (max-width: 640px) {
             .horo-head p { display: none; }
         }
@@ -197,7 +200,7 @@
         .spectrum-verdict { font-weight: 700; font-size: 0.9rem; color: var(--text-main); margin-top: 10px; }
         .spectrum-basis { font-size: 0.83rem; color: var(--text-muted); margin-top: 6px; line-height: 1.55; }
 
-        /* Sub-sections within a chapter (e.g. Where You Thrive) */
+        /* Sub-sections within a chapter or the Career Futures tab */
         .subsec { margin-bottom: 24px; }
         .subsec:last-child { margin-bottom: 0; }
         .subsec-head {
@@ -419,6 +422,68 @@
 
         .book-teaser { text-align: center; padding: 40px 30px; }
 
+        /* ── Views (picked from the Career sub-nav in the sidebar) ─────── */
+        .page.on-daily #regenerate-btn,
+        .page.on-futures #regenerate-btn { display: none !important; }
+        .futures-wrap { display: flex; flex-direction: column; gap: 16px; }
+        /* Three cards a row. */
+        #futures-card .item-grid { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+
+        /* Daily note on the left, "What's likely to happen?" on the right;
+           stacked on narrow screens. */
+        .daily-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+        @media (max-width: 900px) { .daily-wrap { grid-template-columns: 1fr; } }
+        .daily-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+        .daily-date {
+            font-size: 0.72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+            color: var(--primary-color); background: var(--primary-soft);
+            padding: 4px 10px; border-radius: 999px;
+        }
+        .daily-headline { font-size: 1.3rem; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 10px; }
+        .daily-guidance { color: #35304f; line-height: 1.75; font-size: 1rem; margin-bottom: 2em}
+        .daily-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 18px; }
+        .daily-meta .item-card:first-child { grid-column: 1 / -1; }
+        @media (max-width: 620px) { .daily-meta { grid-template-columns: 1fr; } }
+        .daily-meta .item-card p { font-size: 0.92rem; }
+        .daily-empty { text-align: center; color: var(--text-muted); line-height: 1.6; }
+        .daily-empty .ghost-btn { margin-top: 14px; }
+
+        .sit-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 4px; }
+        .sit-sub { color: var(--text-muted); font-size: 0.88rem; line-height: 1.55; margin-bottom: 14px; }
+        .sit-count { font-size: 0.78rem; color: var(--text-muted); }
+        .sit-result { margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(76,59,138,.10); }
+        .sit-asked {
+            font-size: 0.85rem; color: var(--text-muted); font-style: italic; line-height: 1.55;
+            background: rgba(109,40,217,.035); border-radius: 12px; padding: 10px 14px; margin-bottom: 14px;
+        }
+        .sit-timing { margin-top: 10px; font-size: 0.88rem; font-weight: 600; color: var(--primary-hover); }
+        /* ── Daily Horoscope theme: bluish violet (indigo) ───────────────
+           The tokens re-point everything built on the shared variables; the
+           rules below cover the few purples that are written out literally. */
+        #daily-panel {
+            --primary-color: #4f46e5;
+            --primary-hover: #4338ca;
+            --accent-gradient: linear-gradient(135deg, #3730a3 0%, #4f46e5 52%, #6d7cf7 100%);
+            --primary-soft: rgba(79, 70, 229, 0.09);
+            --primary-ring: rgba(79, 70, 229, 0.30);
+            --card-shadow: 0 12px 32px -14px rgba(40, 42, 120, 0.30);
+        }
+        #daily-panel .card,
+        #daily-panel .item-card { border-color: rgba(67, 72, 170, 0.14); }
+        #daily-panel .item-card,
+        #daily-panel .sit-asked { background: rgba(79, 70, 229, 0.04); }
+        #daily-panel .field textarea { border-color: rgba(67, 72, 170, 0.22); }
+        #daily-panel .ghost-btn { border-color: rgba(67, 72, 170, 0.24); }
+        #daily-panel .sit-result { border-top-color: rgba(67, 72, 170, 0.12); }
+        #daily-panel .submit-btn { box-shadow: 0 10px 22px -12px rgba(79, 70, 229, 0.8); }
+        #daily-panel .daily-guidance { color: #2f3155; }
+        #daily-panel .skeleton-line {
+            background: linear-gradient(90deg, rgba(79,70,229,.08) 25%, rgba(79,70,229,.16) 37%, rgba(79,70,229,.08) 63%);
+            background-size: 400% 100%;
+        }
+
+        .sit-disclaimer { margin-top: 12px; font-size: 0.75rem; color: var(--text-muted); }
+
         @media (max-width: 620px) {
             .form-grid { grid-template-columns: 1fr; }
             .lucky-grid { grid-template-columns: 1fr; }
@@ -436,13 +501,50 @@
 
 {% include '_header.html' %}
 
-<div class="page">
+<div class="page on-daily" id="horo-page">
     <div class="horo-head">
-        <h2>Career Horoscope</h2>
-        <p>A Vedic career reading drawn from your birth details</p>
+        <h2>Career Futures</h2>
+        <p>A personal career reading and potential future paths</p>
         <button type="button" class="ghost-btn" id="regenerate-btn" title="" style="display:none;">Regenerate</button>
+        <button type="button" class="ghost-btn" id="futures-refresh">Refresh</button>
     </div>
 
+    <div class="daily-wrap" id="daily-panel" style="display:grid;">
+        <div class="card" id="daily-card">
+            <div class="daily-empty" id="daily-loading">
+                <div class="spinner"></div>Reading today's stars…
+            </div>
+        </div>
+
+        <div class="card" id="sit-card">
+            <div class="sit-title">What's likely to happen?</div>
+            <p class="sit-sub">
+                Describe a work situation you're facing, like an interview, a promotion
+                conversation, a job switch or a tricky project, and we'll read how it's
+                likely to unfold for you.
+            </p>
+            <div class="field full">
+                <textarea id="sit-input" maxlength="1500"
+                    placeholder="e.g. I have a final-round interview for a product lead role next Thursday. How is it likely to go?"></textarea>
+            </div>
+            <div class="submit-row">
+                <span class="submit-error" id="sit-error"></span>
+                <span style="display:flex;align-items:center;gap:12px;margin-left:auto;">
+                    <span class="sit-count" id="sit-count">0 / 1500</span>
+                    <button type="button" class="submit-btn" id="sit-submit">Read my situation</button>
+                </span>
+            </div>
+            <div id="sit-result"></div>
+        </div>
+    </div>
+
+    <div class="futures-wrap" id="futures-panel" style="display:none;">
+        <div class="card" id="futures-card">
+            <div class="daily-empty"><div class="spinner"></div>Reading your Nexa conversations…</div>
+        </div>
+    </div>
+
+    <div id="reading-panel" style="display:none;">
     <div class="card" id="horo-form">
         <div class="form-grid">
             <div class="field">
@@ -456,14 +558,14 @@
             </div>
             <div class="field">
                 <label class="field-label" for="f-time">
-                    Time of birth <span class="field-hint">— optional</span>
+                    Time of birth <span class="field-hint">(optional)</span>
                 </label>
                 <input type="time" id="f-time" value="{{ birth.birth_time if birth else '' }}">
             </div>
             {% if not has_linkedin %}
             <div class="field full">
                 <label class="field-label" for="f-context">
-                    Professional context <span class="field-hint">— optional, sharpens the reading</span>
+                    Professional context <span class="field-hint">(optional, sharpens the reading)</span>
                 </label>
                 <textarea id="f-context" placeholder="Your current role, industry, years of experience, and what you'd like guidance on."></textarea>
             </div>
@@ -480,13 +582,13 @@
         <div class="spinner"></div>
         <h3 class="loading-title">Casting your chart…</h3>
         <p class="loading-lead">
-            A proper Vedic reading is worth the wait — we're preparing a careful,
+            A proper astrological reading is worth the wait. We're preparing a careful,
             personalised career horoscope just for you. This usually takes
             <strong>around 5 minutes</strong>.
         </p>
         <p class="loading-sub" id="loading-stage">Reading the birth chart…</p>
         <p class="loading-note">
-            You don't have to wait on this screen — feel free to carry on, and
+            You don't have to wait on this screen. Feel free to carry on, and
             <strong>we'll let you know the moment it's ready</strong>. It'll be
             here waiting for you when you come back.
         </p>
@@ -497,6 +599,7 @@
 
 
     <div class="result" id="horo-result" style="display:none;"></div>
+    </div>
 </div>
 
 <script src="{{ asset('header.js') }}"></script>
@@ -618,20 +721,6 @@
             intro: 'How the houses that govern work, service, wealth and partnership are set up in your chart.',
             body: itemGrid(houses) });
 
-        // ── Where You Thrive — spectrums, then roles and fields side by side.
-        const ie = h.ideal_environment || {};
-        const spectrums = spectrum('Startup', 'Corporate', ie.startup_vs_corporate)
-                        + spectrum('Leadership', 'Specialist', ie.leadership_vs_specialist)
-                        + spectrum('Creative', 'Analytical', ie.creative_vs_analytical);
-        let envBody = spectrums ? subsec('Your spectrum', `<div class="spectrum-grid">${spectrums}</div>`) : '';
-        if (ie.ideal_roles && ie.ideal_roles.length)
-            envBody += subsec('Ideal roles', itemGrid(ie.ideal_roles.map(r =>
-                itemCard(escHtml(r.role), '', escHtml(r.why || '')))));
-        if (ie.suitable_fields && ie.suitable_fields.length)
-            envBody += subsec('Suitable fields', itemGrid(ie.suitable_fields.map(f =>
-                itemCard(escHtml(f.field), '', escHtml(f.why || '')))));
-        if (envBody) chapters.push({ title: 'Where You Thrive', icon: '🧭', body: envBody });
-
         // ── Current cycle + timing together.
         const cp = h.current_period || {};
         let timingBody = '';
@@ -662,7 +751,7 @@
         const lf = h.lucky_factors || {};
         if (Object.keys(lf).length) {
             const numFmt = n => `${escHtml(n.number)}${n.planet ? ` <span class="muted">(${escHtml(n.planet)})</span>` : ''}`;
-            const colFmt = c => `<span class="swatch"><span class="swatch-dot" style="background:${colourSwatch(c.colour)}"></span>${escHtml(c.colour)}${c.usage_tip ? ` <span class="muted">— ${escHtml(c.usage_tip)}</span>` : ''}</span>`;
+            const colFmt = c => `<span class="swatch"><span class="swatch-dot" style="background:${colourSwatch(c.colour)}"></span>${escHtml(c.colour)}${c.usage_tip ? ` <span class="muted">(${escHtml(c.usage_tip)})</span>` : ''}</span>`;
             let inner = '<div class="lucky-grid">';
             if (lf.lucky_numbers && lf.lucky_numbers.length)
                 inner += `<div class="lucky-block"><h5>Lucky numbers</h5><div>${lf.lucky_numbers.map(numFmt).join(', ')}</div></div>`;
@@ -676,7 +765,7 @@
                 inner += `<div class="lucky-block"><h5>Lucky days</h5><div class="chips">${lf.lucky_days.map(d => `<span class="chip">${escHtml(d)}</span>`).join('')}</div></div>`;
             inner += '</div>';
             chapters.push({ title: 'Lucky & Unlucky', icon: '❖',
-                intro: 'Traditional associations you can lean on lightly — for interviews, launches and key meetings.',
+                intro: 'Traditional associations you can lean on lightly, for interviews, launches and key meetings.',
                 body: inner });
         }
 
@@ -690,16 +779,16 @@
                 if (nt.outlook) c += `<p>${escHtml(nt.outlook)}</p>`;
                 if (nt.key_developments && nt.key_developments.length) c += listOf(nt.key_developments, k => `<li>${escHtml(k)}</li>`);
                 if (nt.basis) c += `<p class="muted" style="font-size:.9rem;">${escHtml(nt.basis)}</p>`;
-                cards += `<div class="item-card"><div class="ic-title">Near term · 1–3 years</div>${c}</div>`;
+                cards += `<div class="item-card"><div class="ic-title">Near term · 1-3 years</div>${c}</div>`;
             }
             if (lt) {
                 let c = '';
                 if (lt.outlook) c += `<p>${escHtml(lt.outlook)}</p>`;
                 if (lt.career_trajectory) c += `<p>${escHtml(lt.career_trajectory)}</p>`;
                 if (lt.peak_phases && lt.peak_phases.length)
-                    c += `<div class="mini-head">Peak phases</div>` + listOf(lt.peak_phases, p => `<li><strong>${escHtml(p.period)}</strong>${p.why ? ` — ${escHtml(p.why)}` : ''}</li>`);
+                    c += `<div class="mini-head">Peak phases</div>` + listOf(lt.peak_phases, p => `<li><strong>${escHtml(p.period)}</strong>${p.why ? `: ${escHtml(p.why)}` : ''}</li>`);
                 if (lt.basis) c += `<p class="muted" style="font-size:.9rem;">${escHtml(lt.basis)}</p>`;
-                cards += `<div class="item-card"><div class="ic-title">Long term · 3–10 years</div>${c}</div>`;
+                cards += `<div class="item-card"><div class="ic-title">Long term · 3-10 years</div>${c}</div>`;
             }
             chapters.push({ title: 'Future Prospects', icon: '➶', body: `<div class="item-grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr))">${cards}</div>` });
         }
@@ -767,6 +856,7 @@
         if (bookKeyHandler) document.removeEventListener('keydown', bookKeyHandler);
         bookKeyHandler = (e) => {
             if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+            if ($('reading-panel').style.display === 'none') return;
             if (e.key === 'ArrowLeft') goTo(i - 1);
             else if (e.key === 'ArrowRight') goTo(i + 1);
         };
@@ -794,7 +884,7 @@
     // a reload or the user wandering off and coming back.
     const POLL_MS = 4000;
     const STAGE_TEXT = {
-        reading: 'Casting your chart and interpreting your career houses, dashas and transits…',
+        reading: 'Casting your chart and reading the planets that shape your career…',
         done:    'Your reading is ready.'
     };
     let pollTimer = null;
@@ -816,7 +906,7 @@
         if (!document.hidden) return;
         try {
             const n = new Notification('Your career horoscope is ready', {
-                body: 'Your personalised Vedic career reading has finished. Tap to view it.',
+                body: 'Your personalised career reading has finished. Tap to view it.',
                 icon: document.getElementById('app-favicon') ? document.getElementById('app-favicon').href : undefined
             });
             n.onclick = () => { window.focus(); n.close(); };
@@ -980,6 +1070,190 @@
         $('horo-form').scrollIntoView({ behavior: 'smooth', block: 'start' });
         if ($('f-place')) $('f-place').focus();
     });
+
+    // ── Views: Daily Horoscope / Career Reading / Career Futures ─────
+    // The page opens on Daily Horoscope; the other tabs live behind a
+    // #reading / #futures hash so a reload (or a shared link) lands back on them.
+    let dailyLoaded = false, futuresLoaded = false;
+
+    function showTab(tab) {
+        const daily = tab === 'daily', futures = tab === 'futures';
+        $('horo-page').classList.toggle('on-daily', daily);
+        $('horo-page').classList.toggle('on-futures', futures);
+        $('reading-panel').style.display = tab === 'reading' ? '' : 'none';
+        $('daily-panel').style.display = daily ? 'grid' : 'none';
+        $('futures-panel').style.display = futures ? 'flex' : 'none';
+        try { history.replaceState(null, '', daily ? location.pathname + location.search : '#' + tab); } catch (e) {}
+        NexaHeader.syncSubnav();
+        if (daily && !dailyLoaded) { dailyLoaded = true; loadDaily(false); loadLastSituation(); }
+        if (futures && !futuresLoaded) { futuresLoaded = true; loadFutures(false); }
+        // The book measured itself while hidden; let it re-fit now it's visible.
+        if (tab === 'reading') window.dispatchEvent(new Event('resize'));
+    }
+
+    function formatDay(iso) {
+        try {
+            return new Date(iso + 'T00:00:00').toLocaleDateString(undefined,
+                { weekday: 'long', day: 'numeric', month: 'long' });
+        } catch (e) { return iso || ''; }
+    }
+
+    function renderDaily(d) {
+        const num = (d.lucky_number !== undefined && d.lucky_number !== null && d.lucky_number !== '') ? d.lucky_number : '';
+        $('daily-card').innerHTML = `
+            <div class="daily-top">
+                <span class="daily-date">${escHtml(formatDay(d.date))}</span>
+                <button type="button" class="ghost-btn" id="daily-refresh">Refresh</button>
+            </div>
+            ${d.headline ? `<div class="daily-headline">${escHtml(d.headline)}</div>` : ''}
+            ${d.guidance ? `<p class="daily-guidance">${escHtml(d.guidance)}</p>` : ''}
+            <div class="daily-meta">
+                ${d.focus ? `<div class="item-card"><div class="ic-title">Today's focus</div><p>${escHtml(d.focus)}</p></div>` : ''}
+                ${d.lucky_colour ? `<div class="item-card"><div class="ic-title">Lucky colour</div><p><span class="swatch" style="margin:0"><span class="swatch-dot" style="background:${colourSwatch(d.lucky_colour)}"></span>${escHtml(d.lucky_colour)}</span></p></div>` : ''}
+                ${num !== '' ? `<div class="item-card"><div class="ic-title">Lucky number</div><p>${escHtml(num)}</p></div>` : ''}
+            </div>`;
+        $('daily-refresh').addEventListener('click', () => loadDaily(true));
+    }
+
+    function renderDailyEmpty(msg, needsReading) {
+        $('daily-card').innerHTML = `<div class="daily-empty">
+            <p>${escHtml(msg)}</p>
+            ${needsReading ? `<button type="button" class="ghost-btn" id="daily-goto-reading">Go to Career Reading</button>`
+                           : `<button type="button" class="ghost-btn" id="daily-retry">Try again</button>`}
+        </div>`;
+        const go = $('daily-goto-reading');
+        if (go) go.addEventListener('click', () => showTab('reading'));
+        const retry = $('daily-retry');
+        if (retry) retry.addEventListener('click', () => loadDaily(false));
+    }
+
+    async function loadDaily(force) {
+        $('daily-card').innerHTML = `<div class="daily-empty"><div class="spinner"></div>Reading today's stars…</div>`;
+        try {
+            const res = await fetch(force ? '/api/career-horoscope/daily/refresh' : '/api/career-horoscope/daily', {
+                method: force ? 'POST' : 'GET',
+                headers: getAuthHeaders(), credentials: 'include'
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                renderDailyEmpty(data.error || "Could not load today's horoscope.", res.status === 400);
+                return;
+            }
+            renderDaily(data.daily || {});
+        } catch (e) {
+            renderDailyEmpty("Could not load today's horoscope. Please try again.", false);
+        }
+    }
+
+    // ── Career Futures — drawn from Nexa conversations + profile, not the chart.
+    function renderFutures(f) {
+        const subsec = (label, body) => body ? `<section class="subsec">
+            <div class="subsec-head">${escHtml(label)}</div>
+            <div class="subsec-body">${body}</div></section>` : '';
+        const itemGrid = items => `<div class="item-grid">${items.join('')}</div>`;
+        const itemCard = (title, body) => `<div class="item-card">
+            <div class="ic-title">${escHtml(title)}</div>${body ? `<p>${escHtml(body)}</p>` : ''}</div>`;
+        const spectrums = spectrum('Startup', 'Corporate', f.startup_vs_corporate)
+                        + spectrum('Leadership', 'Specialist', f.leadership_vs_specialist)
+                        + spectrum('Creative', 'Analytical', f.creative_vs_analytical);
+        let body = `${f.summary ? `<p class="daily-guidance">${escHtml(f.summary)}</p>` : ''}`;
+        if (spectrums) body += subsec('Your spectrum', `<div class="spectrum-grid">${spectrums}</div>`);
+        if (Array.isArray(f.ideal_roles) && f.ideal_roles.length)
+            body += subsec('Ideal roles', itemGrid(f.ideal_roles.slice(0, 3).map(r => itemCard(r.role, r.why))));
+        if (Array.isArray(f.suitable_fields) && f.suitable_fields.length)
+            body += subsec('Suitable fields', itemGrid(f.suitable_fields.slice(0, 3).map(x => itemCard(x.field, x.why))));
+        $('futures-card').innerHTML = body;
+    }
+
+    function renderFuturesEmpty(msg) {
+        $('futures-card').innerHTML = `<div class="daily-empty">
+            <p>${escHtml(msg)}</p>
+            <button type="button" class="ghost-btn" id="futures-retry">Try again</button>
+        </div>`;
+        $('futures-retry').addEventListener('click', () => loadFutures(true));
+    }
+
+    $('futures-refresh').addEventListener('click', () => loadFutures(true));
+
+    async function loadFutures(force) {
+        $('futures-card').innerHTML = `<div class="daily-empty"><div class="spinner"></div>Reading your Nexa conversations…</div>`;
+        $('futures-refresh').disabled = true;
+        try {
+            const res = await fetch(force ? '/api/career-futures/refresh' : '/api/career-futures', {
+                method: force ? 'POST' : 'GET',
+                headers: getAuthHeaders(), credentials: 'include'
+            });
+            const data = await res.json();
+            if (!res.ok) { renderFuturesEmpty(data.error || 'Could not load your career futures.'); return; }
+            renderFutures(data.futures || {});
+        } catch (e) {
+            renderFuturesEmpty('Could not load your career futures. Please try again.');
+        } finally {
+            $('futures-refresh').disabled = false;
+        }
+    }
+
+    // ── "What's likely to happen?" ──────────────────────────────────
+    function renderSituation(r) {
+        if (!r) { $('sit-result').innerHTML = ''; return; }
+        // Older saved readings used a longer format; fall back to its outcome text.
+        const prediction = r.prediction || r.likely_outcome || '';
+        $('sit-result').innerHTML = `<div class="sit-result">
+            ${r.situation ? `<div class="sit-asked">“${escHtml(r.situation)}”</div>` : ''}
+            ${prediction ? `<p class="daily-guidance">${escHtml(prediction)}</p>` : ''}
+            ${r.basis ? `<div class="sit-timing">✦ ${escHtml(r.basis)}</div>` : ''}
+            <p class="sit-disclaimer">An astrological reading of tendencies, not a certainty.</p>
+        </div>`;
+    }
+
+    function loadLastSituation() {
+        fetch('/api/career-horoscope/situation', { headers: getAuthHeaders(), credentials: 'include' })
+            .then(r => r.ok ? r.json() : null)
+            .then(data => { if (data && data.reading) renderSituation(data.reading); })
+            .catch(() => { /* not critical */ });
+    }
+
+    async function askSituation() {
+        const text = $('sit-input').value.trim();
+        const errEl = $('sit-error');
+        errEl.textContent = '';
+        if (!text) { errEl.textContent = 'Please describe the situation first.'; return; }
+        const btn = $('sit-submit');
+        btn.disabled = true;
+        btn.textContent = 'Reading…';
+        $('sit-result').innerHTML = `<div class="sit-result">${skeletonSec()}</div>`;
+        try {
+            const res = await fetch('/api/career-horoscope/situation', {
+                method: 'POST',
+                headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+                credentials: 'include',
+                body: JSON.stringify({ situation: text })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Something went wrong.');
+            renderSituation(data.reading);
+            $('sit-input').value = '';
+            updateSitCount();
+        } catch (e) {
+            $('sit-result').innerHTML = '';
+            errEl.textContent = e.message || 'Could not read this situation. Please try again.';
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Read my situation';
+        }
+    }
+
+    function updateSitCount() { $('sit-count').textContent = `${$('sit-input').value.length} / 1500`; }
+    $('sit-input').addEventListener('input', updateSitCount);
+    $('sit-submit').addEventListener('click', askSituation);
+
+    document.querySelectorAll('[data-goto-reading]').forEach(b =>
+        b.addEventListener('click', () => showTab('reading')));
+    // The views are picked from the Career sub-nav in the sidebar, which only
+    // moves the hash while already on this page.
+    const tabFromHash = () => ({ '#reading': 'reading', '#futures': 'futures' }[location.hash] || 'daily');
+    window.addEventListener('hashchange', () => showTab(tabFromHash()));
+    showTab(tabFromHash());
 
     // On load, pick up any run already in progress — or a previously saved
     // reading — so a reload or a return visit lands the user right back where

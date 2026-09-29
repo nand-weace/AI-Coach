@@ -40,7 +40,7 @@ RATER_ROLE_COLUMN = "Rater Role"
 PARTICIPANT_NAME_COLUMN = "Participant Name"
 EMAIL_TYPE_COLUMN = "Email Type"  # which CSV column holds the email type (assessment or reminder)
 
-SUBJECT_TEMPLATE_SELF = "BPCL eXcelerator: 360° Leadership Assessment Link"
+SUBJECT_TEMPLATE_SELF = "BPCL eXceed: 360° Leadership Assessment Link"
 SUBJECT_TEMPLATE_RATER = "360° Leadership Feedback Requested – {participant_name}"
 
 SUBJECT_TEMPLATE_SELF_REMINDER = "Reminder: Complete Your 360° Leadership Assessment"
@@ -79,6 +79,7 @@ Warm Regards, Team Emeritus
 HTML_TEMPLATE_SELF = """\
 <p><b>Dear {name},</b></p>
 
+<p> As an ongoing part of your BPCL eXceed leadership development journey, your 360° leadership assessment has now been launched. </p>
 <p>Please find below the link to access your 360&deg; Leadership Assessment:</p>
 
 <p>Click on the link below to begin your 360&deg;Leadership Assessment </p>
@@ -93,6 +94,7 @@ HTML_TEMPLATE_SELF = """\
   <li>Click submit once you have completed the 360&deg;-assessment.</li>
 </ul>
 
+<p> <b>360°-assessment closing date: 5th October 2026 </b></p>
 <p>Please note that no login credentials are required to access the assessment.</p>
 
 <p>If you face any difficulty accessing the assessment or have any queries, please write to
@@ -107,9 +109,11 @@ Our team will respond to your query within 24 hours.</p>
 HTML_TEMPLATE_RATER = """\
 <p><b>Dear {name},</b></p>
 
-<p> As part of the BPCL eXcelerator Leadership Development Programme, {participant_name} has been nominated to undergo a 360° Leadership Assessment. </p>
+<p> As part of the BPCL eXceed Leadership Development Programme, {participant_name} has been nominated to undergo a 360° Leadership Assessment. </p>
 
 <p>You have been identified as a {rater_role} for this 360-assessment, and your candid and constructive feedback will play an important role in supporting their leadership development journey. Your feedback remains confidential.  </p>
+
+<p> <b>We request you to complete the 360°-assessment by 5th October 2026 </b></p>
 
 <p>Click on the link below to begin your 360°-assessment feedback </p>
 
@@ -132,6 +136,8 @@ HTML_TEMPLATE_RATER_REMINDER = """\
 
 <p>Your feedback is an important input to support the participant’s leadership development journey. </p>
 
+<p> <b> 360°-assessment closing date: 5th October 2026 </b></p>
+
 <p>Click on the link below to begin your 360°-assessment feedback </p>
 
 <p><a href="{assessment_link}">360&deg;Leadership Assessment</a></p>
@@ -150,6 +156,8 @@ HTML_TEMPLATE_SELF_REMINDER = """\
 <p><b>Dear {name},</b></p>
 
 <p> This is a gentle reminder to complete the 360° leadership assessment.</p>
+
+<p> <b> 360°-assessment closing date: 5th October 2026 </b></p>
 
 <p>Click on the link below to begin your 360°assessment feedback</p>
 

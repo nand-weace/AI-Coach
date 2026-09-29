@@ -14,6 +14,8 @@ from prompt import (
     MENTORING_MODE,
     CAREER_HOROSCOPE_PROMPT,
     CAREER_DAILY_HOROSCOPE_PROMPT,
+    CAREER_SITUATION_PROMPT,
+    CAREER_FUTURES_PROMPT,
 )
 from database import (
     init_db,
@@ -25,6 +27,7 @@ from database import (
     get_user_history,
     get_user_history_before,
     get_recent_user_messages,
+    get_user_dated_messages,
     set_message_feedback,
     get_message_feedback,
     get_org_custom_content,
@@ -37,6 +40,8 @@ from database import (
     get_user_sentiment_data,
     get_user_insight_report,
     upsert_user_insight_report,
+    add_career_situation_reading,
+    get_career_situation_history,
     get_user_stats,
     get_user_last_message_at,
     upsert_user_login,
@@ -214,8 +219,9 @@ _org_licence_cache: dict = {}  # org_slug -> (expires_at, licence)
 PULSE_LICENCE = 'pro'   # the tier Daily Pulse is bundled with
 PULSE_UPGRADE_MESSAGE = ('Daily Pulse is part of Nexa Pro. '
                          'Talk to WeAce about upgrading your organisation.')
-# Career Horoscope ships with the same licence tier as Daily Pulse.
-HOROSCOPE_UPGRADE_MESSAGE = ('Career Horoscope is part of Nexa Pro. '
+# The whole Career section (Daily Horoscope, Career Reading, Career Futures)
+# ships with the same licence tier as Daily Pulse.
+HOROSCOPE_UPGRADE_MESSAGE = ('Career is part of Nexa Pro. '
                              'Talk to WeAce about upgrading your organisation.')
 
 
@@ -2297,7 +2303,8 @@ def _save_birth_details(user_id: str, place: str, birth_date: str, birth_time: s
 
 @app.route('/career-horoscope')
 def career_horoscope_page():
-    """Career Horoscope — a Vedic (Jyotish) career reading generated from the
+    """Career Horoscope — an astrological career reading (Vedic under the hood,
+    written for a Western reader) generated from the
     user's birth details. Renders the input form; the reading itself is produced
     on demand by /api/career-horoscope. Ships with Nexa Pro, same as Daily
     Pulse — an organisation on Nexa Regular doesn't have the page to open."""
@@ -2399,13 +2406,13 @@ def _horoscope_job_state(user_id: str) -> dict:
         # The run is dead, but any earlier saved reading is still worth keeping.
         return {'status': 'error',
                 'error': 'That reading stopped before it finished. Please try again.',
-                'result': job.get('result'),
+                'result': _strip_dashes_deep(job.get('result')),
                 'inputs': job.get('inputs'),
                 'done_at': job.get('done_at')}
     return {
         'status': status,
         'stage': job.get('stage'),
-        'result': job.get('result'),
+        'result': _strip_dashes_deep(job.get('result')),
         'inputs': job.get('inputs'),
         'error': job.get('error'),
         'started_at': job.get('started_at'),
@@ -2425,7 +2432,7 @@ def _run_horoscope_job(user_id: str, system_full: str, user_block: str):
     """
     started = time.time()
     try:
-        horoscope = _parse_json_reply(_horoscope_reply(system_full, user_block))
+        horoscope = _strip_dashes_deep(_parse_json_reply(_horoscope_reply(system_full, user_block)))
     except Exception:
         logger.exception('[career-horoscope] reading failed for user_id=%s', user_id)
         _horoscope_job_set(user_id, status='error',
@@ -2567,6 +2574,7 @@ def _generate_daily_horoscope(name: str, birth: dict, language: str) -> dict:
         "Return ONLY the JSON object from the schema, written for today's date above."
     )
     data = _parse_json_reply(_horoscope_reply(system, user_block, max_tokens=800))
+    data = _strip_dashes_deep(data)
     data['date'] = today
     return data
 
@@ -2583,7 +2591,7 @@ def _daily_horoscope_response(user_id: str, name: str, force: bool):
     if not force:
         cached = get_user_insight_report(user_id, _HOROSCOPE_DAILY)
         if cached and cached.get('date') == today:
-            return jsonify({'daily': cached})
+            return jsonify({'daily': _strip_dashes_deep(cached)})
 
     lang_code = get_user_language(user_id) or DEFAULT_LANGUAGE
     language = SUPPORTED_LANGUAGES.get(lang_code, (lang_code, lang_code))[1]
@@ -2618,6 +2626,241 @@ def career_horoscope_daily_refresh():
     if not _has_pulse((g.user.get('org_id') or '').strip()):
         return jsonify({'error': HOROSCOPE_UPGRADE_MESSAGE}), 403
     return _daily_horoscope_response(g.user['user_id'], g.user['user_name'], force=True)
+
+
+# ── Situation reading ───────────────────────────────────────────────────────
+# On the Daily Horoscope tab the user can describe a specific work situation
+# and ask what is likely to happen. One quick call against the same birth
+# details; the latest reading is kept so it's still there on a return visit.
+_HOROSCOPE_SITUATION = 'career_situation_reading'
+_SITUATION_MAX_CHARS = 1500
+
+
+def _strip_dashes(text: str) -> str:
+    """Swap em/en dashes for commas. The prompt asks for none, but models
+    slip them in, and they make the reading sound machine-written."""
+    text = re.sub(r'(\w)[—–](\w)', r'\1 to \2', str(text))   # "Oct–Nov" -> "Oct to Nov"
+    text = re.sub(r'\s*[—–]\s*', ', ', text)
+    return re.sub(r',\s*([.,;:!?])', r'\1', text).strip(', ')
+
+
+def _strip_dashes_deep(value):
+    """_strip_dashes over every string in a nested reply (dicts and lists)."""
+    if isinstance(value, str):
+        return _strip_dashes(value)
+    if isinstance(value, dict):
+        return {k: _strip_dashes_deep(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_strip_dashes_deep(v) for v in value]
+    return value
+
+
+@app.route('/api/career-horoscope/situation', methods=['GET', 'POST'])
+@require_weace_token
+def career_horoscope_situation():
+    """GET returns the last situation reading (if any); POST reads a new one."""
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    if not _has_pulse((g.user.get('org_id') or '').strip()):
+        return jsonify({'error': HOROSCOPE_UPGRADE_MESSAGE}), 403
+
+    user_id = g.user['user_id']
+    if request.method == 'GET':
+        try:
+            return jsonify({'reading': _strip_dashes_deep(
+                get_user_insight_report(user_id, _HOROSCOPE_SITUATION))})
+        except Exception:
+            return jsonify({'reading': None})
+
+    data = request.get_json(silent=True) or {}
+    situation = (data.get('situation') or '').strip()
+    if not situation:
+        return jsonify({'error': 'Please describe the situation you want to know about.'}), 400
+    if len(situation) > _SITUATION_MAX_CHARS:
+        return jsonify({'error': f'Please keep the situation under {_SITUATION_MAX_CHARS} characters.'}), 400
+
+    birth = _get_birth_details(user_id)
+    if not birth.get('place_of_birth') or not birth.get('birth_date'):
+        return jsonify({'error': 'Generate your career horoscope first so we know your birth details.'}), 400
+    if client is None:
+        return jsonify({'error': 'The horoscope service is not available right now.'}), 503
+
+    from datetime import date
+    today = date.today().isoformat()
+    lang_code = get_user_language(user_id) or DEFAULT_LANGUAGE
+    language = SUPPORTED_LANGUAGES.get(lang_code, (lang_code, lang_code))[1]
+    system = CAREER_SITUATION_PROMPT.replace('{{language}}', language)
+
+    linkedin_data = _get_linkedin_cached(user_id)
+    context = linkedin.profile_summary(linkedin_data.get('profile') or {}) \
+        if linkedin_data else ''
+
+    # The full reading's timing/current-period sections, so the prediction
+    # agrees with what the user already sees on the Career Reading tab.
+    import json
+    saved = {}
+    try:
+        full = _horoscope_job_state(user_id).get('result') or {}
+        saved = {k: full[k] for k in ('current_period', 'favourable_timing',
+                                      'house_analysis', 'future_prospects') if full.get(k)}
+    except Exception:
+        pass
+
+    user_block = (
+        "BIRTH_DETAILS\n"
+        f"- Place of birth: {birth['place_of_birth']}\n"
+        f"- Date of birth: {birth['birth_date']}\n"
+        f"- Time of birth: {birth.get('birth_time') or 'Unknown / not provided'}\n\n"
+        "PROFESSIONAL_CONTEXT\n"
+        f"{context if context else 'Not provided.'}\n\n"
+        "SAVED_READING\n"
+        f"{json.dumps(saved, ensure_ascii=False) if saved else 'None.'}\n\n"
+        f"TODAY'S DATE: {today}\n\n"
+        "SITUATION\n"
+        f"{situation}\n\n"
+        "Return ONLY the JSON object from the schema."
+    )
+    try:
+        reply = _parse_json_reply(_horoscope_reply(system, user_block, max_tokens=2500))
+    except Exception:
+        logger.exception('[career-horoscope] situation reading failed for user_id=%s', user_id)
+        return jsonify({'error': 'Could not read this situation. Please try again.'}), 502
+
+    # chart_working is the model's scratchpad for grounding — never shown.
+    reading = {k: _strip_dashes(reply.get(k) or '')
+               for k in ('outlook', 'prediction', 'basis')}
+    reading['situation'] = situation
+    reading['date'] = today
+    # Every question and answer is kept in the history table; the latest is
+    # also cached for the page to show on a return visit.
+    try:
+        add_career_situation_reading(
+            user_id, reading,
+            org_slug=(g.user.get('org_id') or '').strip() or None,
+            chart_working=str(reply.get('chart_working') or '') or None,
+            language=language)
+    except Exception:
+        logger.warning('[career-horoscope] could not add situation to history for user_id=%s',
+                       user_id, exc_info=True)
+    try:
+        upsert_user_insight_report(user_id, _HOROSCOPE_SITUATION, reading)
+    except Exception:
+        logger.warning('[career-horoscope] could not save situation reading for user_id=%s',
+                       user_id, exc_info=True)
+    return jsonify({'reading': reading})
+
+
+@app.route('/api/career-horoscope/situation/history')
+@require_weace_token
+def career_horoscope_situation_history():
+    """Every situation the user has asked about, with its reading, newest first."""
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    if not _has_pulse((g.user.get('org_id') or '').strip()):
+        return jsonify({'error': HOROSCOPE_UPGRADE_MESSAGE}), 403
+    try:
+        limit = max(1, min(int(request.args.get('limit', 50)), 200))
+    except ValueError:
+        limit = 50
+    try:
+        rows = get_career_situation_history(g.user['user_id'], limit)
+    except Exception:
+        logger.exception('[career-horoscope] situation history failed for user_id=%s',
+                         g.user['user_id'])
+        return jsonify({'error': 'Could not load your past situations.'}), 500
+    return jsonify({'history': _strip_dashes_deep(rows)})
+
+
+# ── Career Futures ──────────────────────────────────────────────────────────
+# The Career Futures tab is not astrological: it reads the user's own Nexa
+# coaching conversations and their profile (plus LinkedIn, when scraped) to
+# place them on the work-style spectrums and suggest roles and fields. Cached
+# per user; regenerated on request from the tab's Refresh button.
+_CAREER_FUTURES = 'career_futures'
+_FUTURES_MSG_LIMIT = 180      # most recent user messages read per run
+_FUTURES_MSG_CHARS = 320      # per-message truncation
+_FUTURES_MAX_CHARS = 14_000   # conversation block cap (keeps the most recent tail)
+_FUTURES_MIN_MESSAGES = 3     # below this, only the profile has anything to say
+
+
+def _generate_career_futures(user_id: str, name: str) -> dict | None:
+    """One call over profile + conversations. None when there is nothing to
+    read — no profile, no LinkedIn and barely any conversation."""
+    profile = _profile_block(name, _get_profile_context_cached(user_id)).strip()
+    linkedin_data = _get_linkedin_cached(user_id)
+    linkedin_summary = linkedin.profile_summary(linkedin_data.get('profile') or {}) \
+        if linkedin_data else ''
+    messages = get_user_dated_messages(user_id, limit=_FUTURES_MSG_LIMIT)
+    if len(messages) < _FUTURES_MIN_MESSAGES and not profile and not linkedin_summary:
+        return None
+
+    convo = '\n'.join(f"[{m['date']}] {m['content'][:_FUTURES_MSG_CHARS]}" for m in messages)
+    if len(convo) > _FUTURES_MAX_CHARS:
+        convo = '[...earlier messages truncated]\n' + convo[-_FUTURES_MAX_CHARS:]
+
+    lang_code = get_user_language(user_id) or DEFAULT_LANGUAGE
+    language = SUPPORTED_LANGUAGES.get(lang_code, (lang_code, lang_code))[1]
+    system = CAREER_FUTURES_PROMPT.replace('{{language}}', language)
+    user_block = (
+        "PROFILE\n"
+        f"{profile if profile else 'Not provided.'}\n\n"
+        "LINKEDIN\n"
+        f"{linkedin_summary if linkedin_summary else 'Not available.'}\n\n"
+        f"NEXA_CONVERSATIONS (their own messages, oldest first, {len(messages)} messages)\n"
+        f"{convo if convo else 'No conversations yet.'}\n\n"
+        "Return ONLY the JSON object from the schema."
+    )
+    data = _strip_dashes_deep(_parse_json_reply(_horoscope_reply(system, user_block, max_tokens=3000)))
+    data['messages_analyzed'] = len(messages)
+    data['generated_at'] = time.time()
+    return data
+
+
+def _career_futures_response(user_id: str, name: str, force: bool):
+    if not force:
+        try:
+            cached = get_user_insight_report(user_id, _CAREER_FUTURES)
+        except Exception:
+            cached = None
+        if cached:
+            return jsonify({'futures': _strip_dashes_deep(cached)})
+    if client is None:
+        return jsonify({'error': 'Career Futures is not available right now.'}), 503
+    try:
+        data = _generate_career_futures(user_id, name)
+    except Exception:
+        logger.exception('[career-futures] generation failed for user_id=%s', user_id)
+        return jsonify({'error': 'Could not build your career futures. Please try again.'}), 502
+    if data is None:
+        return jsonify({'error': 'Not enough to go on yet. Chat with Nexa about your work '
+                                 'and goals, then come back.'}), 400
+    try:
+        upsert_user_insight_report(user_id, _CAREER_FUTURES, data)
+    except Exception:
+        logger.warning('[career-futures] could not save for user_id=%s', user_id, exc_info=True)
+    return jsonify({'futures': data})
+
+
+@app.route('/api/career-futures')
+@require_weace_token
+def career_futures():
+    """Cached Career Futures, generated on first request."""
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    if not _has_pulse((g.user.get('org_id') or '').strip()):
+        return jsonify({'error': HOROSCOPE_UPGRADE_MESSAGE}), 403
+    return _career_futures_response(g.user['user_id'], g.user['user_name'], force=False)
+
+
+@app.route('/api/career-futures/refresh', methods=['POST'])
+@require_weace_token
+def career_futures_refresh():
+    """Rebuild Career Futures from the latest conversations and profile."""
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    if not _has_pulse((g.user.get('org_id') or '').strip()):
+        return jsonify({'error': HOROSCOPE_UPGRADE_MESSAGE}), 403
+    return _career_futures_response(g.user['user_id'], g.user['user_name'], force=True)
 
 
 @app.route('/api/my-analytics')
