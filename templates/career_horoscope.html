@@ -483,6 +483,20 @@
         }
 
         .sit-disclaimer { margin-top: 12px; font-size: 0.75rem; color: var(--text-muted); }
+        .sit-date { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); margin-bottom: 8px; }
+        .sit-history { margin-top: 24px; padding-top: 18px; border-top: 1px solid rgba(76,59,138,.10); }
+        .sit-history-title { font-size: 0.9rem; font-weight: 700; margin-bottom: 10px; }
+        .sit-past { border: 1px solid rgba(76,59,138,.12); border-radius: 12px; margin-bottom: 8px; }
+        .sit-past summary {
+            cursor: pointer; padding: 10px 14px; font-size: 0.85rem; line-height: 1.5;
+            display: flex; gap: 12px; align-items: baseline;
+        }
+        .sit-past summary .sit-past-q { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .sit-past[open] summary .sit-past-q { white-space: normal; }
+        .sit-past summary .sit-date { margin: 0; white-space: nowrap; }
+        .sit-past-body { padding: 0 14px 12px; }
+        #daily-panel .sit-history { border-top-color: rgba(67, 72, 170, 0.12); }
+        #daily-panel .sit-past { border-color: rgba(67, 72, 170, 0.14); }
 
         @media (max-width: 620px) {
             .form-grid { grid-template-columns: 1fr; }
@@ -534,13 +548,14 @@
                     <button type="button" class="submit-btn" id="sit-submit">Read my situation</button>
                 </span>
             </div>
+            <div id="sit-pending"></div>
             <div id="sit-result"></div>
         </div>
     </div>
 
     <div class="futures-wrap" id="futures-panel" style="display:none;">
         <div class="card" id="futures-card">
-            <div class="daily-empty"><div class="spinner"></div>Reading your Nexa conversations…</div>
+            <div class="daily-empty"><div class="spinner"></div>Developing your career paths…</div>
         </div>
     </div>
 
@@ -1176,7 +1191,7 @@
     $('futures-refresh').addEventListener('click', () => loadFutures(true));
 
     async function loadFutures(force) {
-        $('futures-card').innerHTML = `<div class="daily-empty"><div class="spinner"></div>Reading your Nexa conversations…</div>`;
+        $('futures-card').innerHTML = `<div class="daily-empty"><div class="spinner"></div>Bulding your future paths…</div>`;
         $('futures-refresh').disabled = true;
         try {
             const res = await fetch(force ? '/api/career-futures/refresh' : '/api/career-futures', {
@@ -1194,23 +1209,72 @@
     }
 
     // ── "What's likely to happen?" ──────────────────────────────────
-    function renderSituation(r) {
-        if (!r) { $('sit-result').innerHTML = ''; return; }
+    // Every reading is kept: the newest is shown in full, earlier ones are
+    // fetched only when asked for and sit below it as collapsible entries.
+    let sitLatest = null;
+    let sitPast = null;          // null until "View past readings" is clicked
+
+    function sitDate(r) {
+        const raw = r.created_at || r.date;
+        if (!raw) return '';
+        const d = new Date(String(raw).replace(' ', 'T'));
+        return isNaN(d) ? '' : d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+    }
+
+    function sitBody(r) {
         // Older saved readings used a longer format; fall back to its outcome text.
         const prediction = r.prediction || r.likely_outcome || '';
+        return `${prediction ? `<p class="daily-guidance">${escHtml(prediction)}</p>` : ''}
+            ${r.basis ? `<div class="sit-timing">✦ ${escHtml(r.basis)}</div>` : ''}`;
+    }
+
+    function renderSituations() {
+        if (!sitLatest) { $('sit-result').innerHTML = ''; return; }
+        const latest = sitLatest, past = sitPast || [];
+        const date = sitDate(latest);
         $('sit-result').innerHTML = `<div class="sit-result">
-            ${r.situation ? `<div class="sit-asked">“${escHtml(r.situation)}”</div>` : ''}
-            ${prediction ? `<p class="daily-guidance">${escHtml(prediction)}</p>` : ''}
-            ${r.basis ? `<div class="sit-timing">✦ ${escHtml(r.basis)}</div>` : ''}
+            ${date ? `<div class="sit-date">${escHtml(date)}</div>` : ''}
+            ${latest.situation ? `<div class="sit-asked">“${escHtml(latest.situation)}”</div>` : ''}
+            ${sitBody(latest)}
             <p class="sit-disclaimer">An astrological reading of tendencies, not a certainty.</p>
-        </div>`;
+        </div>
+        ${sitPast === null ? `<div class="sit-history">
+            <button type="button" class="ghost-btn" id="sit-past-btn">View past readings</button>
+        </div>` : past.length ? `<div class="sit-history">
+            <div class="sit-history-title">Past readings (${past.length})</div>
+            ${past.map(r => `<details class="sit-past">
+                <summary><span class="sit-past-q">${escHtml(r.situation || 'Situation')}</span>
+                    <span class="sit-date">${escHtml(sitDate(r))}</span></summary>
+                <div class="sit-past-body">${sitBody(r)}</div>
+            </details>`).join('')}
+        </div>` : `<div class="sit-history"><div class="sit-disclaimer">No past readings yet.</div></div>`}`;
+        const btn = $('sit-past-btn');
+        if (btn) btn.addEventListener('click', loadPastSituations);
     }
 
     function loadLastSituation() {
         fetch('/api/career-horoscope/situation', { headers: getAuthHeaders(), credentials: 'include' })
             .then(r => r.ok ? r.json() : null)
-            .then(data => { if (data && data.reading) renderSituation(data.reading); })
+            .then(data => { if (data && data.reading) { sitLatest = data.reading; renderSituations(); } })
             .catch(() => { /* not critical */ });
+    }
+
+    async function loadPastSituations() {
+        const btn = $('sit-past-btn');
+        btn.disabled = true;
+        btn.textContent = 'Loading…';
+        try {
+            const res = await fetch('/api/career-horoscope/situation/history',
+                { headers: getAuthHeaders(), credentials: 'include' });
+            const data = await res.json();
+            if (!res.ok || !Array.isArray(data.history)) throw new Error();
+            // The first row is the reading already shown in full.
+            sitPast = data.history.slice(1);
+            renderSituations();
+        } catch (e) {
+            btn.disabled = false;
+            btn.textContent = 'Could not load. Try again';
+        }
     }
 
     async function askSituation() {
@@ -1221,7 +1285,7 @@
         const btn = $('sit-submit');
         btn.disabled = true;
         btn.textContent = 'Reading…';
-        $('sit-result').innerHTML = `<div class="sit-result">${skeletonSec()}</div>`;
+        $('sit-pending').innerHTML = `<div class="sit-result">${skeletonSec()}</div>`;
         try {
             const res = await fetch('/api/career-horoscope/situation', {
                 method: 'POST',
@@ -1231,13 +1295,15 @@
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Something went wrong.');
-            renderSituation(data.reading);
+            if (sitPast !== null && sitLatest) sitPast.unshift(sitLatest);
+            sitLatest = data.reading;
+            renderSituations();
             $('sit-input').value = '';
             updateSitCount();
         } catch (e) {
-            $('sit-result').innerHTML = '';
             errEl.textContent = e.message || 'Could not read this situation. Please try again.';
         } finally {
+            $('sit-pending').innerHTML = '';
             btn.disabled = false;
             btn.textContent = 'Read my situation';
         }
