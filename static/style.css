@@ -22,12 +22,12 @@
     --glass-bg: rgba(255, 255, 255, 0.78);
     --glass-border: rgba(76, 59, 138, 0.14);
     --primary-color: #4338ca;
-    --primary-hover: #5b21b6;
+    --primary-hover: #3b12b7;
     --text-main: #1e1b33;
     --text-muted: #5b5674;
     --assistant-msg-bg: rgba(232, 226, 243, 0.7);
     --user-msg-bg: rgba(139, 92, 246, 0.08);
-    --accent-gradient: linear-gradient(135deg, #5b21b6 0%, #7c3aed 52%, #a855f7 100%);
+    --accent-gradient: linear-gradient(135deg, #3721b6 0%, #3b279d 52%, #2e29c9 100%);
     /* Tinted fills and elevation, so shadows and hovers belong to the
        palette instead of greying the page down. */
     --primary-soft: rgba(109, 40, 217, 0.09);

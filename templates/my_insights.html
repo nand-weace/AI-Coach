@@ -16,10 +16,10 @@
             --glass-bg: rgba(255, 255, 255, 0.78);
             --glass-border: rgba(76, 59, 138, 0.14);
             --primary-color: #4338ca;
-            --primary-hover: #5b21b6;
+            --primary-hover: #4338ca;
             --text-main: #1e1b33;
             --text-muted: #5b5674;
-            --accent-gradient: linear-gradient(135deg, #5b21b6 0%, #7c3aed 52%, #a855f7 100%);
+            --accent-gradient: linear-gradient(135deg, #4338ca 0%, #3e2fc5 52%, #4538a0 100%);
             /* Tinted fills and elevation, so shadows and hovers belong to the
                palette instead of greying the page down. */
             --primary-soft: rgba(109, 40, 217, 0.09);
@@ -412,7 +412,7 @@
            far enough to read as background without disappearing entirely. */
         .combo-series { transition: opacity 0.18s ease; }
         .combo-series.faded { opacity: 0.13; }
-        .combo-series.focused polyline { stroke-width: 3; opacity: 1; }
+        .combo-series.focused polyline { stroke-width: 6; opacity: 1; }
         .combo-legend-item { transition: opacity 0.18s ease; }
         .combo-legend-item.faded { opacity: 0.35; }
         .combo-chart-body { margin-bottom: 14px; position: relative; }
@@ -431,7 +431,7 @@
         }
         .combo-tooltip-date { font-size: 0.72rem; font-weight: 600; color: var(--text-muted); margin-bottom: 7px; }
         .combo-tooltip-row { display: flex; align-items: center; gap: 6px; font-size: 0.75rem; padding: 1px 0; }
-        .combo-tooltip-swatch { width: 10px; height: 3px; border-radius: 99px; flex-shrink: 0; }
+        .combo-tooltip-swatch { width: 14px; height: 5px; border-radius: 99px; flex-shrink: 0; }
         .combo-tooltip-label { color: #3c3350; flex: 1; }
         .combo-tooltip-val { font-weight: 600; color: var(--text-main); font-variant-numeric: tabular-nums; }
         .combo-legend {
@@ -442,7 +442,7 @@
             padding-top: 12px;
         }
         .combo-legend-item { display: flex; align-items: center; gap: 7px; font-size: 0.78rem; cursor: pointer; }
-        .combo-legend-line { width: 16px; height: 3px; border-radius: 99px; flex-shrink: 0; }
+        .combo-legend-line { width: 22px; height: 5px; border-radius: 99px; flex-shrink: 0; }
         .combo-legend-name { color: var(--text-main); }
         .combo-legend-score { font-weight: 600; font-variant-numeric: tabular-nums; }
 
@@ -1251,21 +1251,20 @@
         empathy:                   { icon: '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>' },
     };
 
-    // Trend-line palette: a VIBGYOR spectrum, one fixed hue per dimension so a
-    // line keeps its colour no matter which others are on screen. The steps are
-    // not the pure spectrum — they were picked so every neighbouring pair stays
-    // distinguishable under red/green colour blindness (worst adjacent pair
-    // ΔE 16.4 deutan, 17.3 normal vision). Don't swap a step for a "truer"
-    // yellow or orange without re-checking that separation.
+    // Trend-line palette: one fixed, clearly separate hue per dimension so a
+    // line keeps its colour no matter which others are on screen. Fully
+    // saturated hues spread around the wheel (purple, blue, cyan, green,
+    // yellow, orange, magenta) plus near-black, so no two lines read as
+    // shades of the same colour.
     const DIM_COLORS = {
-        growth_mindset:            '#6b21a8',  // violet
-        job_satisfaction:          '#818cf8',  // indigo
-        self_confidence:           '#075985',  // blue
-        work_life_balance:         '#0d9488',  // teal
-        emotional_resilience:      '#22c55e',  // green
-        frustration_disengagement: '#a16207',  // yellow
-        psychological_safety:      '#fb923c',  // orange
-        empathy:                   '#be123c',  // red
+        growth_mindset:            '#7e22ff',  // purple
+        job_satisfaction:          '#0047ff',  // blue
+        self_confidence:           '#00b4d8',  // cyan
+        work_life_balance:         '#00a53c',  // green
+        emotional_resilience:      '#f2b600',  // yellow
+        frustration_disengagement: '#ff5f00',  // orange
+        psychological_safety:      '#f0058c',  // magenta
+        empathy:                   '#111111',  // black
     };
 
     // Scores are stored 0-100 so a reading stays comparable with every earlier
@@ -1609,9 +1608,9 @@
             if (!pts) return '';
             const last = dim.trend[dim.trend.length - 1];
             const lxi  = dateIdx.get(last.date);
-            const dot  = lxi !== undefined ? `<circle cx="${toX(lxi).toFixed(1)}" cy="${toY(last.score).toFixed(1)}" r="4" fill="${color}"/>` : '';
+            const dot  = lxi !== undefined ? `<circle cx="${toX(lxi).toFixed(1)}" cy="${toY(last.score).toFixed(1)}" r="6" fill="${color}"/>` : '';
             return `<g class="combo-series" data-dim-key="${dim.key}">
-                <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" opacity="0.85"/>${dot}
+                <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>${dot}
             </g>`;
         }).join('');
 

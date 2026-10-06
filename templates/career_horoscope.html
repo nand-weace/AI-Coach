@@ -178,28 +178,6 @@
             padding: 3px 10px; border-radius: 999px; font-weight: 600;
         }
 
-        .spectrum-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
-        @media (max-width: 780px) { .spectrum-grid { grid-template-columns: 1fr; } }
-        .spectrum-card {
-            background: #fff; border: 1px solid rgba(76,59,138,.12);
-            border-radius: 14px; padding: 16px 18px;
-        }
-        .spectrum-ends {
-            display: flex; justify-content: space-between;
-            font-size: 0.78rem; font-weight: 600; color: var(--text-muted); margin-bottom: 10px;
-        }
-        .spectrum-track {
-            position: relative; height: 8px; border-radius: 999px;
-            background: var(--primary-soft);
-        }
-        .spectrum-dot {
-            position: absolute; top: 50%; width: 16px; height: 16px;
-            border-radius: 50%; background: var(--accent-gradient);
-            transform: translate(-50%, -50%); box-shadow: 0 2px 6px rgba(109,40,217,.4);
-        }
-        .spectrum-verdict { font-weight: 700; font-size: 0.9rem; color: var(--text-main); margin-top: 10px; }
-        .spectrum-basis { font-size: 0.83rem; color: var(--text-muted); margin-top: 6px; line-height: 1.55; }
-
         /* Sub-sections within a chapter or the Career Futures tab */
         .subsec { margin-bottom: 24px; }
         .subsec:last-child { margin-bottom: 0; }
@@ -368,7 +346,6 @@
         .book-page-body p:last-child { margin-bottom: 0; }
         .book-page-body .muted { color: var(--text-muted); }
         .book-page-body .list li,
-        .book-page-body .spectrum-basis,
         .book-page-body .timing-basis { font-family: 'Inter', sans-serif; }
         .book-page-body .cover-summary { font-size: 1.08rem; line-height: 1.85; color: #45405f; }
         .mini-head {
@@ -377,8 +354,7 @@
             margin: 26px 0 12px;
         }
         .book-page-body .mini-head:first-child { margin-top: 0; }
-        .book-page-body .lucky-block h5,
-        .book-page-body .spectrum-ends { font-family: 'Inter', sans-serif; }
+        .book-page-body .lucky-block h5 { font-family: 'Inter', sans-serif; }
 
         /* The opening chapter reads like a title page */
         .book-page.is-cover { text-align: center; padding: 40px 34px 44px; }
@@ -426,8 +402,81 @@
         .page.on-daily #regenerate-btn,
         .page.on-futures #regenerate-btn { display: none !important; }
         .futures-wrap { display: flex; flex-direction: column; gap: 16px; }
-        /* Three cards a row. */
-        #futures-card .item-grid { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+
+        /* Future paths: four selectable path cards, then the selected path's
+           detail (timeline, evidence, gaps) beside its evidence-confidence ring. */
+        .path-tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 14px; }
+        @media (max-width: 900px) { .path-tabs { grid-template-columns: 1fr 1fr; } }
+        .path-tab {
+            display: flex; flex-direction: column; justify-content: flex-start;
+            text-align: left; font-family: inherit; cursor: pointer; min-width: 0;
+            background: #fff; border: 1px solid rgba(76,59,138,.14); border-radius: 14px;
+            padding: 14px 16px; transition: border-color .12s, background .12s;
+        }
+        .path-tab:hover { border-color: var(--primary-ring); }
+        .path-tab.active { border: 2px solid var(--primary-color); background: var(--primary-soft); padding: 13px 15px; }
+        .path-tab .pt-kind { font-size: 0.68rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); }
+        .path-tab .pt-role {
+            font-size: 1.12rem; font-weight: 500; color: var(--text-main);
+            margin: 6px 0 6px; line-height: 1.3;
+        }
+        .path-tab .pt-conf { font-size: 0.75rem; color: var(--text-muted); }
+        .path-tab.risk .pt-kind { color: #b45309; }
+
+        .path-detail {
+            display: grid; grid-template-columns: 1fr 300px; overflow: hidden;
+            background: #fff; border: 1px solid rgba(76,59,138,.12);
+            border-left: 5px solid var(--primary-color); border-radius: 14px;
+        }
+        .path-detail.risk { border-left-color: #d97706; }
+        @media (max-width: 780px) { .path-detail { grid-template-columns: 1fr; } }
+        .pd-main { padding: 28px 30px; min-width: 0; }
+        .pd-when { font-size: 0.75rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--primary-color); }
+        .path-detail.risk .pd-when { color: #b45309; }
+        .pd-role { font-size: 2rem; font-weight: 500; line-height: 1.2; margin: 10px 0 8px; }
+        .pd-summary { color: var(--text-muted); font-size: 1rem; line-height: 1.6; }
+        .pd-cols {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 20px 28px;
+            border-top: 1px solid rgba(76,59,138,.12); margin-top: 22px; padding-top: 20px;
+        }
+        @media (max-width: 620px) { .pd-cols { grid-template-columns: 1fr; } .pd-main { padding: 22px 18px; } }
+        .pd-cols h4 { font-size: 0.75rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 8px; }
+        .pd-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+        .pd-list li { position: relative; padding-left: 22px; font-size: 0.9rem; line-height: 1.5; color: #35304f; }
+        .pd-list li::before { position: absolute; left: 2px; top: 0; font-weight: 700; }
+        .pd-list.ok li::before { content: '✓'; color: var(--primary-color); }
+        .pd-list.gap li::before { content: '!'; color: #d97706; font-style: italic; left: 5px; }
+
+        .pd-side {
+            background: rgba(109,40,217,.035); border-left: 1px solid rgba(76,59,138,.10);
+            padding: 26px 22px; display: flex; flex-direction: column; align-items: center; text-align: center;
+        }
+        @media (max-width: 780px) { .pd-side { border-left: 0; border-top: 1px solid rgba(76,59,138,.10); } }
+        .conf-ring { position: relative; width: 170px; height: 170px; }
+        .conf-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+        .conf-ring .ring-bg { stroke: var(--primary-soft); }
+        .conf-ring .ring-fg { stroke: var(--primary-color); transition: stroke-dashoffset .5s ease; }
+        .path-detail.risk .conf-ring .ring-fg { stroke: #d97706; }
+        .conf-ring .ring-label {
+            position: absolute; inset: 0; display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+        }
+        .conf-ring .ring-num { font-size: 2.3rem; font-weight: 500; line-height: 1; }
+        .conf-ring .ring-cap { font-size: 0.66rem; letter-spacing: .06em; text-transform: uppercase; margin-top: 8px; line-height: 1.4; }
+        .conf-note { font-size: 0.8rem; color: var(--text-muted); line-height: 1.55; margin-top: 14px; }
+        .conf-how {
+            margin-top: 12px; background: none; border: 0; cursor: pointer; font-family: inherit;
+            font-size: 0.82rem; font-weight: 600; color: var(--primary-color);
+        }
+        .conf-how:hover { text-decoration: underline; }
+        .conf-break { width: 100%; margin-top: 12px; text-align: left; display: flex; flex-direction: column; gap: 10px; }
+        .conf-break[hidden] { display: none; }
+        .cb-row .cb-top { display: flex; justify-content: space-between; font-size: 0.76rem; color: var(--text-main); margin-bottom: 4px; }
+        .cb-row .cb-top span:last-child { color: var(--text-muted); }
+        .cb-bar { height: 6px; border-radius: 999px; background: var(--primary-soft); overflow: hidden; }
+        .cb-bar i { display: block; height: 100%; background: var(--primary-color); border-radius: 999px; }
+        .cb-desc { font-size: 0.72rem; color: var(--text-muted); margin-top: 3px; line-height: 1.4; }
+        .paths-stale { font-size: 0.85rem; color: var(--text-muted); }
 
         /* Daily note on the left, "What's likely to happen?" on the right;
            stacked on narrow screens. */
@@ -517,8 +566,8 @@
 
 <div class="page on-daily" id="horo-page">
     <div class="horo-head">
-        <h2>Career Futures</h2>
-        <p>A personal career reading and potential future paths</p>
+        <h2>Daily Horoscope</h2>
+        <p>A personal daily horoscope reader personalised to your details</p>
         <button type="button" class="ghost-btn" id="regenerate-btn" title="" style="display:none;">Regenerate</button>
         <button type="button" class="ghost-btn" id="futures-refresh">Refresh</button>
     </div>
@@ -655,32 +704,6 @@
         return `<ul class="list">${items.map(render).join('')}</ul>`;
     }
 
-    function houseBlock(label, h) {
-        if (!h) return '';
-        const meta = [h.sign ? `Sign: ${escHtml(h.sign)}` : '',
-                      h.lord_placement ? `Lord: ${escHtml(h.lord_placement)}` : '',
-                      (h.occupants && h.occupants.length) ? `Occupants: ${h.occupants.map(escHtml).join(', ')}` : '',
-                      h.second ? `2nd: ${escHtml(h.second)}` : '',
-                      h.eleventh ? `11th: ${escHtml(h.eleventh)}` : '']
-                      .filter(Boolean).join(' · ');
-        return `<div class="kv">
-            <div class="kv-title">${escHtml(label)}</div>
-            ${meta ? `<div class="kv-meta">${meta}</div>` : ''}
-            <p class="muted">${escHtml(h.reading || '')}</p>
-        </div>`;
-    }
-
-    function spectrum(leftLabel, rightLabel, s) {
-        if (!s) return '';
-        const score = Math.max(0, Math.min(100, Number(s.score) || 0));
-        return `<div class="spectrum-card">
-            <div class="spectrum-ends"><span>${escHtml(leftLabel)}</span><span>${escHtml(rightLabel)}</span></div>
-            <div class="spectrum-track"><div class="spectrum-dot" style="left:${score}%"></div></div>
-            ${s.verdict ? `<div class="spectrum-verdict">${escHtml(s.verdict)}</div>` : ''}
-            ${s.basis ? `<div class="spectrum-basis">${escHtml(s.basis)}</div>` : ''}
-        </div>`;
-    }
-
     function skeletonSec() {
         return `<div class="skeleton-sec">
             <div class="skeleton-line short"></div>
@@ -720,28 +743,23 @@
 
         // ── Career Houses — a card each, so the page fills out.
         const ha = h.house_analysis || {};
-        const houseCard = (label, x) => x ? itemCard(escHtml(label),
-            [x.sign ? `Sign: ${escHtml(x.sign)}` : '',
-             x.lord_placement ? `Lord: ${escHtml(x.lord_placement)}` : '',
-             (x.occupants && x.occupants.length) ? `Occupants: ${x.occupants.map(escHtml).join(', ')}` : '',
-             x.second ? `2nd: ${escHtml(x.second)}` : '',
-             x.eleventh ? `11th: ${escHtml(x.eleventh)}` : ''].filter(Boolean).join(' · '),
-            escHtml(x.reading || '')) : '';
-        const houses = [houseCard('10th · Karma Bhava (profession)', ha.tenth_house),
-                        houseCard('6th (service & employment)', ha.sixth_house),
-                        houseCard('2nd & 11th (wealth & gains)', ha.wealth_houses),
-                        houseCard('7th (business & partnership)', ha.seventh_house)]
+        // Plain labels only; older saved readings also carry sign/lord/occupant
+        // chart details, which aren't shown.
+        const houseCard = (label, x) => x ? itemCard(escHtml(label), '', escHtml(x.reading || '')) : '';
+        const houses = [houseCard('Career & Reputation', ha.tenth_house),
+                        houseCard('Day-to-Day Work', ha.sixth_house),
+                        houseCard('Money & Earnings', ha.wealth_houses),
+                        houseCard('Business & Partnerships', ha.seventh_house)]
                         .filter(Boolean);
-        if (houses.length) chapters.push({ title: 'Career Houses', icon: '☉',
-            intro: 'How the houses that govern work, service, wealth and partnership are set up in your chart.',
+        if (houses.length) chapters.push({ title: 'Your Career Chart', icon: '☉',
+            intro: 'What your chart says about your career, your daily work, your earnings and your partnerships.',
             body: itemGrid(houses) });
 
         // ── Current cycle + timing together.
         const cp = h.current_period || {};
         let timingBody = '';
-        if (cp.dasha || cp.theme || (cp.opportunities || []).length || (cp.cautions || []).length) {
+        if (cp.theme || (cp.opportunities || []).length || (cp.cautions || []).length) {
             let cur = '';
-            if (cp.dasha) cur += `<div class="kv-meta">${escHtml(cp.dasha)}</div>`;
             if (cp.theme) cur += `<p>${escHtml(cp.theme)}</p>`;
             let cols = '';
             if (cp.opportunities && cp.opportunities.length)
@@ -756,11 +774,10 @@
                 <div class="timing-when">${escHtml(t.window || '')}</div>
                 <div class="timing-body">
                     <div class="timing-act">${escHtml(t.activity || '')}${t.strength ? `<span class="tag ${escHtml(String(t.strength).toLowerCase())}">${escHtml(t.strength)}</span>` : ''}</div>
-                    ${t.basis ? `<div class="timing-basis">${escHtml(t.basis)}</div>` : ''}
                 </div></div>`).join('');
             timingBody += subsec('Windows to watch for', grid(rows));
         }
-        if (timingBody) chapters.push({ title: 'Timing & Current Cycle', icon: '☾', body: timingBody });
+        if (timingBody) chapters.push({ title: 'Timing & Where You Are Now', icon: '☾', body: timingBody });
 
         // ── Lucky factors.
         const lf = h.lucky_factors || {};
@@ -793,7 +810,6 @@
                 let c = '';
                 if (nt.outlook) c += `<p>${escHtml(nt.outlook)}</p>`;
                 if (nt.key_developments && nt.key_developments.length) c += listOf(nt.key_developments, k => `<li>${escHtml(k)}</li>`);
-                if (nt.basis) c += `<p class="muted" style="font-size:.9rem;">${escHtml(nt.basis)}</p>`;
                 cards += `<div class="item-card"><div class="ic-title">Near term · 1-3 years</div>${c}</div>`;
             }
             if (lt) {
@@ -802,7 +818,6 @@
                 if (lt.career_trajectory) c += `<p>${escHtml(lt.career_trajectory)}</p>`;
                 if (lt.peak_phases && lt.peak_phases.length)
                     c += `<div class="mini-head">Peak phases</div>` + listOf(lt.peak_phases, p => `<li><strong>${escHtml(p.period)}</strong>${p.why ? `: ${escHtml(p.why)}` : ''}</li>`);
-                if (lt.basis) c += `<p class="muted" style="font-size:.9rem;">${escHtml(lt.basis)}</p>`;
                 cards += `<div class="item-card"><div class="ic-title">Long term · 3-10 years</div>${c}</div>`;
             }
             chapters.push({ title: 'Future Prospects', icon: '➶', body: `<div class="item-grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr))">${cards}</div>` });
@@ -1165,19 +1180,87 @@
         const subsec = (label, body) => body ? `<section class="subsec">
             <div class="subsec-head">${escHtml(label)}</div>
             <div class="subsec-body">${body}</div></section>` : '';
-        const itemGrid = items => `<div class="item-grid">${items.join('')}</div>`;
-        const itemCard = (title, body) => `<div class="item-card">
-            <div class="ic-title">${escHtml(title)}</div>${body ? `<p>${escHtml(body)}</p>` : ''}</div>`;
-        const spectrums = spectrum('Startup', 'Corporate', f.startup_vs_corporate)
-                        + spectrum('Leadership', 'Specialist', f.leadership_vs_specialist)
-                        + spectrum('Creative', 'Analytical', f.creative_vs_analytical);
         let body = `${f.summary ? `<p class="daily-guidance">${escHtml(f.summary)}</p>` : ''}`;
-        if (spectrums) body += subsec('Your spectrum', `<div class="spectrum-grid">${spectrums}</div>`);
-        if (Array.isArray(f.ideal_roles) && f.ideal_roles.length)
-            body += subsec('Ideal roles', itemGrid(f.ideal_roles.slice(0, 3).map(r => itemCard(r.role, r.why))));
-        if (Array.isArray(f.suitable_fields) && f.suitable_fields.length)
-            body += subsec('Suitable fields', itemGrid(f.suitable_fields.slice(0, 3).map(x => itemCard(x.field, x.why))));
+        const paths = Array.isArray(f.paths) ? f.paths.filter(p => p && p.role) : [];
+        body += subsec('Likely paths', paths.length
+            ? `<div class="path-tabs" role="tablist">${paths.map((p, i) => pathTab(p, i)).join('')}</div>
+               <div id="path-detail"></div>`
+            : `<p class="paths-stale">Refresh to see your likely paths, with evidence and confidence for each.</p>`);
         $('futures-card').innerHTML = body;
+        if (paths.length) {
+            const tabs = document.querySelectorAll('#futures-card .path-tab');
+            const select = i => {
+                tabs.forEach((t, j) => { t.classList.toggle('active', j === i); t.setAttribute('aria-selected', j === i); });
+                $('path-detail').innerHTML = pathDetail(paths[i]);
+                const how = $('path-detail').querySelector('.conf-how');
+                how.addEventListener('click', () => {
+                    const box = $('path-detail').querySelector('.conf-break');
+                    box.hidden = !box.hidden;
+                    how.textContent = box.hidden ? 'See how this is calculated' : 'Hide calculation';
+                });
+            };
+            tabs.forEach((t, i) => t.addEventListener('click', () => select(i)));
+            select(0);
+        }
+    }
+
+    const PATH_KINDS = {
+        most_likely: 'Most likely', accelerated: 'Accelerated',
+        adjacent: 'Adjacent possibility', risk: 'Risk trajectory',
+    };
+    // Mirrors _CONFIDENCE_WEIGHTS in app.py.
+    const CONF_PARTS = [
+        ['completeness', 'Completeness', 40, 'How much concrete evidence supports it'],
+        ['consistency', 'Consistency', 35, 'How well your profile and conversations agree'],
+        ['recency', 'Recency', 25, 'How recent the supporting evidence is'],
+    ];
+    const pct = v => Math.max(0, Math.min(100, Math.round(Number(v) || 0)));
+
+    function pathTab(p, i) {
+        return `<button type="button" role="tab" class="path-tab${p.type === 'risk' ? ' risk' : ''}" data-i="${i}">
+            <div class="pt-kind">${escHtml(PATH_KINDS[p.type] || '')}</div>
+            <div class="pt-role">${escHtml(p.role)}</div>
+            <div class="pt-conf">${pct(p.confidence)}% evidence confidence</div>
+        </button>`;
+    }
+
+    function pathDetail(p) {
+        const conf = pct(p.confidence);
+        const r = 76, circ = 2 * Math.PI * r;
+        const list = (cls, items) => `<ul class="pd-list ${cls}">${items.map(x => `<li>${escHtml(x)}</li>`).join('')}</ul>`;
+        const evidence = Array.isArray(p.evidence) ? p.evidence : [];
+        const missing = Array.isArray(p.missing) ? p.missing : [];
+        const when = [PATH_KINDS[p.type], p.timeline].filter(Boolean).map(escHtml).join(' · ');
+        return `<div class="path-detail${p.type === 'risk' ? ' risk' : ''}">
+            <div class="pd-main">
+                ${when ? `<div class="pd-when">${when}</div>` : ''}
+                <div class="pd-role">${escHtml(p.role)}</div>
+                ${p.summary ? `<p class="pd-summary">${escHtml(p.summary)}</p>` : ''}
+                <div class="pd-cols">
+                    <div><h4>Evidence supporting this path</h4>${evidence.length ? list('ok', evidence) : '<p class="paths-stale">Not yet evidenced.</p>'}</div>
+                    <div><h4>What is still missing</h4>${missing.length ? list('gap', missing) : '<p class="paths-stale">No clear gaps.</p>'}</div>
+                </div>
+            </div>
+            <div class="pd-side">
+                <div class="conf-ring">
+                    <svg viewBox="0 0 170 170" aria-hidden="true">
+                        <circle class="ring-bg" cx="85" cy="85" r="${r}" fill="none" stroke-width="12"/>
+                        <circle class="ring-fg" cx="85" cy="85" r="${r}" fill="none" stroke-width="12" stroke-linecap="round"
+                                stroke-dasharray="${circ}" stroke-dashoffset="${circ * (1 - conf / 100)}"/>
+                    </svg>
+                    <div class="ring-label"><span class="ring-num">${conf}%</span><span class="ring-cap">Evidence<br>confidence</span></div>
+                </div>
+                <p class="conf-note">This is not a probability of success. It shows the completeness, consistency and recency of supporting evidence.</p>
+                <button type="button" class="conf-how">See how this is calculated</button>
+                <div class="conf-break" hidden>
+                    ${CONF_PARTS.map(([k, label, w, desc]) => `<div class="cb-row">
+                        <div class="cb-top"><span>${label} · ${w}% weight</span><span>${pct(p[k])}%</span></div>
+                        <div class="cb-bar"><i style="width:${pct(p[k])}%"></i></div>
+                        <div class="cb-desc">${desc}</div>
+                    </div>`).join('')}
+                </div>
+            </div>
+        </div>`;
     }
 
     function renderFuturesEmpty(msg) {

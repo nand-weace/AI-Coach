@@ -2644,10 +2644,57 @@ def _strip_dashes(text: str) -> str:
     return re.sub(r',\s*([.,;:!?])', r'\1', text).strip(', ')
 
 
+# Sanskrit/Hindi astrology terms -> what a Western, English-speaking reader
+# would say. The prompts already ask for plain English, but models slip, and
+# older saved readings predate that rule. Longer phrases come first so they win
+# over their parts ("Karma Bhava" before "Bhava"). Words that are also everyday
+# English (guru, karma, yoga) are left alone.
+_WESTERN_TERMS = [
+    (r'vedic astrology|jyotish(?:a)?', 'astrology'),
+    (r'karma bhava', 'career house'),
+    (r'chandra lagna', 'Moon sign'),
+    (r'sade sati', 'long Saturn phase'),
+    (r'maha ?dashas?', 'major period'),
+    (r'antar ?dashas?', 'sub-period'),
+    (r'dashas?', 'period'),
+    (r'lagnas?|ascendant lord', 'rising sign'),
+    (r'kundl[iy]|kundali|janam ?patri', 'birth chart'),
+    (r'nakshatras?', 'lunar mansion'),
+    (r'rashis?', 'sign'),
+    (r'bhavas?', 'house'),
+    (r'dashamsh?a', 'career chart'),
+    (r'shani', 'Saturn'),
+    (r'brihaspati', 'Jupiter'),
+    (r'surya', 'the Sun'),
+    (r'chandra', 'the Moon'),
+    (r'shukra', 'Venus'),
+    (r'budh(?:a)?', 'Mercury'),
+    (r'mangal', 'Mars'),
+    (r'rahu', 'the North Node'),
+    (r'ketu', 'the South Node'),
+    (r'muhurat(?:ha)?', 'good time'),
+]
+_WESTERN_RE = [(re.compile(rf'\b(?:{pat})\b', re.IGNORECASE), repl)
+               for pat, repl in _WESTERN_TERMS]
+
+
+def _westernise(text: str) -> str:
+    """Swap Sanskrit/Hindi astrology terms for plain English equivalents,
+    capitalised only where they start a sentence."""
+    def sub(m, r):
+        at_start = not re.search(r'\S', m.string[:m.start()]) or \
+            re.search(r'[.!?]\s+$', m.string[:m.start()])
+        return r[0].upper() + r[1:] if at_start else r
+    for rx, repl in _WESTERN_RE:
+        text = rx.sub(lambda m, r=repl: sub(m, r), text)
+    return re.sub(r'\b(the|The) the\b', r'\1', text)   # "the Surya" -> "the the Sun"
+
+
 def _strip_dashes_deep(value):
-    """_strip_dashes over every string in a nested reply (dicts and lists)."""
+    """_strip_dashes and _westernise over every string in a nested reply
+    (dicts and lists)."""
     if isinstance(value, str):
-        return _strip_dashes(value)
+        return _westernise(_strip_dashes(value))
     if isinstance(value, dict):
         return {k: _strip_dashes_deep(v) for k, v in value.items()}
     if isinstance(value, list):
@@ -2774,13 +2821,46 @@ def career_horoscope_situation_history():
 # ── Career Futures ──────────────────────────────────────────────────────────
 # The Career Futures tab is not astrological: it reads the user's own Nexa
 # coaching conversations and their profile (plus LinkedIn, when scraped) to
-# place them on the work-style spectrums and suggest roles and fields. Cached
-# per user; regenerated on request from the tab's Refresh button.
+# suggest four likely career paths, each with its evidence, gaps and an
+# evidence-confidence score. Cached per user; regenerated on request from the tab's Refresh button.
 _CAREER_FUTURES = 'career_futures'
 _FUTURES_MSG_LIMIT = 180      # most recent user messages read per run
 _FUTURES_MSG_CHARS = 320      # per-message truncation
 _FUTURES_MAX_CHARS = 14_000   # conversation block cap (keeps the most recent tail)
 _FUTURES_MIN_MESSAGES = 3     # below this, only the profile has anything to say
+
+
+_FUTURE_PATH_TYPES = ('most_likely', 'accelerated', 'adjacent', 'risk')
+# Evidence confidence = weighted blend of the model's three evidence ratings.
+# Computed here rather than asked for directly so the headline number is
+# explainable ("See how this is calculated") and consistent across runs.
+_CONFIDENCE_WEIGHTS = {'completeness': 0.4, 'consistency': 0.35, 'recency': 0.25}
+
+
+def _score_future_paths(paths) -> list:
+    """Keep one path per known type, in display order, each with a 0-100
+    `confidence` derived from its completeness/consistency/recency."""
+    by_type = {}
+    for p in paths if isinstance(paths, list) else []:
+        if isinstance(p, dict) and p.get('type') in _FUTURE_PATH_TYPES and p.get('role'):
+            by_type.setdefault(p['type'], p)
+    scored = []
+    for t in _FUTURE_PATH_TYPES:
+        p = by_type.get(t)
+        if not p:
+            continue
+        parts = {}
+        for k in _CONFIDENCE_WEIGHTS:
+            try:
+                parts[k] = max(0, min(100, round(float(p.get(k) or 0))))
+            except (TypeError, ValueError):
+                parts[k] = 0
+        p.update(parts)
+        p['confidence'] = round(sum(parts[k] * w for k, w in _CONFIDENCE_WEIGHTS.items()))
+        p['evidence'] = [e for e in (p.get('evidence') or []) if isinstance(e, str)][:3]
+        p['missing'] = [m for m in (p.get('missing') or []) if isinstance(m, str)][:3]
+        scored.append(p)
+    return scored
 
 
 def _generate_career_futures(user_id: str, name: str) -> dict | None:
@@ -2810,7 +2890,8 @@ def _generate_career_futures(user_id: str, name: str) -> dict | None:
         f"{convo if convo else 'No conversations yet.'}\n\n"
         "Return ONLY the JSON object from the schema."
     )
-    data = _strip_dashes_deep(_parse_json_reply(_horoscope_reply(system, user_block, max_tokens=3000)))
+    data = _strip_dashes_deep(_parse_json_reply(_horoscope_reply(system, user_block, max_tokens=5000)))
+    data['paths'] = _score_future_paths(data.get('paths'))
     data['messages_analyzed'] = len(messages)
     data['generated_at'] = time.time()
     return data

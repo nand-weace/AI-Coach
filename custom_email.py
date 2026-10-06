@@ -136,18 +136,13 @@ HTML_TEMPLATE_RATER_REMINDER = """\
 
 <p>Your feedback is an important input to support the participant’s leadership development journey. </p>
 
-<p> <b> 360°-assessment closing date: 5th October 2026 </b></p>
+<p>Please click on the link below to begin your 360°-assessment feedback </p>
 
-<p>Click on the link below to begin your 360°-assessment feedback </p>
-
-<p><a href="{assessment_link}">360&deg;Leadership Assessment</a></p>
+<p><b> Complete Your 360° Assessment <a href="{assessment_link}">360&deg;Leadership Assessment</a> </b></p>
 
 <p>If you face any difficulty accessing the assessment or have any queries, please write to
 <a href="mailto:leadership.development@emeritus.org">leadership.development@emeritus.org</a>.
 Our team will respond to your query within 24 hours.</p>
-
-
-Thank you for taking the time to provide thoughtful and meaningful feedback. <br/>
 
 <p><b>Warm Regards,<br>Team Emeritus</b></p>
 """
@@ -157,11 +152,10 @@ HTML_TEMPLATE_SELF_REMINDER = """\
 
 <p> This is a gentle reminder to complete the 360° leadership assessment.</p>
 
-<p> <b> 360°-assessment closing date: 5th October 2026 </b></p>
+<p>Please click on the link below to begin your 360°assessment feedback</p>
 
-<p>Click on the link below to begin your 360°assessment feedback</p>
-
-<p><a href="{assessment_link}">360&deg;Leadership Assessment</a></p>
+<p> <b>Complete Your 360° Assessment </b>
+<a href="{assessment_link}">360&deg;Leadership Assessment</a></p>
 
 <p>If you have any questions or require assistance, please write to 
 <a href="mailto:leadership.development@emeritus.org">leadership.development@emeritus.org</a>.
