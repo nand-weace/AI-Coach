@@ -647,6 +647,27 @@
         }
         .insight-panel[hidden] { display: none; }
 
+        /* ── Sentiment tab: tighter vertical rhythm ──
+           The scores, legend and themes stack on one panel, so the generous
+           gaps each block brought on its own added up to a lot of empty page. */
+        #panel-sentiment > .section-row { margin: 16px 0 12px; }
+        #panel-sentiment .score-legend { padding: 14px 20px; margin-bottom: 14px; }
+        #panel-sentiment .legend-head { margin-bottom: 10px; }
+        #panel-sentiment .legend-facts { margin-top: 12px; padding-top: 10px; }
+        #panel-sentiment .heat-card { padding: 18px 22px 14px; }
+        #panel-sentiment .heat-card-header { margin-bottom: 12px; }
+        #panel-sentiment .heat-band .heat-row { padding: 8px 0; }
+        #panel-sentiment .heat-band + .heat-band { margin-top: 8px; }
+        #panel-sentiment .insight-row { gap: 16px; margin-bottom: 0; }
+        #panel-sentiment .themes-panel { margin-top: 16px; padding: 22px 28px 26px; }
+        #panel-sentiment .themes-panel .section-row { margin-bottom: 16px; }
+        @media (max-width: 1000px) {
+            #panel-sentiment .insight-row > .heat-card { margin-bottom: 16px; }
+        }
+        @media (max-width: 640px) {
+            #panel-sentiment .themes-panel { padding: 18px 16px 20px; }
+        }
+
         /* ── Growth Snapshot (GROW-aligned four quadrants) ── */
         /* Two by two, always — the four quadrants are read as a pair of pairs, so
            auto-fit is wrong here: a three-across row breaks the reading.
@@ -1122,6 +1143,25 @@
         </div>
     </div>
 
+    <!-- ── Recurring Theme Detection ── Sits under the sentiment scores rather
+         than in a tab of its own: the scores say how you sound, the themes say
+         what you keep talking about. -->
+    <section class="themes-panel">
+        <div class="section-row">
+            <div>
+                <h3>Recurring Themes</h3>
+                <p>What you keep coming back to across your sessions</p>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px; flex-shrink:0;">
+                <span class="section-meta" id="themes-updated"></span>
+                <button class="refresh-btn" id="themes-refresh-btn">Detect themes</button>
+            </div>
+        </div>
+        <div id="themes-wrap">
+            <div class="panel-empty"><div class="skeleton" style="width:200px; margin:0 auto;"></div></div>
+        </div>
+    </section>
+
     </div><!-- /#panel-sentiment -->
 
     <div class="insight-panel" id="panel-recs" role="tabpanel" hidden>
@@ -1153,25 +1193,6 @@
     <div id="growth-wrap">
         <div class="panel-empty"><div class="skeleton" style="width:200px; margin:0 auto;"></div></div>
     </div>
-
-    <!-- ── Recurring Theme Detection ── Sits under the snapshot rather than in a
-         tab of its own: the themes are the raw material the snapshot reads, so
-         they belong at the end of the same story. -->
-    <section class="themes-panel">
-        <div class="section-row">
-            <div>
-                <h3>Recurring Themes</h3>
-                <p>What you keep coming back to across your sessions</p>
-            </div>
-            <div style="display:flex; align-items:center; gap:10px; flex-shrink:0;">
-                <span class="section-meta" id="themes-updated"></span>
-                <button class="refresh-btn" id="themes-refresh-btn">Detect themes</button>
-            </div>
-        </div>
-        <div id="themes-wrap">
-            <div class="panel-empty"><div class="skeleton" style="width:200px; margin:0 auto;"></div></div>
-        </div>
-    </section>
 
     </div><!-- /#panel-growth -->
     </div><!-- /#main-dashboard-content -->
@@ -2536,19 +2557,19 @@
 
     // Order here is the tab order; DEFAULT_TAB below picks which one opens.
     const TAB_LOADERS = {
-        growth:    () => {
-            loadGrowth();
-            // Recurring Themes now sits at the bottom of this panel, so it loads
+        growth:    () => loadGrowth(),
+        recs:      () => loadRecs(),
+        sentiment: () => {
+            loadSentiment();
+            // Recurring Themes sits at the bottom of this panel, so it loads
             // with it rather than on a tab of its own.
             loadThemes();
         },
-        recs:      () => loadRecs(),
-        sentiment: () => loadSentiment(),
     };
 
-    // '#themes' was its own tab before the section moved into Growth Mirror —
-    // old links and bookmarks still land on it.
-    const TAB_ALIASES = { themes: 'growth' };
+    // '#themes' was its own tab before the section moved into Sentiment
+    // Analysis — old links and bookmarks still land on it.
+    const TAB_ALIASES = { themes: 'sentiment' };
     // Sentiment Analysis opens by default — it is the report users come back
     // for most, and it reads from stored scores rather than generating one.
     // The markup above must mark the same tab/panel so nothing flashes before
