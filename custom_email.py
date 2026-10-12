@@ -26,7 +26,7 @@ from dotenv import ipython
 SMTP_HOST = "smtp.office365.com"
 SMTP_PORT = 587                  # 587 = STARTTLS, 465 = SSL
 SMTP_USER = "leadership.development@Emeritus.org"
-SMTP_PASSWORD = "Zukq9312"   # Use an app password, not your login password
+SMTP_PASSWORD = "Joqu1026"   # Use an app password, not your login password
 USE_SSL = False                  # True for port 465, False for 587 STARTTLS
 
 FROM_ADDRESS = "leadership.development@Emeritus.org"

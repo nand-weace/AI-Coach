@@ -2254,6 +2254,8 @@ def my_insights():
     """Personal insights dashboard — every Nexa user sees their own sentiment."""
     if 'user_id' not in session:
         return redirect('/')
+    if _has_role(session.get('role'), 'corporate_super_admin'):
+        return redirect('/dashboard')
     name = session['user_name']
     initials = ''.join(w[0].upper() for w in name.split()[:2])
     return render_template('my_insights.html',
@@ -2312,6 +2314,8 @@ def career_horoscope_page():
         return redirect('/')
     if not _has_pulse(session.get('org_slug')):
         return redirect('/')
+    if _has_role(session.get('role'), 'corporate_super_admin'):
+        return redirect('/dashboard')
     name = session['user_name']
     initials = ''.join(w[0].upper() for w in name.split()[:2])
     # When we already hold a scraped LinkedIn profile, the reading draws its

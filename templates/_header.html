@@ -60,7 +60,7 @@
         <a id="my-insights-link" href="/my-insights"
            class="app-tab{% if active_tab == 'my-insights' %} active{% endif %}"
            {% if active_tab == 'my-insights' %}aria-current="page"{% endif %}
-           {% if show_admin %}style="display:none;"{% endif %}>
+           {% if show_admin or show_org_tabs %}style="display:none;"{% endif %}>
             <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
             </svg>
@@ -72,7 +72,7 @@
            with the navigation, and on the page itself it switches tab without a
            reload. header.js keeps the current one marked. #}
         <div class="app-subnav" id="my-insights-subnav"
-             {% if show_admin %}style="display:none;"{% endif %}>
+             {% if show_admin or show_org_tabs %}style="display:none;"{% endif %}>
              <a class="app-subtab" href="/my-insights#sentiment" data-subtab="sentiment">Sentiment Analysis</a>
             <a class="app-subtab" href="/my-insights#growth" data-subtab="growth">Growth Mirror</a>
             <a class="app-subtab" href="/my-insights#recs" data-subtab="recs">Resources</a>
@@ -81,12 +81,12 @@
         {# Career — the career horoscope from the user's birth details, with
            its three views as a sub-nav below. Personal to the user, so it sits
            alongside the other personal tabs and is hidden for a WeAce super
-           admin. Ships with Nexa Pro, same as Daily Pulse — `show_pulse` gates
+           admin and a corporate super admin (as is My Insights). Ships with Nexa Pro, same as Daily Pulse — `show_pulse` gates
            both. #}
         <a id="career-horoscope-link" href="/career-horoscope"
            class="app-tab{% if active_tab == 'career-horoscope' %} active{% endif %}"
            {% if active_tab == 'career-horoscope' %}aria-current="page"{% endif %}
-           {% if show_admin or not show_pulse %}style="display:none;"{% endif %}>
+           {% if show_admin or show_org_tabs or not show_pulse %}style="display:none;"{% endif %}>
             <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M12 2l2.4 6.9H22l-6 4.4 2.3 7-6.3-4.6L5.7 20l2.3-7-6-4.4h7.6z"/>
             </svg>
@@ -96,11 +96,21 @@
         {# The views on /career-horoscope, addressed by URL hash like the
            My Insights reports; Daily Horoscope is the page's default (no hash). #}
         <div class="app-subnav" id="career-subnav"
-             {% if show_admin or not show_pulse %}style="display:none;"{% endif %}>
+             {% if show_admin or show_org_tabs or not show_pulse %}style="display:none;"{% endif %}>
             <a class="app-subtab" href="/career-horoscope#daily" data-subtab="daily">Daily Horoscope</a>
             <a class="app-subtab" href="/career-horoscope#reading" data-subtab="reading">Career Reading</a>
             <a class="app-subtab" href="/career-horoscope#futures" data-subtab="futures">Career Path</a>
         </div>
+
+        <a id="dashboard-link" href="/dashboard"
+           class="app-tab{% if active_tab == 'sentiment' %} active{% endif %}"
+           {% if active_tab == 'sentiment' %}aria-current="page"{% endif %}
+           {% if not show_org_tabs %}style="display:none;"{% endif %}>
+            <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/>
+            </svg>
+            Nexa Insights
+        </a>
 
         {# Daily Pulse ships with Nexa Pro, so `show_pulse` decides whether this
            tab exists at all for the user's organisation. For a corporate super
@@ -115,16 +125,6 @@
                 <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
             </svg>
             <span id="pulse-link-label">{{ 'Pulse Dashboard' if show_org_tabs else 'Daily Pulse' }}</span>
-        </a>
-
-        <a id="dashboard-link" href="/dashboard"
-           class="app-tab{% if active_tab == 'sentiment' %} active{% endif %}"
-           {% if active_tab == 'sentiment' %}aria-current="page"{% endif %}
-           {% if not show_org_tabs %}style="display:none;"{% endif %}>
-            <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/>
-            </svg>
-            Nexa Insights
         </a>
 
         <button type="button" class="app-tab" id="btn-corp-content"

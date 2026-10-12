@@ -427,17 +427,19 @@ const NexaHeader = (() => {
         // and Knowledge Base are not theirs to see.
         show('tab-talk', !isWeaceAdmin);
         show('language-menu-wrap', !isWeaceAdmin);
-        show('my-insights-link', !isWeaceAdmin);
+        // A corporate super admin works from the org-wide views, so the
+        // personal My Insights and Career tabs are hidden for them too.
+        show('my-insights-link', !isWeaceAdmin && !isOrgAdmin);
         // Career Horoscope ships with Nexa Pro, same as Daily Pulse.
-        show('career-horoscope-link', !isWeaceAdmin && hasPulse);
-        show('career-subnav', !isWeaceAdmin && hasPulse);
+        show('career-horoscope-link', !isWeaceAdmin && !isOrgAdmin && hasPulse);
+        show('career-subnav', !isWeaceAdmin && !isOrgAdmin && hasPulse);
         show('pulse-link', !isWeaceAdmin && hasPulse);
         // Mirrors the server-rendered label in _header.html: a corporate super
         // admin gets the org-wide Pulse Dashboard at the same /pulse route, not
         // their own check-in, so the tab reads accordingly.
         const pulseLabel = $('pulse-link-label');
         if (pulseLabel) pulseLabel.textContent = isOrgAdmin ? 'Pulse Dashboard' : 'Daily Pulse';
-        show('my-insights-subnav', !isWeaceAdmin);
+        show('my-insights-subnav', !isWeaceAdmin && !isOrgAdmin);
         show('admin-subnav', isWeaceAdmin);
         show('btn-corp-content', isOrgAdmin && !isWeaceAdmin);
         show('dashboard-link', isOrgAdmin);
