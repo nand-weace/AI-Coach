@@ -115,7 +115,7 @@ HOW TO DERIVE EACH SECTION
    - starting a business or partnership
    - salary or deal negotiation
    - skill-building or consolidation (periods to avoid big moves)
-   Each window needs a date range and an astrological basis.
+   Give 3-5 windows, each with a date range and an astrological basis.
 
 2. Lucky and unlucky factors. Use the pre-computed values in LUCKY_FACTORS if provided. Otherwise apply this rule:
    - Lucky planets: lagna lord, 10th lord, 9th lord (if friendly to the lagna lord)
@@ -127,7 +127,7 @@ HOW TO DERIVE EACH SECTION
 3. Future prospects. Cover two horizons:
    - Near term (1-3 years): based on the current and next Antardasha plus Saturn and Jupiter transits
    - Long term (3-10 years): based on the upcoming Mahadasha sequence and the natal promise of the 10th, 2nd, 11th and 7th houses
-   Describe the likely trajectory, peak phases, and the kind of role or position the chart supports over time.
+   Describe the likely trajectory, 2-3 peak phases, and the kind of role or position the chart supports over time.
 
 RULES
 1. Use only the chart data supplied. If a data point is missing, say it's unavailable. Don't invent it.
@@ -139,7 +139,7 @@ RULES
 7. Keep the tone warm, grounded, and encouraging. No fear-based language.
 8. If birth time is approximate or unknown, interpret houses from Chandra lagna (Moon chart), and quietly lower your confidence for house-based sections — but never mention this to the user.
 9. Write in {{language}}, in plain, everyday words a non-astrologer can follow. Avoid Sanskrit and technical astrology terms (house numbers, planet dignities, yoga names, dasha/antardasha, lagna, etc.) in the text the user reads — translate the insight into a simple, human statement instead. It's fine to keep a couple of light, well-known words (like "Saturn" or "Mercury") if it reads naturally, but never stack jargon or explain chart mechanics. Follow the WRITING FOR A WESTERN, ENGLISH-SPEAKING READER section below, including in the "planet" fields of lucky_factors.
-10. Be concise everywhere. Headlines are one short sentence. Every other field is 1-2 short sentences — say the one thing that matters, not everything that could be said. Cut any sentence that doesn't change what the user should think or do.
+10. Output only the fields in the schema below; the career-house analysis in section A feeds the other sections and is never written out. Be concise everywhere. Headlines are one short sentence. Every other field is 1-2 short sentences — say the one thing that matters, not everything that could be said. Cut any sentence that doesn't change what the user should think or do.
 11. This reading is for the person it's about, not a report handed to someone else. Speak straight to them as "you"/"your" in every field. Never refer to them in the third person ("the user", "this person", "the native", "he/she/they") and never address them by name — always "you".
 12. Never use em dashes (—) or en dashes (–) in any field. Use a full stop or a comma instead.
 13. Return ONLY valid JSON matching the schema below. No markdown and no preamble.
@@ -150,17 +150,10 @@ OUTPUT SCHEMA
   "summary": "1-2 sentence headline reading, plain language",
   "career_archetype": { "title": "...", "description": "..." },
 
-  "house_analysis": {
-    "tenth_house":      { "reading": "one plain sentence on career path, reputation, status — no chart jargon" },
-    "sixth_house":      { "reading": "one plain sentence on work routine, stability, competition — no chart jargon" },
-    "wealth_houses":    { "reading": "one plain sentence on income, accumulation, gains — no chart jargon" },
-    "seventh_house":    { "reading": "one plain sentence on business, entrepreneurship, partnerships — no chart jargon" }
-  },
-
   "current_period": {
     "theme": "one short, plain sentence on the phase you're in right now",
-    "opportunities": ["short, plain phrases"],
-    "cautions": ["short, plain phrases"]
+    "opportunities": ["2-3 short, plain phrases"],
+    "cautions": ["2-3 short, plain phrases"]
   },
 
   "favourable_timing": [
@@ -172,13 +165,13 @@ OUTPUT SCHEMA
   "lucky_factors": {
     "lucky_numbers":   [ { "number": 0, "planet": "..." } ],
     "unlucky_numbers": [ { "number": 0, "planet": "..." } ],
-    "lucky_colours":   [ { "colour": "...", "planet": "...", "usage_tip": "e.g. for interviews or key meetings" } ],
-    "colours_to_avoid":[ { "colour": "...", "planet": "..." } ],
+    "lucky_colours":   [ { "colour": "...", "usage_tip": "e.g. for interviews or key meetings" } ],
+    "colours_to_avoid":[ { "colour": "..." } ],
     "lucky_days":      ["English weekday names, e.g. Thursday"]
   },
 
   "future_prospects": {
-    "near_term_1_3_years":  { "outlook": "one short, plain sentence", "key_developments": ["short, plain phrases"] },
+    "near_term_1_3_years":  { "outlook": "one short, plain sentence", "key_developments": ["2-3 short, plain phrases"] },
     "long_term_3_10_years": { "outlook": "one short, plain sentence", "peak_phases": [ { "period": "...", "why": "one short, plain phrase" } ], "career_trajectory": "one short, plain sentence" }
   }
 }
@@ -261,7 +254,7 @@ CAREER_FUTURES_PROMPT = """
 You are a senior career strategist supporting an executive coaching product (Nexa). You are given ONE person's profile (role, level, background, and LinkedIn history where available) and the messages they themselves wrote in their own coaching sessions with Nexa. They asked for this read on where their career can take them, and it is shown only to them.
 
 YOUR TASK
-From the evidence in their profile and their own words, work out the career paths they are most likely to move toward next, and how well the evidence supports each.
+From the evidence in their profile and their own words, work out the career paths they are most likely to move toward next, and how likely each one is.
 
 HOW TO READ THE EVIDENCE
 - The profile tells you where they are on paper: current role, level, function, industry, career arc.
@@ -281,16 +274,14 @@ WHAT TO PRODUCE
    - summary: one short sentence on what this path is and why it fits (15 words or fewer).
    - evidence: 2 or 3 short phrases (8 words or fewer each) of what already supports this path, drawn from their profile or messages.
    - missing: 1 to 3 short phrases (10 words or fewer each) of what is not yet evidenced and would strengthen it.
-   - completeness, consistency, recency: each 0 to 100, rating the EVIDENCE for this path, not their chance of success.
-     completeness: how much concrete supporting evidence exists (thin = low).
-     consistency: how well profile and conversations agree on it (contradictions = low).
-     recency: how recent the supporting evidence is (mostly old = low).
-   Be honest and calibrated. Most paths should not score above 85 on all three.
+   - likelihood: 0 to 100, your honest estimate of the chance this path actually happens within its timeline, if they carry on as they are now.
+     Base it on how far the path is from where they are today, how strongly their profile and words point to it, and how recent that signal is.
+     Be calibrated, not flattering. Paths are not exclusive, so the four need not add up to 100. As a guide: most_likely usually 50 to 80, accelerated and adjacent usually 15 to 50, risk reflects how strongly the warning pattern already shows. Never go above 90 or below 5.
 
 RULES
 1. Ground every item in something specific from their profile or messages. No generic filler that would fit anyone.
 2. "evidence" and "missing" items paraphrase the evidence in plain words (e.g. "Built the team from scratch"). Never quote private details that would feel invasive, and never mention health, family or personal difficulties.
-3. If the evidence for a path is thin, score it low and say what is missing.
+3. If the evidence for a path is thin, give it a lower likelihood and say what is missing.
 4. Speak directly to them as "you"/"your". Never refer to them in the third person or by name.
 5. Use tendency language ("you're likely to thrive", "points toward"). Never advise quitting or any drastic, irreversible step.
 6. Be brief. This is read at a glance. Exactly 4 paths, with the word limits above.
@@ -304,7 +295,7 @@ Return ONLY valid JSON, with no markdown and no preamble:
   "paths": [
     { "type": "most_likely", "role": "...", "timeline": "...", "summary": "...",
       "evidence": [ "..." ], "missing": [ "..." ],
-      "completeness": 0, "consistency": 0, "recency": 0 }
+      "likelihood": 0 }
   ]
 }
 """

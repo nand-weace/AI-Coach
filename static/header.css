@@ -59,8 +59,8 @@ body {
     flex-shrink: 0;
     padding: 12px 12px 13px;
     border-radius: 12px;
-    background: rgba(124, 58, 237, 0.06);
-    border: 1px solid rgba(124, 58, 237, 0.14);
+    background: rgba(58, 127, 237, 0.06);
+    border: 1px solid rgba(58, 127, 237, 0.14);
 }
 .sidebar-privacy svg {
     width: 15px;
@@ -115,7 +115,7 @@ body {
     position: fixed;
     inset: 0;
     z-index: 75;
-    background: rgba(23, 16, 42, 0.4);
+    background: rgba(16, 26, 42, 0.4);
 }
 
 /* ── Nav tabs ─────────────────────────────────────────────────────────── */
@@ -181,18 +181,18 @@ body {
 
 .app-subtab:hover {
     color: var(--text-main);
-    background: rgba(147, 51, 234, 0.06);
+    background: rgba(51, 121, 234, 0.06);
 }
 
 .app-subtab.active {
     color: var(--primary-color);
     font-weight: 600;
-    background: var(--primary-soft, rgba(109, 40, 217, 0.09));
+    background: var(--primary-soft, rgba(40, 108, 217, 0.09));
 }
 
 .app-tab:hover:not(:disabled) {
     color: var(--text-main);
-    background: rgba(147, 51, 234, 0.06);
+    background: rgba(51, 121, 234, 0.06);
 }
 
 .app-tab.active,
@@ -202,7 +202,7 @@ body {
 }
 
 .app-tab.active {
-    background: var(--primary-soft, rgba(109, 40, 217, 0.09));
+    background: var(--primary-soft, rgba(40, 108, 217, 0.09));
 }
 
 .app-tab:disabled {
@@ -252,7 +252,7 @@ body {
     background: #fff;
     border: 1px solid var(--glass-border);
     border-radius: 12px;
-    box-shadow: 0 8px 28px rgba(49, 32, 110, 0.12);
+    box-shadow: 0 8px 28px rgba(32, 62, 110, 0.12);
     z-index: 60;
     animation: chipDropIn 0.14s ease;
 }
@@ -276,7 +276,7 @@ body {
     .app-sidebar {
         transform: translateX(-100%);
         transition: transform 0.2s ease;
-        box-shadow: 0 0 40px rgba(49, 32, 110, 0.18);
+        box-shadow: 0 0 40px rgba(32, 62, 110, 0.18);
     }
     .app-sidebar.open {
         transform: translateX(0);
@@ -358,7 +358,7 @@ body {
     background: #fff;
     border: 1px solid var(--glass-border);
     border-radius: 12px;
-    box-shadow: 0 8px 28px rgba(49, 32, 110, 0.12);
+    box-shadow: 0 8px 28px rgba(32, 62, 110, 0.12);
     overflow: hidden;
     z-index: 50;
     animation: chipDropUp 0.14s ease;
@@ -396,7 +396,7 @@ body {
 }
 
 .chip-dropdown-item:hover {
-    background: rgba(139, 92, 246, 0.06);
+    background: rgba(92, 151, 246, 0.06);
 }
 
 .chip-dropdown-item svg {
@@ -428,7 +428,7 @@ body {
 }
 
 .chip-submenu-option:hover {
-    background: rgba(139, 92, 246, 0.06);
+    background: rgba(92, 151, 246, 0.06);
 }
 
 .chip-submenu-option.selected {
@@ -440,7 +440,7 @@ body {
     content: '✓';
     margin-left: auto;
     font-size: 0.8rem;
-    color: #7c3aed;
+    color: #3a7fed;
 }
 
 .chip-dropdown-item.danger {
@@ -489,7 +489,7 @@ body {
 .corp-modal-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(23, 16, 42, 0.45);
+    background: rgba(16, 26, 42, 0.45);
     backdrop-filter: blur(2px);
     display: flex;
     align-items: center;
@@ -507,7 +507,7 @@ body {
     display: flex;
     flex-direction: column;
     padding: 24px;
-    box-shadow: 0 20px 50px -10px rgba(49, 32, 110, 0.35);
+    box-shadow: 0 20px 50px -10px rgba(32, 62, 110, 0.35);
 }
 .corp-modal-header {
     display: flex;

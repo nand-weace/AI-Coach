@@ -18,22 +18,22 @@
 
 :root {
     --bg-color: #e2e6fc;
-    --bg-gradient: linear-gradient(100deg, #dfeafd 0%, #e2e2fb 30%, #ece2fb 52%, #e0e6fc 74%, #dcebfd 100%);
+    --bg-gradient: linear-gradient(100deg, #dfeafd 0%, #e2ecfb 30%, #e2ecfb 52%, #e0e6fc 74%, #dcebfd 100%);
     --glass-bg: rgba(255, 255, 255, 0.78);
-    --glass-border: rgba(76, 59, 138, 0.14);
-    --primary-color: #4338ca;
-    --primary-hover: #3b12b7;
-    --text-main: #1e1b33;
-    --text-muted: #5b5674;
-    --assistant-msg-bg: rgba(232, 226, 243, 0.7);
-    --user-msg-bg: rgba(139, 92, 246, 0.08);
-    --accent-gradient: linear-gradient(135deg, #3721b6 0%, #3b279d 52%, #2e29c9 100%);
+    --glass-border: rgba(59, 89, 138, 0.14);
+    --primary-color: #070790;
+    --primary-hover: #1251b7;
+    --text-main: #1b2433;
+    --text-muted: #566274;
+    --assistant-msg-bg: rgba(226, 233, 243, 0.7);
+    --user-msg-bg: rgba(92, 151, 246, 0.08);
+    --accent-gradient: linear-gradient(135deg, #070790 0%, #070790 100%);
     /* Tinted fills and elevation, so shadows and hovers belong to the
        palette instead of greying the page down. */
-    --primary-soft: rgba(109, 40, 217, 0.09);
-    --primary-ring: rgba(109, 40, 217, 0.30);
+    --primary-soft: rgba(40, 108, 217, 0.09);
+    --primary-ring: rgba(40, 108, 217, 0.30);
     --surface: rgba(255, 255, 255, 0.92);
-    --card-shadow: 0 12px 32px -14px rgba(49, 32, 110, 0.30);
+    --card-shadow: 0 12px 32px -14px rgba(32, 62, 110, 0.30);
 }
 
 * {
@@ -44,7 +44,7 @@
 
 body {
     font-family: 'Inter', sans-serif;
-    background-color: oklch(94.7% .018 290);
+    background-color: oklch(0.95 0.02 278.05);
     color: var(--text-main);
     height: 100vh;
     display: flex;
@@ -79,7 +79,7 @@ body {
     border-radius: 10px;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 25px 50px -12px rgba(49, 32, 110, 0.08);
+    box-shadow: 0 25px 50px -12px rgba(32, 62, 110, 0.08);
     overflow: hidden;
 }
 
@@ -183,7 +183,7 @@ body {
 }
 
 .user-avatar {
-    background-color: #4d4166;
+    background-color: #414f66;
     color: white;
 }
 
@@ -192,7 +192,7 @@ body {
     border-radius: 18px;
     line-height: 1.6;
     font-size: 0.95rem;
-    box-shadow: 0 4px 6px -1px rgba(49, 32, 110, 0.1);
+    box-shadow: 0 4px 6px -1px rgba(32, 62, 110, 0.1);
 }
 
 .message p {
@@ -206,13 +206,13 @@ body {
     background: var(--assistant-msg-bg);
     border-top-left-radius: 4px;
     border: 1px solid var(--glass-border);
-    background-color: #d3d8ff;
+    background-color: #e5e7fa;
 }
 
 .user-message {
     background: var(--user-msg-bg);
     border-top-right-radius: 4px;
-    background-color: rgb(218 245 255);
+    background-color: rgb(217 230 241);
 }
 
 .message-body {
@@ -445,7 +445,7 @@ body {
     width: calc(50% - 3px);
     border-radius: 999px;
     background: var(--accent-gradient);
-    box-shadow: 0 1px 4px rgba(124, 58, 237, 0.28);
+    box-shadow: 0 1px 4px rgba(58, 127, 237, 0.28);
     transition: transform 0.22s ease;
 }
 
@@ -525,8 +525,8 @@ body {
 }
 
 #chat-form:focus-within {
-    border-color: rgba(139, 92, 246, 0.5);
-    box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2);
+    border-color: rgba(92, 151, 246, 0.5);
+    box-shadow: 0 0 0 2px rgba(92, 151, 246, 0.2);
 }
 
 #user-input {
@@ -567,7 +567,7 @@ body {
 }
 
 #mic-button:hover {
-    background: rgba(139, 92, 246, 0.1);
+    background: rgba(92, 151, 246, 0.1);
     color: var(--primary-color);
 }
 
@@ -626,7 +626,7 @@ body {
 }
 
 #speak-toggle:hover {
-    background: rgba(139, 92, 246, 0.1);
+    background: rgba(92, 151, 246, 0.1);
     color: var(--primary-color);
 }
 
@@ -636,7 +636,7 @@ body {
 
 #speak-toggle.is-on {
     color: var(--primary-color);
-    background: rgba(139, 92, 246, 0.12);
+    background: rgba(92, 151, 246, 0.12);
 }
 
 /* Live transcript that hasn't been finalised by the recogniser yet */
@@ -735,7 +735,7 @@ body {
     padding: 48px 40px;
     width: 100%;
     max-width: 400px;
-    box-shadow: 0 25px 50px -12px rgba(49, 32, 110, 0.08);
+    box-shadow: 0 25px 50px -12px rgba(32, 62, 110, 0.08);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -785,8 +785,8 @@ body {
 }
 
 #login-email:focus {
-    border-color: rgba(139, 92, 246, 0.5);
-    box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2);
+    border-color: rgba(92, 151, 246, 0.5);
+    box-shadow: 0 0 0 2px rgba(92, 151, 246, 0.2);
 }
 
 #login-email::placeholder {
@@ -814,8 +814,8 @@ body {
 }
 
 .password-field input:focus {
-    border-color: rgba(139, 92, 246, 0.5);
-    box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2);
+    border-color: rgba(92, 151, 246, 0.5);
+    box-shadow: 0 0 0 2px rgba(92, 151, 246, 0.2);
 }
 
 .toggle-password {
@@ -878,7 +878,7 @@ body {
 .login-spinner {
     width: 28px;
     height: 28px;
-    border: 3px solid rgba(124, 58, 237, 0.15);
+    border: 3px solid rgba(58, 127, 237, 0.15);
     border-top-color: var(--primary-color);
     border-radius: 50%;
     animation: spin 0.7s linear infinite;
@@ -912,7 +912,7 @@ body {
     height: 26px;
     border-radius: 50%;
     background: var(--accent-gradient);
-    box-shadow: 0 0 22px rgba(147, 51, 234, 0.55);
+    box-shadow: 0 0 22px rgba(51, 121, 234, 0.55);
     animation: orb-breathe 2.4s ease-in-out infinite;
 }
 
@@ -920,9 +920,9 @@ body {
     position: absolute;
     inset: 0;
     border-radius: 50%;
-    border: 1.5px solid rgba(168, 85, 247, 0.14);
-    border-top-color: #7c3aed;
-    border-right-color: #a855f7;
+    border: 1.5px solid rgba(85, 147, 247, 0.14);
+    border-top-color: #3a7fed;
+    border-right-color: #5593f7;
     animation: orb-sweep 2.6s cubic-bezier(0.65, 0, 0.35, 1) infinite;
 }
 
@@ -950,7 +950,7 @@ body {
     letter-spacing: -0.01em;
     background: linear-gradient(100deg,
         var(--text-main) 0%, var(--text-main) 35%,
-        #a855f7 50%,
+        #5593f7 50%,
         var(--text-main) 65%, var(--text-main) 100%);
     background-size: 220% 100%;
     -webkit-background-clip: text;
@@ -991,14 +991,14 @@ body {
 }
 
 .login-steps::before {
-    background: rgba(107, 100, 132, 0.16);
+    background: rgba(100, 112, 132, 0.16);
 }
 
 .login-steps::after {
     bottom: auto;
     height: calc((100% - 22px) * var(--rail-fill));
-    background: linear-gradient(180deg, #7c3aed 0%, #a855f7 100%);
-    box-shadow: 0 0 10px rgba(147, 51, 234, 0.4);
+    background: linear-gradient(180deg, #3a7fed 0%, #5593f7 100%);
+    box-shadow: 0 0 10px rgba(51, 121, 234, 0.4);
     transition: height 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -1040,7 +1040,7 @@ body {
     width: 7px;
     height: 7px;
     border-radius: 50%;
-    background: rgba(107, 100, 132, 0.35);
+    background: rgba(100, 112, 132, 0.35);
     transition: background 0.35s;
 }
 
@@ -1057,7 +1057,7 @@ body {
 
 .login-step.active .login-step-marker {
     background: var(--bg-color);
-    box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.35);
+    box-shadow: 0 0 0 2px rgba(85, 147, 247, 0.35);
 }
 
 .login-step.active .login-step-marker::after {
@@ -1065,7 +1065,7 @@ body {
     position: absolute;
     inset: -3px;
     border-radius: 50%;
-    border: 2px solid rgba(168, 85, 247, 0.5);
+    border: 2px solid rgba(85, 147, 247, 0.5);
     animation: marker-pulse 1.7s ease-out infinite;
 }
 
@@ -1087,7 +1087,7 @@ body {
 
 .login-step.done .login-step-marker {
     background: var(--accent-gradient);
-    box-shadow: 0 0 12px rgba(147, 51, 234, 0.35);
+    box-shadow: 0 0 12px rgba(51, 121, 234, 0.35);
 }
 
 @keyframes marker-pulse {
@@ -1112,7 +1112,7 @@ body {
     max-width: 268px;
     height: 3px;
     border-radius: 999px;
-    background: rgba(107, 100, 132, 0.14);
+    background: rgba(100, 112, 132, 0.14);
     overflow: hidden;
 }
 
@@ -1194,7 +1194,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(23, 16, 42, 0.55);
+    background: rgba(16, 26, 42, 0.55);
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
     z-index: 200;
@@ -1209,7 +1209,7 @@ body {
     padding: 48px 40px;
     width: 100%;
     max-width: 380px;
-    box-shadow: 0 25px 50px -12px rgba(49, 32, 110, 0.15);
+    box-shadow: 0 25px 50px -12px rgba(32, 62, 110, 0.15);
     display: flex;
     flex-direction: column;
     align-items: center;

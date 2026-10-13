@@ -11,20 +11,20 @@
     <link rel="icon" id="app-favicon" href="{{ branding.favicon_url }}">
     <style>
         :root {
-            --primary-color: #4338ca;
-            --primary-hover: #4338ca;
-            --text-main: #1e1b33;
-            --text-muted: #5b5674;
-            --accent-gradient: linear-gradient(135deg, #5b21b6 0%, #7c3aed 52%, #a855f7 100%);
-            --primary-soft: rgba(109, 40, 217, 0.09);
-            --primary-ring: rgba(109, 40, 217, 0.30);
+            --primary-color: #070790;
+            --primary-hover: #070790;
+            --text-main: #1b2433;
+            --text-muted: #566274;
+            --accent-gradient: linear-gradient(135deg, #070790 0%, #070790 100%);
+            --primary-soft: rgba(40, 108, 217, 0.09);
+            --primary-ring: rgba(40, 108, 217, 0.30);
             --surface: rgba(255, 255, 255, 0.92);
-            --card-shadow: 0 12px 32px -14px rgba(49, 32, 110, 0.30);
+            --card-shadow: 0 12px 32px -14px rgba(32, 62, 110, 0.30);
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             font-family: 'Inter', sans-serif;
-            background-color: oklch(94.7% .018 290);
+            background-color: oklch(0.95 0.02 278.05);
             color: var(--text-main);
             min-height: 100vh;
             background-attachment: fixed;
@@ -59,7 +59,7 @@
 
         .card {
             background: var(--surface);
-            border: 1px solid rgba(76, 59, 138, 0.12);
+            border: 1px solid rgba(59, 89, 138, 0.12);
             border-radius: 20px;
             box-shadow: var(--card-shadow);
             padding: 26px;
@@ -76,7 +76,7 @@
         .field input, .field textarea {
             width: 100%; font-family: inherit; font-size: 0.92rem;
             color: var(--text-main); background: #fff;
-            border: 1px solid rgba(76, 59, 138, 0.20); border-radius: 12px;
+            border: 1px solid rgba(59, 89, 138, 0.20); border-radius: 12px;
             padding: 11px 13px; transition: border-color .15s, box-shadow .15s;
         }
         .field textarea { resize: vertical; min-height: 84px; }
@@ -95,7 +95,7 @@
             background: var(--accent-gradient);
             font-family: inherit; font-size: 0.92rem; font-weight: 600;
             padding: 12px 22px; border-radius: 999px;
-            box-shadow: 0 10px 22px -12px rgba(109, 40, 217, 0.8);
+            box-shadow: 0 10px 22px -12px rgba(40, 108, 217, 0.8);
             transition: transform .12s, opacity .12s;
         }
         .submit-btn:hover:not(:disabled) { transform: translateY(-1px); }
@@ -126,20 +126,20 @@
         }
         .loading-actions { margin-top: 16px; }
         .ghost-btn {
-            border: 1px solid rgba(76,59,138,.22); background: #fff; cursor: pointer;
-            color: var(--primary-hover); font-family: inherit; font-size: 0.85rem; font-weight: 600;
+            border: 1px solid rgba(59,89,138,.22); background: var(--accent-gradient); cursor: pointer;
+            color: white; font-family: inherit; font-size: 0.85rem; font-weight: 600;
             padding: 9px 18px; border-radius: 999px; transition: background .12s, border-color .12s;
         }
         .ghost-btn:hover:not(:disabled) { background: var(--primary-soft); }
         .ghost-btn:disabled { opacity: .55; cursor: default; }
 
         .skeleton-sec {
-            background: var(--surface); border: 1px solid rgba(76,59,138,.12);
+            background: var(--surface); border: 1px solid rgba(59,89,138,.12);
             border-radius: 18px; box-shadow: var(--card-shadow); padding: 22px;
         }
         .skeleton-line {
             height: 12px; border-radius: 6px; margin-bottom: 10px;
-            background: linear-gradient(90deg, rgba(109,40,217,.08) 25%, rgba(109,40,217,.16) 37%, rgba(109,40,217,.08) 63%);
+            background: linear-gradient(90deg, rgba(40,108,217,.08) 25%, rgba(40,108,217,.16) 37%, rgba(40,108,217,.08) 63%);
             background-size: 400% 100%; animation: shimmer 1.4s ease infinite;
         }
         .skeleton-line.short { width: 45%; }
@@ -150,7 +150,7 @@
         /* Results */
         .result { margin-top: 16px; display: flex; flex-direction: column; gap: 16px; }
         .result-summary {
-            background: var(--surface); border: 1px solid rgba(76, 59, 138, 0.12);
+            background: var(--surface); border: 1px solid rgba(59, 89, 138, 0.12);
             border-radius: 20px; box-shadow: var(--card-shadow); padding: 24px;
         }
         .result-summary .archetype {
@@ -160,7 +160,7 @@
         .result-summary h3 { font-size: 1.2rem; margin-bottom: 8px; }
         .result-summary p { color: var(--text-muted); line-height: 1.65; font-size: 0.95rem; }
 
-        .sec { background: var(--surface); border: 1px solid rgba(76, 59, 138, 0.12);
+        .sec { background: var(--surface); border: 1px solid rgba(59, 89, 138, 0.12);
                border-radius: 18px; box-shadow: var(--card-shadow); padding: 22px; }
         .sec > h4 {
             font-size: 0.75rem; font-weight: 700; letter-spacing: 0.06em;
@@ -192,7 +192,7 @@
            4-colour scheme the career-house cards use, so any item count scales. */
         .item-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; }
         .item-card {
-            background: rgba(109,40,217,.035); border: 1px solid rgba(76,59,138,.10);
+            background: rgba(40,108,217,.035); border: 1px solid rgba(59,89,138,.10);
             border-radius: 14px; padding: 16px 18px;
         }
         .item-card .ic-title { font-size: 0.95rem; font-weight: 700; color: var(--primary-hover); margin-bottom: 6px; }
@@ -212,8 +212,8 @@
         .list { list-style: none; display: flex; flex-direction: column; gap: 16px; }
         .list li {
             padding: 14px 16px 14px 34px; position: relative; line-height: 1.7; font-size: 0.97rem;
-            background: rgba(109,40,217,.035); border-radius: 12px;
-            border: 1px solid rgba(76,59,138,.08);
+            background: rgba(40,108,217,.035); border-radius: 12px;
+            border: 1px solid rgba(59,89,138,.08);
         }
         .list li::before {
             content: ''; position: absolute; left: 15px; top: 21px;
@@ -224,7 +224,7 @@
         .timing { display: flex; flex-direction: column; gap: 12px; }
         .timing-row {
             display: flex; gap: 12px; align-items: flex-start;
-            padding: 12px 14px; border: 1px solid rgba(76,59,138,.12);
+            padding: 12px 14px; border: 1px solid rgba(59,89,138,.12);
             border-radius: 14px; background: #fff;
         }
         .timing-when {
@@ -243,7 +243,7 @@
 
         .lucky-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
         .lucky-block {
-            background: rgba(109,40,217,.035); border: 1px solid rgba(76,59,138,.10);
+            background: rgba(40,108,217,.035); border: 1px solid rgba(59,89,138,.10);
             border-radius: 14px; padding: 16px 18px;
         }
         .lucky-block h5 {
@@ -293,7 +293,7 @@
         .toc-chip {
             flex: 0 0 auto; cursor: pointer; font-family: inherit;
             display: inline-flex; align-items: center; gap: 6px;
-            background: #fff; border: 1px solid rgba(76,59,138,.16);
+            background: #fff; border: 1px solid rgba(59,89,138,.16);
             color: var(--text-muted); font-size: 0.8rem; font-weight: 600;
             padding: 7px 13px; border-radius: 999px; white-space: nowrap;
             transition: all .15s;
@@ -301,7 +301,7 @@
         .toc-chip:hover { border-color: var(--primary-ring); color: var(--primary-hover); }
         .toc-chip.active {
             background: var(--primary-color); border-color: transparent; color: #fff;
-            box-shadow: 0 6px 16px -8px rgba(109,40,217,.7);
+            box-shadow: 0 6px 16px -8px rgba(40,108,217,.7);
         }
         .toc-chip .toc-ico { font-size: 0.95rem; line-height: 1; }
 
@@ -314,7 +314,7 @@
         .book-track { display: flex; flex-wrap: nowrap; transition: transform .45s cubic-bezier(.4,0,.2,1); align-items: flex-start; will-change: transform; }
         .book-page {
             flex: 0 0 100%; width: 100%;
-            background: var(--surface); border: 1px solid rgba(76,59,138,.12);
+            background: var(--surface); border: 1px solid rgba(59,89,138,.12);
             border-radius: 22px; box-shadow: var(--card-shadow);
             padding: 30px 32px 34px;
             position: relative;
@@ -330,7 +330,7 @@
         .book-page-head {
             display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
             padding-bottom: 14px; margin-bottom: 20px;
-            border-bottom: 1px solid rgba(76,59,138,.10);
+            border-bottom: 1px solid rgba(59,89,138,.10);
         }
         .book-chapter {
             font-family: 'Inter', sans-serif; font-size: 1.35rem; font-weight: 600;
@@ -342,12 +342,12 @@
             background: var(--primary-soft); padding: 4px 10px; border-radius: 999px;
         }
         .book-page-body { font-family: 'Inter', sans-serif; }
-        .book-page-body p { color: #35304f; line-height: 1.78; font-size: 1rem; margin-bottom: 12px; }
+        .book-page-body p { color: #303c4f; line-height: 1.78; font-size: 1rem; margin-bottom: 12px; }
         .book-page-body p:last-child { margin-bottom: 0; }
         .book-page-body .muted { color: var(--text-muted); }
         .book-page-body .list li,
         .book-page-body .timing-basis { font-family: 'Inter', sans-serif; }
-        .book-page-body .cover-summary { font-size: 1.08rem; line-height: 1.85; color: #45405f; }
+        .book-page-body .cover-summary { font-size: 1.08rem; line-height: 1.85; color: #404c5f; }
         .mini-head {
             font-family: 'Inter', sans-serif; font-size: 0.72rem; font-weight: 700;
             letter-spacing: .08em; text-transform: uppercase; color: var(--primary-color);
@@ -371,7 +371,7 @@
             color: var(--text-main); margin-bottom: 16px; letter-spacing: -0.02em;
         }
         .cover-summary {
-            font-family: 'Inter', sans-serif; font-size: 1.06rem; line-height: 1.8; color: #45405f;
+            font-family: 'Inter', sans-serif; font-size: 1.06rem; line-height: 1.8; color: #404c5f;
             max-width: 560px; margin: 0 auto;
         }
 
@@ -382,7 +382,7 @@
         }
         .book-arrow {
             width: 46px; height: 46px; border-radius: 50%; cursor: pointer;
-            border: 1px solid rgba(76,59,138,.18); background: #fff; color: var(--primary-hover);
+            border: 1px solid rgba(59,89,138,.18); background: #fff; color: var(--primary-hover);
             font-size: 1.5rem; line-height: 1; display: flex; align-items: center; justify-content: center;
             box-shadow: var(--card-shadow); transition: transform .12s, background .12s, opacity .12s;
         }
@@ -404,13 +404,13 @@
         .futures-wrap { display: flex; flex-direction: column; gap: 16px; }
 
         /* Future paths: four selectable path cards, then the selected path's
-           detail (timeline, evidence, gaps) beside its evidence-confidence ring. */
+           detail (timeline, evidence, gaps) beside its likelihood ring. */
         .path-tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 14px; }
         @media (max-width: 900px) { .path-tabs { grid-template-columns: 1fr 1fr; } }
         .path-tab {
             display: flex; flex-direction: column; justify-content: flex-start;
             text-align: left; font-family: inherit; cursor: pointer; min-width: 0;
-            background: #fff; border: 1px solid rgba(76,59,138,.14); border-radius: 14px;
+            background: #fff; border: 1px solid rgba(59,89,138,.14); border-radius: 14px;
             padding: 14px 16px; transition: border-color .12s, background .12s;
         }
         .path-tab:hover { border-color: var(--primary-ring); }
@@ -425,7 +425,7 @@
 
         .path-detail {
             display: grid; grid-template-columns: 1fr 300px; overflow: hidden;
-            background: #fff; border: 1px solid rgba(76,59,138,.12);
+            background: #fff; border: 1px solid rgba(59,89,138,.12);
             border-left: 5px solid var(--primary-color); border-radius: 14px;
         }
         .path-detail.risk { border-left-color: #d97706; }
@@ -437,21 +437,21 @@
         .pd-summary { color: var(--text-muted); font-size: 1rem; line-height: 1.6; }
         .pd-cols {
             display: grid; grid-template-columns: 1fr 1fr; gap: 20px 28px;
-            border-top: 1px solid rgba(76,59,138,.12); margin-top: 22px; padding-top: 20px;
+            border-top: 1px solid rgba(59,89,138,.12); margin-top: 22px; padding-top: 20px;
         }
         @media (max-width: 620px) { .pd-cols { grid-template-columns: 1fr; } .pd-main { padding: 22px 18px; } }
         .pd-cols h4 { font-size: 0.75rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 8px; }
         .pd-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
-        .pd-list li { position: relative; padding-left: 22px; font-size: 0.9rem; line-height: 1.5; color: #35304f; }
+        .pd-list li { position: relative; padding-left: 22px; font-size: 0.9rem; line-height: 1.5; color: #303c4f; }
         .pd-list li::before { position: absolute; left: 2px; top: 0; font-weight: 700; }
         .pd-list.ok li::before { content: '✓'; color: var(--primary-color); }
         .pd-list.gap li::before { content: '!'; color: #d97706; font-style: italic; left: 5px; }
 
         .pd-side {
-            background: rgba(109,40,217,.035); border-left: 1px solid rgba(76,59,138,.10);
+            background: rgba(40,108,217,.035); border-left: 1px solid rgba(59,89,138,.10);
             padding: 26px 22px; display: flex; flex-direction: column; align-items: center; text-align: center;
         }
-        @media (max-width: 780px) { .pd-side { border-left: 0; border-top: 1px solid rgba(76,59,138,.10); } }
+        @media (max-width: 780px) { .pd-side { border-left: 0; border-top: 1px solid rgba(59,89,138,.10); } }
         .conf-ring { position: relative; width: 170px; height: 170px; }
         .conf-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
         .conf-ring .ring-bg { stroke: var(--primary-soft); }
@@ -464,18 +464,6 @@
         .conf-ring .ring-num { font-size: 2.3rem; font-weight: 500; line-height: 1; }
         .conf-ring .ring-cap { font-size: 0.66rem; letter-spacing: .06em; text-transform: uppercase; margin-top: 8px; line-height: 1.4; }
         .conf-note { font-size: 0.8rem; color: var(--text-muted); line-height: 1.55; margin-top: 14px; }
-        .conf-how {
-            margin-top: 12px; background: none; border: 0; cursor: pointer; font-family: inherit;
-            font-size: 0.82rem; font-weight: 600; color: var(--primary-color);
-        }
-        .conf-how:hover { text-decoration: underline; }
-        .conf-break { width: 100%; margin-top: 12px; text-align: left; display: flex; flex-direction: column; gap: 10px; }
-        .conf-break[hidden] { display: none; }
-        .cb-row .cb-top { display: flex; justify-content: space-between; font-size: 0.76rem; color: var(--text-main); margin-bottom: 4px; }
-        .cb-row .cb-top span:last-child { color: var(--text-muted); }
-        .cb-bar { height: 6px; border-radius: 999px; background: var(--primary-soft); overflow: hidden; }
-        .cb-bar i { display: block; height: 100%; background: var(--primary-color); border-radius: 999px; }
-        .cb-desc { font-size: 0.72rem; color: var(--text-muted); margin-top: 3px; line-height: 1.4; }
         .paths-stale { font-size: 0.85rem; color: var(--text-muted); }
 
         /* Daily note on the left, "What's likely to happen?" on the right;
@@ -489,7 +477,7 @@
             padding: 4px 10px; border-radius: 999px;
         }
         .daily-headline { font-size: 1.3rem; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 10px; }
-        .daily-guidance { color: #35304f; line-height: 1.75; font-size: 1rem; margin-bottom: 2em}
+        .daily-guidance { color: #303c4f; line-height: 1.75; font-size: 1rem; margin-bottom: 2em}
         .daily-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 18px; }
         .daily-meta .item-card:first-child { grid-column: 1 / -1; }
         @media (max-width: 620px) { .daily-meta { grid-template-columns: 1fr; } }
@@ -500,42 +488,42 @@
         .sit-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 4px; }
         .sit-sub { color: var(--text-muted); font-size: 0.88rem; line-height: 1.55; margin-bottom: 14px; }
         .sit-count { font-size: 0.78rem; color: var(--text-muted); }
-        .sit-result { margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(76,59,138,.10); }
+        .sit-result { margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(59,89,138,.10); }
         .sit-asked {
             font-size: 0.85rem; color: var(--text-muted); font-style: italic; line-height: 1.55;
-            background: rgba(109,40,217,.035); border-radius: 12px; padding: 10px 14px; margin-bottom: 14px;
+            background: rgba(40,108,217,.035); border-radius: 12px; padding: 10px 14px; margin-bottom: 14px;
         }
         .sit-timing { margin-top: 10px; font-size: 0.88rem; font-weight: 600; color: var(--primary-hover); }
-        /* ── Daily Horoscope theme: bluish violet (indigo) ───────────────
+        /* ── Daily Horoscope theme: deep blue ───────────────
            The tokens re-point everything built on the shared variables; the
-           rules below cover the few purples that are written out literally. */
+           rules below cover the few colours that are written out literally. */
         #daily-panel {
-            --primary-color: #4f46e5;
-            --primary-hover: #4338ca;
-            --accent-gradient: linear-gradient(135deg, #3730a3 0%, #4f46e5 52%, #6d7cf7 100%);
-            --primary-soft: rgba(79, 70, 229, 0.09);
-            --primary-ring: rgba(79, 70, 229, 0.30);
+            --primary-color: #4683e5;
+            --primary-hover: #070790;
+            --accent-gradient: linear-gradient(135deg, #070790 0%, #070790 100%);
+            --primary-soft: rgba(70, 131, 229, 0.09);
+            --primary-ring: rgba(70, 131, 229, 0.30);
             --card-shadow: 0 12px 32px -14px rgba(40, 42, 120, 0.30);
         }
         #daily-panel .card,
         #daily-panel .item-card { border-color: rgba(67, 72, 170, 0.14); }
         #daily-panel .item-card,
-        #daily-panel .sit-asked { background: rgba(79, 70, 229, 0.04); }
+        #daily-panel .sit-asked { background: rgba(70, 131, 229, 0.04); }
         #daily-panel .field textarea { border-color: rgba(67, 72, 170, 0.22); }
         #daily-panel .ghost-btn { border-color: rgba(67, 72, 170, 0.24); }
         #daily-panel .sit-result { border-top-color: rgba(67, 72, 170, 0.12); }
-        #daily-panel .submit-btn { box-shadow: 0 10px 22px -12px rgba(79, 70, 229, 0.8); }
+        #daily-panel .submit-btn { box-shadow: 0 10px 22px -12px rgba(70, 131, 229, 0.8); }
         #daily-panel .daily-guidance { color: #2f3155; }
         #daily-panel .skeleton-line {
-            background: linear-gradient(90deg, rgba(79,70,229,.08) 25%, rgba(79,70,229,.16) 37%, rgba(79,70,229,.08) 63%);
+            background: linear-gradient(90deg, rgba(70,131,229,.08) 25%, rgba(70,131,229,.16) 37%, rgba(70,131,229,.08) 63%);
             background-size: 400% 100%;
         }
 
         .sit-disclaimer { margin-top: 12px; font-size: 0.75rem; color: var(--text-muted); }
         .sit-date { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); margin-bottom: 8px; }
-        .sit-history { margin-top: 24px; padding-top: 18px; border-top: 1px solid rgba(76,59,138,.10); }
+        .sit-history { margin-top: 24px; padding-top: 18px; border-top: 1px solid rgba(59,89,138,.10); }
         .sit-history-title { font-size: 0.9rem; font-weight: 700; margin-bottom: 10px; }
-        .sit-past { border: 1px solid rgba(76,59,138,.12); border-radius: 12px; margin-bottom: 8px; }
+        .sit-past { border: 1px solid rgba(59,89,138,.12); border-radius: 12px; margin-bottom: 8px; }
         .sit-past summary {
             cursor: pointer; padding: 10px 14px; font-size: 0.85rem; line-height: 1.5;
             display: flex; gap: 12px; align-items: baseline;
@@ -566,8 +554,8 @@
 
 <div class="page on-daily" id="horo-page">
     <div class="horo-head">
-        <h2>Daily Horoscope</h2>
-        <p>A personal daily horoscope reader personalised to your details</p>
+        <h2 id="horo-title">Daily Horoscope</h2>
+        <p id="horo-sub">Today's career outlook, read from your chart</p>
         <button type="button" class="ghost-btn" id="regenerate-btn" title="" style="display:none;">Regenerate</button>
         <button type="button" class="ghost-btn" id="futures-refresh">Refresh</button>
     </div>
@@ -648,7 +636,7 @@
         <p class="loading-lead">
             A proper astrological reading is worth the wait. We're preparing a careful,
             personalised career horoscope just for you. This usually takes
-            <strong>around 5 minutes</strong>.
+            <strong>around a minute</strong>.
         </p>
         <p class="loading-sub" id="loading-stage">Reading the birth chart…</p>
         <p class="loading-note">
@@ -693,7 +681,7 @@
     function colourSwatch(name) {
         const key = String(name || '').toLowerCase().trim();
         for (const k in COLOUR_MAP) { if (key.includes(k)) return COLOUR_MAP[k]; }
-        return '#c4b5fd';
+        return '#b5d1fd';
     }
 
     function section(title, inner) {
@@ -734,26 +722,6 @@
             ${note ? `<p class="subsec-note">${escHtml(note)}</p>` : ''}
             <div class="subsec-body">${body}</div></section>` : '';
         const grid = inner => `<div class="grid2">${inner}</div>`;
-        const itemGrid = items => `<div class="item-grid">${items.join('')}</div>`;
-        const itemCard = (title, meta, body) => `<div class="item-card">
-            <div class="ic-title">${title}</div>
-            ${meta ? `<div class="ic-basis">${meta}</div>` : ''}
-            ${body ? `<p>${body}</p>` : ''}
-        </div>`;
-
-        // ── Career Houses — a card each, so the page fills out.
-        const ha = h.house_analysis || {};
-        // Plain labels only; older saved readings also carry sign/lord/occupant
-        // chart details, which aren't shown.
-        const houseCard = (label, x) => x ? itemCard(escHtml(label), '', escHtml(x.reading || '')) : '';
-        const houses = [houseCard('Career & Reputation', ha.tenth_house),
-                        houseCard('Day-to-Day Work', ha.sixth_house),
-                        houseCard('Money & Earnings', ha.wealth_houses),
-                        houseCard('Business & Partnerships', ha.seventh_house)]
-                        .filter(Boolean);
-        if (houses.length) chapters.push({ title: 'Your Career Chart', icon: '☉',
-            intro: 'What your chart says about your career, your daily work, your earnings and your partnerships.',
-            body: itemGrid(houses) });
 
         // ── Current cycle + timing together.
         const cp = h.current_period || {};
@@ -1106,8 +1074,17 @@
     // #reading / #futures hash so a reload (or a shared link) lands back on them.
     let dailyLoaded = false, futuresLoaded = false;
 
+    const TAB_HEADS = {
+        daily:   ['Daily Horoscope', "Today's career outlook, read from your chart"],
+        reading: ['Career Reading', 'A personal career reader personalised to your details'],
+        futures: ['Career Path', 'Where your career could go next, based on your conversations and profile'],
+    };
+
     function showTab(tab) {
         const daily = tab === 'daily', futures = tab === 'futures';
+        const [headTitle, headSub] = TAB_HEADS[tab] || TAB_HEADS.daily;
+        $('horo-title').textContent = headTitle;
+        $('horo-sub').textContent = headSub;
         $('horo-page').classList.toggle('on-daily', daily);
         $('horo-page').classList.toggle('on-futures', futures);
         $('reading-panel').style.display = tab === 'reading' ? '' : 'none';
@@ -1185,19 +1162,13 @@
         body += subsec('Likely paths', paths.length
             ? `<div class="path-tabs" role="tablist">${paths.map((p, i) => pathTab(p, i)).join('')}</div>
                <div id="path-detail"></div>`
-            : `<p class="paths-stale">Refresh to see your likely paths, with evidence and confidence for each.</p>`);
+            : `<p class="paths-stale">Refresh to see your likely paths, with how likely each one is.</p>`);
         $('futures-card').innerHTML = body;
         if (paths.length) {
             const tabs = document.querySelectorAll('#futures-card .path-tab');
             const select = i => {
                 tabs.forEach((t, j) => { t.classList.toggle('active', j === i); t.setAttribute('aria-selected', j === i); });
                 $('path-detail').innerHTML = pathDetail(paths[i]);
-                const how = $('path-detail').querySelector('.conf-how');
-                how.addEventListener('click', () => {
-                    const box = $('path-detail').querySelector('.conf-break');
-                    box.hidden = !box.hidden;
-                    how.textContent = box.hidden ? 'See how this is calculated' : 'Hide calculation';
-                });
             };
             tabs.forEach((t, i) => t.addEventListener('click', () => select(i)));
             select(0);
@@ -1208,24 +1179,18 @@
         most_likely: 'Most likely', accelerated: 'Accelerated',
         adjacent: 'Adjacent possibility', risk: 'Risk trajectory',
     };
-    // Mirrors _CONFIDENCE_WEIGHTS in app.py.
-    const CONF_PARTS = [
-        ['completeness', 'Completeness', 40, 'How much concrete evidence supports it'],
-        ['consistency', 'Consistency', 35, 'How well your profile and conversations agree'],
-        ['recency', 'Recency', 25, 'How recent the supporting evidence is'],
-    ];
     const pct = v => Math.max(0, Math.min(100, Math.round(Number(v) || 0)));
 
     function pathTab(p, i) {
         return `<button type="button" role="tab" class="path-tab${p.type === 'risk' ? ' risk' : ''}" data-i="${i}">
             <div class="pt-kind">${escHtml(PATH_KINDS[p.type] || '')}</div>
             <div class="pt-role">${escHtml(p.role)}</div>
-            <div class="pt-conf">${pct(p.confidence)}% evidence confidence</div>
+            <div class="pt-conf">${pct(p.likelihood)}% likely</div>
         </button>`;
     }
 
     function pathDetail(p) {
-        const conf = pct(p.confidence);
+        const conf = pct(p.likelihood);
         const r = 76, circ = 2 * Math.PI * r;
         const list = (cls, items) => `<ul class="pd-list ${cls}">${items.map(x => `<li>${escHtml(x)}</li>`).join('')}</ul>`;
         const evidence = Array.isArray(p.evidence) ? p.evidence : [];
@@ -1248,17 +1213,9 @@
                         <circle class="ring-fg" cx="85" cy="85" r="${r}" fill="none" stroke-width="12" stroke-linecap="round"
                                 stroke-dasharray="${circ}" stroke-dashoffset="${circ * (1 - conf / 100)}"/>
                     </svg>
-                    <div class="ring-label"><span class="ring-num">${conf}%</span><span class="ring-cap">Evidence<br>confidence</span></div>
+                    <div class="ring-label"><span class="ring-num">${conf}%</span><span class="ring-cap">Chance this<br>happens</span></div>
                 </div>
-                <p class="conf-note">This is not a probability of success. It shows the completeness, consistency and recency of supporting evidence.</p>
-                <button type="button" class="conf-how">See how this is calculated</button>
-                <div class="conf-break" hidden>
-                    ${CONF_PARTS.map(([k, label, w, desc]) => `<div class="cb-row">
-                        <div class="cb-top"><span>${label} · ${w}% weight</span><span>${pct(p[k])}%</span></div>
-                        <div class="cb-bar"><i style="width:${pct(p[k])}%"></i></div>
-                        <div class="cb-desc">${desc}</div>
-                    </div>`).join('')}
-                </div>
+                <p class="conf-note">Our estimate of how likely this path is within its timeline if you carry on as you are, based on your profile and Nexa conversations. Paths can overlap, so the numbers don't add up to 100%.</p>
             </div>
         </div>`;
     }

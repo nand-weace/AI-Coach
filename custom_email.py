@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 """
 Bulk email sender using SMTP and a CSV recipient list.
 

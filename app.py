@@ -2753,7 +2753,7 @@ def career_horoscope_situation():
     try:
         full = _horoscope_job_state(user_id).get('result') or {}
         saved = {k: full[k] for k in ('current_period', 'favourable_timing',
-                                      'house_analysis', 'future_prospects') if full.get(k)}
+                                      'future_prospects') if full.get(k)}
     except Exception:
         pass
 
@@ -2825,8 +2825,8 @@ def career_horoscope_situation_history():
 # ── Career Futures ──────────────────────────────────────────────────────────
 # The Career Futures tab is not astrological: it reads the user's own Nexa
 # coaching conversations and their profile (plus LinkedIn, when scraped) to
-# suggest four likely career paths, each with its evidence, gaps and an
-# evidence-confidence score. Cached per user; regenerated on request from the tab's Refresh button.
+# suggest four likely career paths, each with its evidence, gaps and a
+# likelihood of it happening. Cached per user; regenerated on request from the tab's Refresh button.
 _CAREER_FUTURES = 'career_futures'
 _FUTURES_MSG_LIMIT = 180      # most recent user messages read per run
 _FUTURES_MSG_CHARS = 320      # per-message truncation
@@ -2835,15 +2835,11 @@ _FUTURES_MIN_MESSAGES = 3     # below this, only the profile has anything to say
 
 
 _FUTURE_PATH_TYPES = ('most_likely', 'accelerated', 'adjacent', 'risk')
-# Evidence confidence = weighted blend of the model's three evidence ratings.
-# Computed here rather than asked for directly so the headline number is
-# explainable ("See how this is calculated") and consistent across runs.
-_CONFIDENCE_WEIGHTS = {'completeness': 0.4, 'consistency': 0.35, 'recency': 0.25}
 
 
 def _score_future_paths(paths) -> list:
-    """Keep one path per known type, in display order, each with a 0-100
-    `confidence` derived from its completeness/consistency/recency."""
+    """Keep one path per known type, in display order, each with its 0-100
+    `likelihood` clamped to range."""
     by_type = {}
     for p in paths if isinstance(paths, list) else []:
         if isinstance(p, dict) and p.get('type') in _FUTURE_PATH_TYPES and p.get('role'):
@@ -2853,14 +2849,10 @@ def _score_future_paths(paths) -> list:
         p = by_type.get(t)
         if not p:
             continue
-        parts = {}
-        for k in _CONFIDENCE_WEIGHTS:
-            try:
-                parts[k] = max(0, min(100, round(float(p.get(k) or 0))))
-            except (TypeError, ValueError):
-                parts[k] = 0
-        p.update(parts)
-        p['confidence'] = round(sum(parts[k] * w for k, w in _CONFIDENCE_WEIGHTS.items()))
+        try:
+            p['likelihood'] = max(0, min(100, round(float(p.get('likelihood') or 0))))
+        except (TypeError, ValueError):
+            p['likelihood'] = 0
         p['evidence'] = [e for e in (p.get('evidence') or []) if isinstance(e, str)][:3]
         p['missing'] = [m for m in (p.get('missing') or []) if isinstance(m, str)][:3]
         scored.append(p)
@@ -2907,7 +2899,9 @@ def _career_futures_response(user_id: str, name: str, force: bool):
             cached = get_user_insight_report(user_id, _CAREER_FUTURES)
         except Exception:
             cached = None
-        if cached:
+        # Runs saved before paths carried a likelihood only have evidence
+        # scores, which must not be shown as a likelihood, so rebuild them.
+        if cached and all('likelihood' in p for p in cached.get('paths') or []):
             return jsonify({'futures': _strip_dashes_deep(cached)})
     if client is None:
         return jsonify({'error': 'Career Futures is not available right now.'}), 503

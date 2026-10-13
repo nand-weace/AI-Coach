@@ -69,8 +69,8 @@ function renderUsageChart({ wrapId, title, series, granularity, key, color, rows
     const gridLines = [0, 0.25, 0.5, 0.75, 1].map(f => {
         const v = maxVal * f;
         const y = toY(v).toFixed(1);
-        return `<line x1="${padL}" y1="${y}" x2="${padL + iW}" y2="${y}" stroke="rgba(45, 32, 90, 0.08)" stroke-width="1"/>
-                <text x="${padL - 8}" y="${y}" text-anchor="end" dominant-baseline="middle" font-size="10" fill="#7f78a0">${fmtAxis(v)}</text>`;
+        return `<line x1="${padL}" y1="${y}" x2="${padL + iW}" y2="${y}" stroke="rgba(32, 54, 90, 0.08)" stroke-width="1"/>
+                <text x="${padL - 8}" y="${y}" text-anchor="end" dominant-baseline="middle" font-size="10" fill="#7887a0">${fmtAxis(v)}</text>`;
     }).join('');
 
     // Spaced back from the most recent bucket, so the latest point is always
@@ -83,7 +83,7 @@ function renderUsageChart({ wrapId, title, series, granularity, key, color, rows
         // The end labels sit on the plot edges, so anchor them inward or
         // they run off the card.
         const anchor = i === n - 1 ? 'end' : i === 0 ? 'start' : 'middle';
-        return `<text x="${toX(i).toFixed(1)}" y="${H - 10}" text-anchor="${anchor}" font-size="10" fill="#7f78a0">${lbl}</text>`;
+        return `<text x="${toX(i).toFixed(1)}" y="${H - 10}" text-anchor="${anchor}" font-size="10" fill="#7887a0">${lbl}</text>`;
     }).join('');
 
     const pts  = series.map((p, i) => `${toX(i).toFixed(1)},${toY(p[key]).toFixed(1)}`).join(' ');
