@@ -19,8 +19,6 @@ import logging
 from email.message import EmailMessage
 from pathlib import Path
 
-from dotenv import ipython
-
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
