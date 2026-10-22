@@ -285,15 +285,29 @@ const NexaHeader = (() => {
     if (remembered) applyBranding(remembered, { persist: false });
 
     // ── Wiring ──────────────────────────────────────────────────────────────
+    // Read on every open, not just at init: the chat page stores the org name
+    // only once /session answers, which can be after the header has set up.
+    function renderOrgName() {
+        const el = $('chip-dropdown-org');
+        if (!el) return;
+        let name = '';
+        try { name = localStorage.getItem('we_ace_org_name') || ''; } catch (_) {}
+        el.textContent = name;
+        el.title = name;
+        el.hidden = !name;
+    }
+
     function init(opts = {}) {
         const chipWrap = $('user-chip-wrap');
         const chipTrigger = $('user-chip');
         const langWrap = $('language-menu-wrap');
 
+        renderOrgName();
         if (chipWrap && chipTrigger) {
             chipTrigger.addEventListener('click', e => {
                 e.stopPropagation();
                 const open = !chipWrap.classList.contains('open');
+                if (open) renderOrgName();
                 closeMenus();
                 chipWrap.classList.toggle('open', open);
             });
@@ -381,8 +395,17 @@ const NexaHeader = (() => {
         const editProfile = $('btn-edit-profile');
         if (editProfile) {
             editProfile.addEventListener('click', () => {
-                window.open('https://we-ace.com/app/employee/edit/profile?refresh_token='
-                    + encodeURIComponent(refreshToken()), '_blank');
+                window.open('https://we-ace.com/app/?redirection_url=app/employee/edit/profile'
+                    + '&refresh_token=' + encodeURIComponent(refreshToken()));
+                closeMenus();
+            });
+        }
+
+        const calendarSettings = $('btn-calendar-settings');
+        if (calendarSettings) {
+            calendarSettings.addEventListener('click', () => {
+                window.open('https://we-ace.com/app/?redirection_url=app/employee/calendar'
+                    + '&refresh_token=' + encodeURIComponent(refreshToken()));
                 closeMenus();
             });
         }

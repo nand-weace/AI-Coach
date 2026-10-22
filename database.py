@@ -97,6 +97,24 @@ def get_connection():
     )
 
 
+def get_reader_connection():
+    """A connection to the read replica, for the dashboards' read-only queries.
+
+    Falls back to the primary when DB_READER_HOST is unset. The replica can lag
+    the primary, so anything that reads back a row it has just written stays on
+    get_connection().
+    """
+    return pymysql.connect(
+        host=os.environ.get('DB_READER_HOST') or os.environ.get('DB_HOST', 'localhost'),
+        port=int(os.environ.get('DB_PORT', '3306')),
+        user=os.environ.get('DB_USER', 'root'),
+        password=os.environ.get('DB_PASSWORD', ''),
+        database=os.environ.get('DB_NAME', 'ai_coach'),
+        charset='utf8mb4',
+        cursorclass=pymysql.cursors.DictCursor,
+    )
+
+
 def init_db():
     conn = get_connection()
     try:
@@ -240,6 +258,20 @@ def init_db():
                     sentiment_data JSON NOT NULL,
                     calculated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     INDEX idx_user_id (user_id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """)
+            # Every personal sentiment run, kept forever. user_sentiment only
+            # holds the latest narrative (one row per user); this keeps each
+            # recalculation's full result so past readings can be looked back on.
+            _execute(cur,"""
+                CREATE TABLE IF NOT EXISTS user_sentiment_history (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id VARCHAR(36) NOT NULL,
+                    scores JSON NOT NULL,
+                    sentiment_data JSON NOT NULL,
+                    messages_analyzed INT NOT NULL DEFAULT 0,
+                    calculated_at DATETIME NOT NULL,
+                    INDEX idx_user_calculated (user_id, calculated_at)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """)
             # Cached narrative reports behind the personal insights dashboard —
@@ -698,7 +730,7 @@ def get_session_highlights(user_id: str, max_sessions: int = 50) -> list:
 def get_org_analytics(org_id: str, date_from=None, date_to=None, gender=None, level_name=None,
                       cohort_name=None, industry_type=None) -> dict:
     """Returns overview stats and per-user activity for the given organisation."""
-    conn = get_connection()
+    conn = get_reader_connection()
     try:
         with conn.cursor() as cur:
             params = [org_id]
@@ -813,7 +845,7 @@ def get_all_org_slugs() -> list:
 
 def get_all_orgs() -> list:
     """Returns distinct organisations (slug + display name) that have coaching sessions."""
-    conn = get_connection()
+    conn = get_reader_connection()
     try:
         with conn.cursor() as cur:
             _execute(cur,
@@ -893,7 +925,7 @@ def get_corporate_stats() -> list:
     subquery is already one row per org; the MAX() around its columns only
     satisfies only_full_group_by.
     """
-    conn = get_connection()
+    conn = get_reader_connection()
     try:
         with conn.cursor() as cur:
             _execute(cur, """
@@ -1524,7 +1556,7 @@ def insert_user_sentiment_scores(user_id: str, scores: dict, run_ts: str):
 
 def get_org_filter_options(org_slug: str) -> dict:
     """Returns distinct gender, level_name, and industry_types values for users in the org."""
-    conn = get_connection()
+    conn = get_reader_connection()
     try:
         with conn.cursor() as cur:
             _execute(cur,
@@ -1579,7 +1611,8 @@ def get_org_filter_options(org_slug: str) -> dict:
 
 
 def get_org_sentiment_data(org_slug, trend_limit: int = 12, date_from=None, date_to=None,
-                           gender=None, level_name=None, cohort_name=None) -> dict | None:
+                           gender=None, level_name=None, cohort_name=None,
+                           reader: bool = False) -> dict | None:
     """
     Returns aggregated sentiment data for the org keyed by dimension name.
     Pass org_slug=None to aggregate across all organisations (weace_super_admin view).
@@ -1587,7 +1620,7 @@ def get_org_sentiment_data(org_slug, trend_limit: int = 12, date_from=None, date
     Insights come from org_sentiment (LLM-generated); omitted for the all-orgs view.
     Trend is avg score per dimension grouped by run date.
     """
-    conn = get_connection()
+    conn = get_reader_connection() if reader else get_connection()
     try:
         with conn.cursor() as cur:
             # Build user filter subquery. org_slug=None means all organisations (weace_super_admin).
@@ -1802,6 +1835,26 @@ def upsert_user_sentiment(user_id: str, sentiment_data: dict):
         conn.close()
 
 
+def insert_user_sentiment_history(user_id: str, scores: dict, sentiment_data: dict,
+                                  messages_analyzed: int, run_ts: str):
+    """Append one personal sentiment run to user_sentiment_history."""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur,
+                """
+                INSERT INTO user_sentiment_history
+                    (user_id, scores, sentiment_data, messages_analyzed, calculated_at)
+                VALUES (%s, %s, %s, %s, %s)
+                """,
+                (user_id, json.dumps(scores), json.dumps(sentiment_data),
+                 int(messages_analyzed), run_ts),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def get_user_messages(user_id: str, limit: int = 300) -> list:
     """The user's own messages, newest first — input for personal sentiment analysis."""
     conn = get_connection()
@@ -1821,11 +1874,11 @@ def get_user_messages(user_id: str, limit: int = 300) -> list:
         conn.close()
 
 
-def get_user_dated_messages(user_id: str, limit: int = 300, since_days: int = None) -> list:
+def get_user_dated_messages(user_id: str, limit: int | None = 300, since_days: int = None) -> list:
     """
     The user's own messages with their dates, oldest first — input for the
     recurring-theme and weekly-digest reports, both of which need to know *when*
-    something was said, not just what.
+    something was said, not just what. limit=None reads the whole history.
     """
     conn = get_connection()
     try:
@@ -1838,8 +1891,10 @@ def get_user_dated_messages(user_id: str, limit: int = 300, since_days: int = No
             if since_days:
                 sql += " AND created_at >= DATE_SUB(NOW(), INTERVAL %s DAY)"
                 params.append(int(since_days))
-            sql += " ORDER BY id DESC LIMIT %s"
-            params.append(limit)
+            sql += " ORDER BY id DESC"
+            if limit is not None:
+                sql += " LIMIT %s"
+                params.append(limit)
             _execute(cur, sql, tuple(params))
             rows = cur.fetchall()
         return [
@@ -1941,7 +1996,7 @@ def get_career_situation_history(user_id: str, limit: int = 50) -> list:
 
 def get_user_stats(user_id: str) -> dict:
     """Session/message counts and first session date for one user."""
-    conn = get_connection()
+    conn = get_reader_connection()
     try:
         with conn.cursor() as cur:
             _execute(cur,
@@ -1984,7 +2039,7 @@ def get_user_last_message_at(user_id: str, org_slug: str = None) -> str | None:
     user_id then returns None exactly as an unknown one does, so a corporate
     admin cannot use this to probe for accounts outside their own org.
     """
-    conn = get_connection()
+    conn = get_reader_connection()
     try:
         with conn.cursor() as cur:
             if org_slug:
@@ -2010,7 +2065,7 @@ def get_user_last_message_at(user_id: str, org_slug: str = None) -> str | None:
 
 
 def get_user_sentiment_data(user_id: str, trend_limit: int = 12,
-                            date_from=None, date_to=None) -> dict | None:
+                            date_from=None, date_to=None, reader: bool = False) -> dict | None:
     """
     Personal sentiment data for one user, keyed by dimension name.
     Scores are that user's own latest sentiment_score rows; the trend is their
@@ -2018,7 +2073,7 @@ def get_user_sentiment_data(user_id: str, trend_limit: int = 12,
     Mirrors get_org_sentiment_data minus the cross-user bands, which have no
     meaning for a single person.
     """
-    conn = get_connection()
+    conn = get_reader_connection() if reader else get_connection()
     try:
         with conn.cursor() as cur:
             date_clause = ""
@@ -2147,7 +2202,7 @@ def get_user_sentiment_data(user_id: str, trend_limit: int = 12,
 def get_all_users_admin(org_slug=None) -> list:
     """Returns users with stats and their last-known Nexa access, for weace_super_admin.
     Pass org_slug to scope to a single organisation; None returns all orgs."""
-    conn = get_connection()
+    conn = get_reader_connection()
     try:
         with conn.cursor() as cur:
             where = ""
@@ -2223,7 +2278,7 @@ def get_usage_trend(org_slug=None, granularity: str = 'day', points: int = 30) -
     bucket_expr = ("DATE(m.created_at - INTERVAL WEEKDAY(m.created_at) DAY)"
                    if granularity == 'week' else "DATE(m.created_at)")
 
-    conn = get_connection()
+    conn = get_reader_connection()
     try:
         with conn.cursor() as cur:
             join = where = ""

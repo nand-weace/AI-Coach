@@ -1287,7 +1287,7 @@
     // raw score, no per-dimension inversion.
     function scoreClasses(score) {
         if (score >= 60) return { num: 'score-green' };
-        if (score >= 40) return { num: 'score-amber' };
+        if (score >= 25) return { num: 'score-amber' };
         return { num: 'score-red' };
     }
 
@@ -1311,8 +1311,8 @@
         const cx = 100, cy = 100, r = 78, gap = 3;
         return `<div class="gauge-wrap">
             <svg class="gauge-svg" viewBox="0 0 200 112" aria-hidden="true">
-                <path d="${_gaugeArc(cx, cy, r, 180, 109 + gap)}" class="gauge-zone gauge-zone-red" stroke-width="14" fill="none" stroke-linecap="round"/>
-                <path d="${_gaugeArc(cx, cy, r, 108 - gap, 73 + gap)}" class="gauge-zone gauge-zone-amber" stroke-width="14" fill="none" stroke-linecap="round"/>
+                <path d="${_gaugeArc(cx, cy, r, 180, 126 + gap)}" class="gauge-zone gauge-zone-red" stroke-width="14" fill="none" stroke-linecap="round"/>
+                <path d="${_gaugeArc(cx, cy, r, 125 - gap, 73 + gap)}" class="gauge-zone gauge-zone-amber" stroke-width="14" fill="none" stroke-linecap="round"/>
                 <path d="${_gaugeArc(cx, cy, r, 72 - gap, 0)}" class="gauge-zone gauge-zone-green" stroke-width="14" fill="none" stroke-linecap="round"/>
                 <g class="gauge-needle-group" id="hd-needle" style="transform: rotate(-90deg);">
                     <line x1="100" y1="100" x2="100" y2="30" class="gauge-needle"/>

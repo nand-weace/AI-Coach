@@ -2212,7 +2212,8 @@ def sentiment():
     cohort_name = request.args.get('cohort_name',  '').strip() or None
     try:
         data = get_org_sentiment_data(org_slug, date_from=date_from, date_to=date_to,
-                                      gender=gender, level_name=level_name, cohort_name=cohort_name)
+                                      gender=gender, level_name=level_name, cohort_name=cohort_name,
+                                      reader=True)
         return jsonify(data or {})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -3008,10 +3009,14 @@ def my_sentiment():
     date_from = request.args.get('date_from', '').strip() or None
     date_to   = request.args.get('date_to',   '').strip() or None
     try:
-        if get_user_sentiment(user_id) is None:
+        # A report generated just now is on the primary only, so read it back
+        # from there; otherwise the replica serves the dashboard.
+        generated = get_user_sentiment(user_id) is None
+        if generated:
             from sentiment_job import analyze_user_sentiment
             analyze_user_sentiment(user_id)
-        data = get_user_sentiment_data(user_id, date_from=date_from, date_to=date_to)
+        data = get_user_sentiment_data(user_id, date_from=date_from, date_to=date_to,
+                                       reader=not generated)
         return jsonify(data or {})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -3030,7 +3035,7 @@ def my_sentiment_refresh():
             data = get_user_sentiment_data(user_id)
             return jsonify({'ok': True, 'data': data or result})
         return jsonify({'ok': False,
-                        'error': 'Not enough conversation to analyse yet — keep chatting with Nexa.'}), 400
+                        'error': 'Not enough conversation to analyse yet. Keep chatting with Nexa.'}), 400
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

@@ -395,6 +395,17 @@ body {
     transition: background 0.15s;
 }
 
+.chip-dropdown-org {
+    padding: 10px 14px 8px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--glass-border);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .chip-dropdown-item:hover {
     background: rgba(92, 151, 246, 0.06);
 }

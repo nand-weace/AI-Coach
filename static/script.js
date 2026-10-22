@@ -548,6 +548,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Step 1: authenticate directly against the we-ace auth API
         const AUTH_URL_MAP = {
             'admin@wit.com': `${window.WEACE_API_URL}/api/v1/admin-auth/login`,
+            'nandadmin@we-ace.com': `${window.WEACE_API_URL}/api/v1/admin-auth/login`,
+            'ruchikaadmin@we-ace.com': `${window.WEACE_API_URL}/api/v1/admin-auth/login`,
+            'anuadmin@we-ace.com': `${window.WEACE_API_URL}/api/v1/admin-auth/login`,
+            'anuragadmin@we-ace.com': `${window.WEACE_API_URL}/api/v1/admin-auth/login`,
+            'shatrujitadmin@we-ace.com': `${window.WEACE_API_URL}/api/v1/admin-auth/login`,
         };
         const authUrl = AUTH_URL_MAP[email] || `${window.WEACE_API_URL}/api/v1/auth/login`;
 

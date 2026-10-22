@@ -1,11 +1,10 @@
 import json
 import os
 import re
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from database import (
     get_all_org_slugs,
-    get_user_messages,
     get_user_dated_messages,
     get_user_insight_report,
     get_user_sentiment_data,
@@ -18,6 +17,7 @@ from database import (
     get_sentiment_cursor,
     update_sentiment_cursor,
     insert_user_sentiment_scores,
+    insert_user_sentiment_history,
     upsert_org_sentiment,
 )
 
@@ -43,6 +43,23 @@ _MAX_CHARS = 40_000   # org-level prompt cap (~10k tokens)
 _USER_MAX_CHARS = 6_000  # per-user cap (keeps per-user calls cheap)
 _SELF_MAX_CHARS = 24_000  # personal insights prompt cap (one user, richer output)
 _MIN_SELF_MESSAGES = 5    # below this there is nothing meaningful to read
+# 8 dimensions × (insight, rationale, evidence, signals, anecdote) runs ~4-5k
+# output tokens; the 1024 default cuts the JSON off mid-object.
+_SELF_MAX_TOKENS = 8_000
+# Personal sentiment reads the user's WHOLE chat history, but not evenly: it is
+# split into age bands, newest first, and each band gets a share of the prompt
+# budget (and a per-message length cap) that shrinks with age. The bands are
+# labelled in the prompt so the model weights recent language most heavily and
+# treats old messages as background. Shares are rebalanced across the bands
+# that actually have messages, and any share a band does not use is handed on
+# to the newest band still short of room.
+#   (label, max age in days or None, budget share, per-message char cap)
+_SELF_RECENCY_BANDS = [
+    ('LAST 14 DAYS — most recent, weigh most heavily', 14,   0.50, 1200),
+    ('15 TO 60 DAYS AGO — weigh moderately',           60,   0.25, 500),
+    ('2 TO 6 MONTHS AGO — weigh lightly',              180,  0.15, 300),
+    ('OVER 6 MONTHS AGO — background context only',    None, 0.10, 200),
+]
 # Qualitative backing shown behind each sentiment score. Evidence is verbatim and
 # verified against the user's own messages, so the cap is low on purpose: two
 # spans that are genuinely theirs read better than four the model half-recalled.
@@ -287,6 +304,16 @@ Score each dimension 0-100 based purely on the language patterns present:
 
 These bands are how the score is read back to them, so score consistently with them:
 0-34 = needs attention, 35-64 = developing, 65-100 = strong.
+
+RECENCY — the messages span their whole coaching history and are grouped into dated sections, newest first:
+
+- The score must describe where they are NOW. Weigh the most recent section most heavily, the next \
+section less, and the oldest sections least — older messages are background that shows where they came \
+from, not where they are.
+- Where recent language differs from older language (e.g. once overwhelmed, now composed), score the \
+recent picture and mention the shift in the "rationale".
+- Older sections are sampled and truncated to fit, so do not read their brevity as a signal.
+- Prefer evidence spans and anecdotes from the most recent sections whenever they support the score.
 
 HOW TO SCORE — read this carefully, it is the part most often got wrong:
 
@@ -593,6 +620,10 @@ def _reply_text(response) -> str:
         raise ReportUnavailable(
             "Nexa could not write this report from your recent conversations. Try again later."
         )
+    if getattr(response, 'stop_reason', None) == 'max_tokens':
+        # The JSON is cut off mid-object and will not parse; say so plainly
+        # rather than leave it to surface as a confusing JSONDecodeError.
+        print("  LLM reply hit max_tokens — output truncated; raise max_tokens for this call.")
     parts = [b.text.strip() for b in response.content
              if getattr(b, 'type', None) == 'text' and b.text.strip()]
     return '\n\n'.join(parts)
@@ -618,7 +649,10 @@ def _call_llm(prompt: str, client, ai_provider: str, ai_model: str, max_tokens: 
         response_format={"type": "json_object"},
         messages=messages,
     )
-    return response.choices[0].message.content.strip()
+    choice = response.choices[0]
+    if choice.finish_reason == 'length':
+        print("  LLM reply hit max_tokens — output truncated; raise max_tokens for this call.")
+    return choice.message.content.strip()
 
 
 # Claude has no browsing of its own — this Anthropic-hosted server tool is what
@@ -777,26 +811,101 @@ def _self_detail(entry: dict, score: int, haystack: str, dim: str, user_id: str)
     }
 
 
+def _recency_weighted_block(messages: list, max_chars: int) -> str:
+    """The user's full history packed into max_chars, newest band first.
+
+    messages are dicts {'date': 'YYYY-MM-DD', 'content': str}, oldest first (as
+    get_user_dated_messages returns them). See _SELF_RECENCY_BANDS.
+    """
+    today = datetime.now(timezone.utc).date()
+    bands = [[] for _ in _SELF_RECENCY_BANDS]
+    for m in messages:
+        try:
+            age = (today - date.fromisoformat(m['date'])).days
+        except ValueError:
+            age = 0
+        for i, (_, max_age, _, _) in enumerate(_SELF_RECENCY_BANDS):
+            if max_age is None or age <= max_age:
+                bands[i].append(m)
+                break
+
+    lines = []
+    for (_, _, _, per_msg), band in zip(_SELF_RECENCY_BANDS, bands):
+        lines.append([f"[{m['date']}] {m['content'][:per_msg]}" for m in band])
+
+    # Shares are rebalanced over the bands that have anything in them; whatever a
+    # band leaves unused goes to the newest bands still short of room.
+    active = [i for i, ls in enumerate(lines) if ls]
+    if not active:
+        return ''
+    total_share = sum(_SELF_RECENCY_BANDS[i][2] for i in active)
+    need = {i: sum(len(l) + 1 for l in lines[i]) for i in active}
+    budget = {i: int(max_chars * _SELF_RECENCY_BANDS[i][2] / total_share) for i in active}
+    spare = sum(max(0, budget[i] - need[i]) for i in active)
+    for i in active:
+        budget[i] = min(budget[i], need[i])
+    for i in active:
+        extra = min(spare, need[i] - budget[i])
+        budget[i] += extra
+        spare -= extra
+
+    sections = []
+    for i in active:
+        chosen = _fit_band(lines[i], budget[i], newest_only=(i == 0))
+        dropped = len(lines[i]) - len(chosen)
+        header = f"=== {_SELF_RECENCY_BANDS[i][0]} ({len(lines[i])} messages"
+        header += f", {dropped} omitted to fit) ===" if dropped else ") ==="
+        sections.append(header + '\n' + '\n'.join(chosen))
+    return '\n\n'.join(sections)
+
+
+def _fit_band(lines: list, budget: int, newest_only: bool) -> list:
+    """The lines of one band that fit in budget chars, kept oldest first.
+
+    The newest band keeps its most recent messages; older bands are sampled
+    evenly across their span so the whole period stays represented.
+    """
+    if sum(len(l) + 1 for l in lines) <= budget:
+        return lines
+    if newest_only:
+        kept, used = [], 0
+        for l in reversed(lines):
+            if used + len(l) + 1 > budget:
+                break
+            kept.append(l)
+            used += len(l) + 1
+        return kept[::-1]
+    avg = sum(len(l) + 1 for l in lines) / len(lines)
+    k = max(1, min(len(lines), int(budget / avg)))
+    while k > 0:
+        step = len(lines) / k
+        # anchor the sample on the newest message so the band's tail is kept
+        picked = [lines[len(lines) - 1 - int(j * step)] for j in range(k)][::-1]
+        if sum(len(l) + 1 for l in picked) <= budget:
+            return picked
+        k -= 1
+    return []
+
+
 def analyze_user_sentiment(user_id: str) -> dict | None:
     """
-    Scores one user's own messages and writes second-person insights for their
-    personal insights dashboard. Saves scores to sentiment_score (so the trend
-    builds up run by run) and insights to user_sentiment. Returns the result,
-    or None if there is too little to read or the LLM call fails.
+    Scores one user's whole chat history, weighted toward recent messages, and
+    writes second-person insights for their personal insights dashboard. Saves
+    scores to sentiment_score (so the trend builds up run by run), the latest
+    insights to user_sentiment, and the full run to user_sentiment_history.
+    Returns the result, or None if there is too little to read or the LLM call
+    fails.
     """
     cfg = _llm_config()
     if not cfg:
         print("Personal sentiment: no API key configured.")
         return None
     client, ai_provider, ai_model = cfg
-
-    messages = get_user_messages(user_id)
+    messages = get_user_dated_messages(user_id, limit=None)
     if len(messages) < _MIN_SELF_MESSAGES:
         return None
 
-    combined = '\n'.join(f'- {m}' for m in messages)
-    if len(combined) > _SELF_MAX_CHARS:
-        combined = combined[:_SELF_MAX_CHARS] + '\n[...truncated]'
+    combined = _recency_weighted_block(messages, _SELF_MAX_CHARS)
 
     prompt = (_SELF_PROMPT
               .replace('{evidence}', str(_SELF_EVIDENCE))
@@ -805,7 +914,7 @@ def analyze_user_sentiment(user_id: str) -> dict | None:
 
     raw = None
     try:
-        raw = _call_llm(prompt, client, ai_provider, ai_model)
+        raw = _call_llm(prompt, client, ai_provider, ai_model, max_tokens=_SELF_MAX_TOKENS)
         result = _extract_json(raw)
     except Exception as e:
         print(f"Personal sentiment analysis failed for {user_id}: {e}")
@@ -836,6 +945,7 @@ def analyze_user_sentiment(user_id: str) -> dict | None:
 
     result['messages_analyzed'] = len(messages)
     upsert_user_sentiment(user_id, result)
+    insert_user_sentiment_history(user_id, scores, result, len(messages), run_ts)
     return result
 
 
