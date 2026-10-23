@@ -2950,7 +2950,7 @@ _FUTURES_MAX_CHARS = 14_000   # conversation block cap (keeps the most recent ta
 _FUTURES_MIN_MESSAGES = 3     # below this, only the profile has anything to say
 
 
-_FUTURE_PATH_TYPES = ('most_likely', 'accelerated', 'adjacent', 'risk')
+_FUTURE_PATH_TYPES = ('most_likely', 'alternative_path', 'risk')
 
 
 def _score_future_paths(paths) -> list:
@@ -2969,7 +2969,9 @@ def _score_future_paths(paths) -> list:
             p['likelihood'] = max(0, min(100, round(float(p.get('likelihood') or 0))))
         except (TypeError, ValueError):
             p['likelihood'] = 0
-        p['evidence'] = [e for e in (p.get('evidence') or []) if isinstance(e, str)][:3]
+        # Evidence is {signal, source, icon}; older runs saved plain strings.
+        p['evidence'] = [e for e in (p.get('evidence') or [])
+                         if isinstance(e, str) or (isinstance(e, dict) and e.get('signal'))][:3]
         p['missing'] = [m for m in (p.get('missing') or []) if isinstance(m, str)][:3]
         scored.append(p)
     return scored

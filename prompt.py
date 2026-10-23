@@ -265,22 +265,24 @@ WHAT TO PRODUCE
 1. summary: one short sentence on the direction their career is pointing.
 2. paths: exactly four career paths, one of each type, in this order:
    - most_likely: the role they are most likely to reach next on their current course.
-   - accelerated: a bigger step they could reach sooner if they close the gaps.
-   - adjacent: a credible move into a neighbouring function or domain.
+   - alternative_path: a bigger step they could reach sooner if they close the gaps.
    - risk: the trajectory to watch out for if nothing changes (e.g. "Repeated lateral moves", "Plateau in current role"). Name the pattern, not a job title.
    For each path give:
    - role: a real job title (or, for risk, the pattern), 2 to 5 words.
    - timeline: the likely window, written like "12 to 24 months" or "6 to 12 months".
    - summary: one short sentence on what this path is and why it fits (15 words or fewer).
-   - evidence: 2 or 3 short phrases (8 words or fewer each) of what already supports this path, drawn from their profile or messages.
-   - missing: 1 to 3 short phrases (10 words or fewer each) of what is not yet evidenced and would strengthen it.
+   - evidence: 2 or 3 signals that already support this path, drawn from their profile or messages. Each is an object:
+     - signal: a short name for the signal, 2 to 4 words (e.g. "Revenue ownership", "Team leadership").
+     - source: where it showed up, 8 words or fewer (e.g. "Discussed in 3 recent conversations", "Aligned with your profile and goal setting", "Listed in your LinkedIn history").
+     - icon: the one that best fits, from: chart, team, layers, target, compass, briefcase, chat, star.
+   - missing: 1 to 3 short sentences (18 words or fewer each) of what is not yet evidenced and would strengthen it, most important first, written as an action (e.g. "Build evidence of leading commercial outcomes across multiple teams or markets, not just your own function.").
    - likelihood: 0 to 100, your honest estimate of the chance this path actually happens within its timeline, if they carry on as they are now.
      Base it on how far the path is from where they are today, how strongly their profile and words point to it, and how recent that signal is.
      Be calibrated, not flattering. Paths are not exclusive, so the four need not add up to 100. As a guide: most_likely usually 50 to 80, accelerated and adjacent usually 15 to 50, risk reflects how strongly the warning pattern already shows. Never go above 90 or below 5.
 
 RULES
 1. Ground every item in something specific from their profile or messages. No generic filler that would fit anyone.
-2. "evidence" and "missing" items paraphrase the evidence in plain words (e.g. "Built the team from scratch"). Never quote private details that would feel invasive, and never mention health, family or personal difficulties.
+2. "evidence" and "missing" items paraphrase the evidence in plain words. Never quote private details that would feel invasive, and never mention health, family or personal difficulties.
 3. If the evidence for a path is thin, give it a lower likelihood and say what is missing.
 4. Speak directly to them as "you"/"your". Never refer to them in the third person or by name.
 5. Use tendency language ("you're likely to thrive", "points toward"). Never advise quitting or any drastic, irreversible step.
@@ -294,7 +296,7 @@ Return ONLY valid JSON, with no markdown and no preamble:
   "summary": "...",
   "paths": [
     { "type": "most_likely", "role": "...", "timeline": "...", "summary": "...",
-      "evidence": [ "..." ], "missing": [ "..." ],
+      "evidence": [ { "signal": "...", "source": "...", "icon": "chart" } ], "missing": [ "..." ],
       "likelihood": 0 }
   ]
 }

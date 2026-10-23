@@ -405,7 +405,7 @@
 
         /* Future paths: four selectable path cards, then the selected path's
            detail (timeline, evidence, gaps) beside its likelihood ring. */
-        .path-tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 14px; }
+        .path-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 14px; }
         @media (max-width: 900px) { .path-tabs { grid-template-columns: 1fr 1fr; } }
         .path-tab {
             display: flex; flex-direction: column; justify-content: flex-start;
@@ -424,46 +424,104 @@
         .path-tab.risk .pt-kind { color: #b45309; }
 
         .path-detail {
-            display: grid; grid-template-columns: 1fr 300px; overflow: hidden;
             background: #fff; border: 1px solid rgba(59,89,138,.12);
-            border-left: 5px solid var(--primary-color); border-radius: 14px;
+            border-radius: 14px; padding: 28px 30px;
         }
-        .path-detail.risk { border-left-color: #d97706; }
-        @media (max-width: 780px) { .path-detail { grid-template-columns: 1fr; } }
-        .pd-main { padding: 28px 30px; min-width: 0; }
-        .pd-when { font-size: 0.75rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--primary-color); }
+        @media (max-width: 620px) { .path-detail { padding: 22px 18px; } }
+        .pd-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px 24px; }
+        @media (max-width: 780px) { .pd-head { flex-direction: column-reverse; } }
+        .pd-head-text { min-width: 0; max-width: 640px; }
+        .pd-when { font-size: 0.85rem; font-weight: 600; color: var(--primary-color); }
         .path-detail.risk .pd-when { color: #b45309; }
-        .pd-role { font-size: 2rem; font-weight: 500; line-height: 1.2; margin: 10px 0 8px; }
+        .pd-role { font-size: 2rem; font-weight: 600; letter-spacing: -0.01em; line-height: 1.2; margin: 6px 0 10px; }
         .pd-summary { color: var(--text-muted); font-size: 1rem; line-height: 1.6; }
-        .pd-cols {
-            display: grid; grid-template-columns: 1fr 1fr; gap: 20px 28px;
-            border-top: 1px solid rgba(59,89,138,.12); margin-top: 22px; padding-top: 20px;
+
+        .pd-conf {
+            flex: 0 0 auto; display: inline-flex; align-items: center; gap: 10px;
+            background: var(--primary-soft); border-radius: 10px; padding: 8px 12px;
+            font-size: 0.85rem; color: var(--text-muted); white-space: nowrap;
         }
-        @media (max-width: 620px) { .pd-cols { grid-template-columns: 1fr; } .pd-main { padding: 22px 18px; } }
-        .pd-cols h4 { font-size: 0.75rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 8px; }
+        .pd-conf .sig-bars { display: inline-flex; align-items: flex-end; gap: 2px; height: 12px; }
+        .pd-conf .sig-bars i { width: 3px; border-radius: 1px; background: var(--primary-ring); }
+        .pd-conf .sig-bars i:nth-child(1) { height: 5px; }
+        .pd-conf .sig-bars i:nth-child(2) { height: 8px; }
+        .pd-conf .sig-bars i:nth-child(3) { height: 12px; }
+        .pd-conf .sig-bars i.on { background: var(--primary-color); }
+        .path-detail.risk .pd-conf { background: rgba(217,119,6,.08); }
+        .path-detail.risk .pd-conf .sig-bars i { background: rgba(217,119,6,.3); }
+        .path-detail.risk .pd-conf .sig-bars i.on { background: #d97706; }
+        .pd-conf .sep { width: 1px; height: 16px; background: rgba(59,89,138,.18); }
+        .pd-conf strong { color: var(--text-main); font-weight: 600; }
+        .pd-info { position: relative; display: inline-flex; color: var(--text-muted); cursor: help; }
+        .pd-info svg { width: 16px; height: 16px; }
+        .pd-info .pd-tip {
+            display: none; position: absolute; right: 0; top: calc(100% + 8px); z-index: 5;
+            width: 260px; white-space: normal; text-align: left;
+            background: var(--text-main); color: #fff; border-radius: 8px; padding: 10px 12px;
+            font-size: 0.78rem; line-height: 1.5;
+        }
+        .pd-info:hover .pd-tip, .pd-info:focus .pd-tip { display: block; }
+
+        .pd-why { border-top: 1px solid rgba(59,89,138,.12); margin-top: 22px; padding-top: 22px; }
+        .pd-why h4 { font-size: 1.15rem; font-weight: 600; color: var(--text-main); }
+        .pd-why-sub { color: var(--text-muted); font-size: 0.9rem; margin-top: 4px; }
+        .pd-signals { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 16px; }
+        @media (max-width: 900px) { .pd-signals { grid-template-columns: 1fr; } }
+        .pd-signal {
+            display: flex; align-items: center; gap: 14px; min-width: 0;
+            border: 1px solid rgba(59,89,138,.16); border-radius: 12px; padding: 14px 16px;
+        }
+        .pd-icon {
+            flex: 0 0 auto; width: 40px; height: 40px; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            background: var(--primary-soft); color: var(--primary-color);
+        }
+        .pd-icon svg { width: 20px; height: 20px; }
+        .path-detail.risk .pd-icon { background: rgba(217,119,6,.10); color: #b45309; }
+        .pd-signal-name { font-size: 0.95rem; font-weight: 600; color: var(--text-main); line-height: 1.35; }
+        .pd-signal-src { font-size: 0.82rem; color: var(--text-muted); line-height: 1.4; margin-top: 2px; }
+
+        .pd-more {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 16px;
+            background: none; border: 0; padding: 0; cursor: pointer;
+            font-family: inherit; font-size: 0.92rem; font-weight: 600; color: var(--primary-color);
+        }
+        .pd-more:hover { text-decoration: underline; }
+        .pd-more .arr { transition: transform .15s; }
+        .pd-more[aria-expanded="true"] .arr { transform: rotate(90deg); }
+        .pd-all { margin-top: 12px; display: flex; flex-direction: column; gap: 14px; }
+        .pd-all[hidden] { display: none; }
+        .pd-all h5 { font-size: 0.75rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px; }
         .pd-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
         .pd-list li { position: relative; padding-left: 22px; font-size: 0.9rem; line-height: 1.5; color: #303c4f; }
         .pd-list li::before { position: absolute; left: 2px; top: 0; font-weight: 700; }
         .pd-list.ok li::before { content: '✓'; color: var(--primary-color); }
         .pd-list.gap li::before { content: '!'; color: #d97706; font-style: italic; left: 5px; }
 
-        .pd-side {
-            background: rgba(40,108,217,.035); border-left: 1px solid rgba(59,89,138,.10);
-            padding: 26px 22px; display: flex; flex-direction: column; align-items: center; text-align: center;
+        .pd-strengthen {
+            display: flex; align-items: center; gap: 16px; margin-top: 24px;
+            background: var(--primary-soft); border: 1px dashed var(--primary-ring);
+            border-radius: 12px; padding: 18px 20px;
         }
-        @media (max-width: 780px) { .pd-side { border-left: 0; border-top: 1px solid rgba(59,89,138,.10); } }
-        .conf-ring { position: relative; width: 170px; height: 170px; }
-        .conf-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
-        .conf-ring .ring-bg { stroke: var(--primary-soft); }
-        .conf-ring .ring-fg { stroke: var(--primary-color); transition: stroke-dashoffset .5s ease; }
-        .path-detail.risk .conf-ring .ring-fg { stroke: #d97706; }
-        .conf-ring .ring-label {
-            position: absolute; inset: 0; display: flex; flex-direction: column;
-            align-items: center; justify-content: center;
+        .pd-strengthen .pd-icon { width: 48px; height: 48px; background: #fff; border: 1px solid rgba(59,89,138,.14); }
+        .pd-strengthen .pd-icon svg { width: 24px; height: 24px; }
+        .pd-strengthen h4 { font-size: 1rem; font-weight: 600; color: var(--text-main); }
+        .pd-strengthen p { font-size: 0.92rem; color: var(--text-muted); line-height: 1.55; margin-top: 4px; }
+        .path-detail.risk .pd-strengthen { background: rgba(217,119,6,.06); border-color: rgba(217,119,6,.35); }
+        .futures-cta {
+            display: flex; align-items: center; gap: 18px; margin-top: 18px;
+            background: var(--primary-soft); border-radius: 14px; padding: 18px 22px;
         }
-        .conf-ring .ring-num { font-size: 2.3rem; font-weight: 500; line-height: 1; }
-        .conf-ring .ring-cap { font-size: 0.66rem; letter-spacing: .06em; text-transform: uppercase; margin-top: 8px; line-height: 1.4; }
-        .conf-note { font-size: 0.8rem; color: var(--text-muted); line-height: 1.55; margin-top: 14px; }
+        @media (max-width: 720px) { .futures-cta { flex-wrap: wrap; } .futures-cta .submit-btn { width: 100%; justify-content: center; } }
+        .futures-cta .cta-icon { flex: 0 0 auto; color: var(--primary-color); display: flex; }
+        .futures-cta .cta-icon svg { width: 24px; height: 24px; }
+        .futures-cta .cta-text { flex: 1 1 260px; min-width: 0; }
+        .futures-cta h4 { font-size: 1.05rem; font-weight: 600; color: var(--text-main); }
+        .futures-cta p { font-size: 0.9rem; color: var(--text-muted); line-height: 1.5; margin-top: 2px; }
+        .futures-cta .submit-btn { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 8px; }
+        .pd-actions { display: flex; justify-content: flex-end; margin-top: 22px; }
+        .pd-explore { display: inline-flex; align-items: center; gap: 8px; }
+        @media (max-width: 620px) { .pd-actions .pd-explore { width: 100%; justify-content: center; } }
         .paths-stale { font-size: 0.85rem; color: var(--text-muted); }
 
         /* Daily note on the left, "What's likely to happen?" on the right;
@@ -1158,7 +1216,6 @@
                 </div>
             </div>
             ${d.headline ? `<div class="daily-headline">${escHtml(d.headline)}</div>` : ''}
-            ${d.guidance ? `<p class="daily-guidance">${escHtml(d.guidance)}</p>` : ''}
             <div class="daily-meta">
                 ${d.focus ? `<div class="item-card"><div class="ic-title">Today's focus</div><p>${escHtml(d.focus)}</p></div>` : ''}
             </div>`;
@@ -1272,18 +1329,37 @@
         const subsec = (label, body) => body ? `<section class="subsec">
             <div class="subsec-head">${escHtml(label)}</div>
             <div class="subsec-body">${body}</div></section>` : '';
-        let body = `${f.summary ? `<p class="daily-guidance">${escHtml(f.summary)}</p>` : ''}`;
+        let body = '';
         const paths = Array.isArray(f.paths) ? f.paths.filter(p => p && p.role) : [];
         body += subsec('Likely paths', paths.length
             ? `<div class="path-tabs" role="tablist">${paths.map((p, i) => pathTab(p, i)).join('')}</div>
                <div id="path-detail"></div>`
             : `<p class="paths-stale">Refresh to see your likely paths, with how likely each one is.</p>`);
+        body += `<div class="futures-cta">
+            <span class="cta-icon" aria-hidden="true">${pdIcon('chat')}</span>
+            <div class="cta-text">
+                <h4>Have a different role in mind?</h4>
+                <p>Discuss your career options, explore new possibilities or get a personalised development plan.</p>
+            </div>
+            <button type="button" class="submit-btn" id="futures-talk">Talk to Nexa about my career <span aria-hidden="true">→</span></button>
+        </div>`;
         $('futures-card').innerHTML = body;
+        $('futures-talk').addEventListener('click', () => startNexaSession('Career',
+            "I'd like to talk about my career. I may have a different role in mind from the paths in my Career Futures. " +
+            'Can you help me explore my options, and put together a personalised development plan?'));
         if (paths.length) {
             const tabs = document.querySelectorAll('#futures-card .path-tab');
             const select = i => {
                 tabs.forEach((t, j) => { t.classList.toggle('active', j === i); t.setAttribute('aria-selected', j === i); });
                 $('path-detail').innerHTML = pathDetail(paths[i]);
+                const more = document.querySelector('#path-detail .pd-more');
+                if (more) more.addEventListener('click', () => {
+                    const open = more.getAttribute('aria-expanded') !== 'true';
+                    more.setAttribute('aria-expanded', open);
+                    more.nextElementSibling.hidden = !open;
+                });
+                document.querySelector('#path-detail .pd-explore')
+                    .addEventListener('click', () => explorePathWithNexa(paths[i]));
             };
             tabs.forEach((t, i) => t.addEventListener('click', () => select(i)));
             select(0);
@@ -1291,8 +1367,8 @@
     }
 
     const PATH_KINDS = {
-        most_likely: 'Most likely', accelerated: 'Accelerated',
-        adjacent: 'Adjacent possibility', risk: 'Risk trajectory',
+        most_likely: 'Most likely', alternative_path: 'Alternative Path',
+        risk: 'Risk trajectory',
     };
     const pct = v => Math.max(0, Math.min(100, Math.round(Number(v) || 0)));
 
@@ -1304,35 +1380,115 @@
         </button>`;
     }
 
+    // Line icons for the evidence cards; the model picks one key per signal.
+    const PD_ICONS = {
+        chart: '<path d="M4 20h16M7 16v-4M11 16V8M15 16v-6"/>',
+        team: '<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 5.2a3 3 0 0 1 0 5.6M21 20c0-2.6-1.6-4.8-4-5.6"/>',
+        layers: '<path d="M12 3 3 8l9 5 9-5-9-5z"/><path d="m3 13 9 5 9-5"/>',
+        target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>',
+        compass: '<circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5 5-2z"/>',
+        briefcase: '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 13h18"/>',
+        chat: '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/>',
+        star: '<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2-5.5-2.9-5.5 2.9 1-6.2L3 9.6l6.2-.9L12 3z"/>',
+    };
+    const PD_ICON_ORDER = ['chart', 'team', 'layers'];
+    const pdIcon = key => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${PD_ICONS[key] || PD_ICONS.star}</svg>`;
+
+    const PATH_KICKERS = {
+        most_likely: 'Likely direction', accelerated: 'Accelerated path',
+        adjacent: 'Adjacent possibility', risk: 'Risk trajectory',
+    };
+    // Turns the likelihood into a plain-words signal strength (bars lit, label).
+    const signalOf = conf => conf >= 65 ? [3, 'Strong signal'] : conf >= 35 ? [2, 'Moderate signal'] : [1, 'Early signal'];
+
     function pathDetail(p) {
         const conf = pct(p.likelihood);
-        const r = 76, circ = 2 * Math.PI * r;
-        const list = (cls, items) => `<ul class="pd-list ${cls}">${items.map(x => `<li>${escHtml(x)}</li>`).join('')}</ul>`;
-        const evidence = Array.isArray(p.evidence) ? p.evidence : [];
+        const [bars, sigLabel] = signalOf(conf);
+        const isRisk = p.type === 'risk';
+        // Older runs saved evidence as plain strings, with no source line.
+        const evidence = (Array.isArray(p.evidence) ? p.evidence : [])
+            .map(e => typeof e === 'string' ? { signal: e } : e)
+            .filter(e => e && e.signal);
         const missing = Array.isArray(p.missing) ? p.missing : [];
-        const when = [PATH_KINDS[p.type], p.timeline].filter(Boolean).map(escHtml).join(' · ');
-        return `<div class="path-detail${p.type === 'risk' ? ' risk' : ''}">
-            <div class="pd-main">
-                ${when ? `<div class="pd-when">${when}</div>` : ''}
-                <div class="pd-role">${escHtml(p.role)}</div>
-                ${p.summary ? `<p class="pd-summary">${escHtml(p.summary)}</p>` : ''}
-                <div class="pd-cols">
-                    <div><h4>Evidence supporting this path</h4>${evidence.length ? list('ok', evidence) : '<p class="paths-stale">Not yet evidenced.</p>'}</div>
-                    <div><h4>What is still missing</h4>${missing.length ? list('gap', missing) : '<p class="paths-stale">No clear gaps.</p>'}</div>
+        const when = [PATH_KICKERS[p.type], p.timeline].filter(Boolean).map(escHtml).join(' · ');
+        const list = (cls, items) => `<ul class="pd-list ${cls}">${items.map(x => `<li>${escHtml(x)}</li>`).join('')}</ul>`;
+        const signals = evidence.map((e, i) => `<div class="pd-signal">
+                <div class="pd-icon">${pdIcon(PD_ICONS[e.icon] ? e.icon : PD_ICON_ORDER[i % PD_ICON_ORDER.length])}</div>
+                <div>
+                    <div class="pd-signal-name">${escHtml(e.signal)}</div>
+                    ${e.source ? `<div class="pd-signal-src">${escHtml(e.source)}</div>` : ''}
+                </div>
+            </div>`).join('');
+        return `<div class="path-detail${isRisk ? ' risk' : ''}">
+            <div class="pd-head">
+                <div class="pd-head-text">
+                    ${when ? `<div class="pd-when">${when}</div>` : ''}
+                    <div class="pd-role">${escHtml(p.role)}</div>
+                    ${p.summary ? `<p class="pd-summary">${escHtml(p.summary)}</p>` : ''}
+                </div>
+                <div class="pd-conf">
+                    <span class="sig-bars" aria-hidden="true">${[1, 2, 3].map(n => `<i class="${n <= bars ? 'on' : ''}"></i>`).join('')}</span>
+                    <span>${sigLabel}</span>
+                    <span class="sep" aria-hidden="true"></span>
+                    <strong>${conf}% confidence</strong>
+                    <span class="pd-info" tabindex="0" aria-label="About this estimate">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>
+                        <span class="pd-tip" role="tooltip">Our estimate of how likely this path is within its timeline if you carry on as you are, based on your profile and Nexa conversations. Paths can overlap, so the numbers don't add up to 100%.</span>
+                    </span>
                 </div>
             </div>
-            <div class="pd-side">
-                <div class="conf-ring">
-                    <svg viewBox="0 0 170 170" aria-hidden="true">
-                        <circle class="ring-bg" cx="85" cy="85" r="${r}" fill="none" stroke-width="12"/>
-                        <circle class="ring-fg" cx="85" cy="85" r="${r}" fill="none" stroke-width="12" stroke-linecap="round"
-                                stroke-dasharray="${circ}" stroke-dashoffset="${circ * (1 - conf / 100)}"/>
-                    </svg>
-                    <div class="ring-label"><span class="ring-num">${conf}%</span><span class="ring-cap">Chance this<br>happens</span></div>
+            <div class="pd-why">
+                <h4>${isRisk ? 'Why this pattern is showing' : 'Why this path is emerging'}</h4>
+                <p class="pd-why-sub">${isRisk
+                    ? 'These signals from your profile and conversations suggest this is worth watching.'
+                    : 'These signals from your profile and conversations suggest this could be a good fit.'}</p>
+                ${evidence.length ? `<div class="pd-signals">${signals}</div>` : '<p class="paths-stale" style="margin-top:12px">Not yet evidenced.</p>'}
+                ${evidence.length || missing.length > 1 ? `
+                <button type="button" class="pd-more" aria-expanded="false">View all evidence <span class="arr" aria-hidden="true">→</span></button>
+                <div class="pd-all" hidden>
+                    ${evidence.length ? `<div><h5>Evidence supporting this path</h5>${list('ok', evidence.map(e => e.source ? `${e.signal}: ${e.source}` : e.signal))}</div>` : ''}
+                    ${missing.length ? `<div><h5>What is still missing</h5>${list('gap', missing)}</div>` : ''}
+                </div>` : ''}
+            </div>
+            ${missing.length ? `<div class="pd-strengthen">
+                <div class="pd-icon">${pdIcon('target')}</div>
+                <div>
+                    <h4>${isRisk ? 'One thing to change' : 'One area to strengthen'}</h4>
+                    <p>${escHtml(missing[0])}</p>
                 </div>
-                <p class="conf-note">Our estimate of how likely this path is within its timeline if you carry on as you are, based on your profile and Nexa conversations. Paths can overlap, so the numbers don't add up to 100%.</p>
+            </div>` : ''}
+            <div class="pd-actions">
+                <button type="button" class="submit-btn pd-explore">Explore this path with Nexa <span aria-hidden="true">→</span></button>
             </div>
         </div>`;
+    }
+
+    // Opens a new Nexa session on this path. Same hand-off as My Insights'
+    // focus sessions: park the opener for this tab and go to chat, clearing
+    // the tab-nav marker so chat starts fresh rather than resuming.
+    function explorePathWithNexa(p) {
+        const isRisk = p.type === 'risk';
+        const evidence = (Array.isArray(p.evidence) ? p.evidence : [])
+            .map(e => typeof e === 'string' ? e : (e && e.signal) || '').filter(Boolean);
+        const missing = Array.isArray(p.missing) ? p.missing : [];
+        const bits = [isRisk
+            ? `My Career Futures flagged a pattern to watch: "${p.role}"${p.timeline ? ` over the next ${p.timeline}` : ''}.`
+            : `I'd like to explore a possible career path: ${p.role}${p.timeline ? `, likely in ${p.timeline}` : ''}.`];
+        if (p.summary) bits.push(`My Career Futures put it like this: "${p.summary}"`);
+        if (evidence.length) bits.push(`What points toward it: ${evidence.join(', ')}.`);
+        if (missing.length) bits.push(`${isRisk ? 'What could change it' : 'An area to strengthen'}: "${missing[0]}"`);
+        bits.push(isRisk
+            ? 'Can you help me understand whether this is really happening, and what I could do to change course?'
+            : 'Can you help me think through whether this path is right for me, and what my next steps could be?');
+        startNexaSession(p.role, bits.join(' '));
+    }
+
+    function startNexaSession(label, message) {
+        try {
+            sessionStorage.setItem('we_ace_focus_session', JSON.stringify({ label, message }));
+            sessionStorage.removeItem('we_ace_tab_nav');
+        } catch (_) { /* private mode — chat opens without the opener */ }
+        window.location.href = '/';
     }
 
     function renderFuturesEmpty(msg) {
