@@ -402,10 +402,11 @@
         .page.on-daily #regenerate-btn,
         .page.on-futures #regenerate-btn { display: none !important; }
         .futures-wrap { display: flex; flex-direction: column; gap: 16px; }
+        .futures-wrap > :empty { display: none; }
 
         /* Future paths: four selectable path cards, then the selected path's
            detail (timeline, evidence, gaps) beside its likelihood ring. */
-        .path-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 14px; }
+        .path-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
         @media (max-width: 900px) { .path-tabs { grid-template-columns: 1fr 1fr; } }
         .path-tab {
             display: flex; flex-direction: column; justify-content: flex-start;
@@ -425,7 +426,7 @@
 
         .path-detail {
             background: #fff; border: 1px solid rgba(59,89,138,.12);
-            border-radius: 14px; padding: 28px 30px;
+            border-radius: 20px; box-shadow: var(--card-shadow); padding: 28px 30px;
         }
         @media (max-width: 620px) { .path-detail { padding: 22px 18px; } }
         .pd-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px 24px; }
@@ -509,7 +510,7 @@
         .pd-strengthen p { font-size: 0.92rem; color: var(--text-muted); line-height: 1.55; margin-top: 4px; }
         .path-detail.risk .pd-strengthen { background: rgba(217,119,6,.06); border-color: rgba(217,119,6,.35); }
         .futures-cta {
-            display: flex; align-items: center; gap: 18px; margin-top: 18px;
+            display: flex; align-items: center; gap: 18px;
             background: var(--primary-soft); border-radius: 14px; padding: 18px 22px;
         }
         @media (max-width: 720px) { .futures-cta { flex-wrap: wrap; } .futures-cta .submit-btn { width: 100%; justify-content: center; } }
@@ -671,6 +672,8 @@
         <div class="card" id="futures-card">
             <div class="daily-empty"><div class="spinner"></div>Developing your career paths…</div>
         </div>
+        <div id="path-detail"></div>
+        <div id="futures-cta"></div>
     </div>
 
     <div id="reading-panel" style="display:none;">
@@ -1216,6 +1219,7 @@
                 </div>
             </div>
             ${d.headline ? `<div class="daily-headline">${escHtml(d.headline)}</div>` : ''}
+            ${d.guidance ? `<p class="daily-guidance">${escHtml(d.guidance)}</p>` : ''}
             <div class="daily-meta">
                 ${d.focus ? `<div class="item-card"><div class="ic-title">Today's focus</div><p>${escHtml(d.focus)}</p></div>` : ''}
             </div>`;
@@ -1332,10 +1336,10 @@
         let body = '';
         const paths = Array.isArray(f.paths) ? f.paths.filter(p => p && p.role) : [];
         body += subsec('Likely paths', paths.length
-            ? `<div class="path-tabs" role="tablist">${paths.map((p, i) => pathTab(p, i)).join('')}</div>
-               <div id="path-detail"></div>`
+            ? `<div class="path-tabs" role="tablist">${paths.map((p, i) => pathTab(p, i)).join('')}</div>`
             : `<p class="paths-stale">Refresh to see your likely paths, with how likely each one is.</p>`);
-        body += `<div class="futures-cta">
+        $('futures-card').innerHTML = body;
+        $('futures-cta').innerHTML = `<div class="futures-cta">
             <span class="cta-icon" aria-hidden="true">${pdIcon('chat')}</span>
             <div class="cta-text">
                 <h4>Have a different role in mind?</h4>
@@ -1343,7 +1347,7 @@
             </div>
             <button type="button" class="submit-btn" id="futures-talk">Talk to Nexa about my career <span aria-hidden="true">→</span></button>
         </div>`;
-        $('futures-card').innerHTML = body;
+        $('path-detail').innerHTML = '';
         $('futures-talk').addEventListener('click', () => startNexaSession('Career',
             "I'd like to talk about my career. I may have a different role in mind from the paths in my Career Futures. " +
             'Can you help me explore my options, and put together a personalised development plan?'));
@@ -1376,7 +1380,7 @@
         return `<button type="button" role="tab" class="path-tab${p.type === 'risk' ? ' risk' : ''}" data-i="${i}">
             <div class="pt-kind">${escHtml(PATH_KINDS[p.type] || '')}</div>
             <div class="pt-role">${escHtml(p.role)}</div>
-            <div class="pt-conf">${pct(p.likelihood)}% likely</div>
+            <div class="pt-conf">${pct(p.likelihood)}% confidence</div>
         </button>`;
     }
 
@@ -1491,7 +1495,15 @@
         window.location.href = '/';
     }
 
+    // The detail card and banner sit outside #futures-card, so clear them
+    // whenever the card shows a spinner or an error.
+    function clearFuturesExtras() {
+        $('path-detail').innerHTML = '';
+        $('futures-cta').innerHTML = '';
+    }
+
     function renderFuturesEmpty(msg) {
+        clearFuturesExtras();
         $('futures-card').innerHTML = `<div class="daily-empty">
             <p>${escHtml(msg)}</p>
             <button type="button" class="ghost-btn" id="futures-retry">Try again</button>
@@ -1502,6 +1514,7 @@
     $('futures-refresh').addEventListener('click', () => loadFutures(true));
 
     async function loadFutures(force) {
+        clearFuturesExtras();
         $('futures-card').innerHTML = `<div class="daily-empty"><div class="spinner"></div>Bulding your future paths…</div>`;
         $('futures-refresh').disabled = true;
         try {
