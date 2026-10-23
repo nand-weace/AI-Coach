@@ -11,11 +11,26 @@
     <link rel="stylesheet" href="{{ asset('header.css') }}">
     <link rel="stylesheet" href="{{ asset('style.css') }}">
     <link rel="icon" id="app-favicon" href="{{ branding.favicon_url }}">
+    {# Arriving from Today with a message to send and a signed-in browser: show
+       a quiet hand-off loader instead of the login card, before first paint.
+       script.js drops the class again if it has to fall back to the login form. #}
+    <script>
+        try {
+            if (sessionStorage.getItem('we_ace_focus_session') &&
+                    localStorage.getItem('we_ace_access_token')) {
+                document.documentElement.classList.add('nexa-handoff');
+            }
+        } catch (_) {}
+    </script>
 </head>
 <body>
 
     <!-- Login overlay -->
     <div id="login-overlay" class="login-overlay">
+        <div class="handoff-loader" id="handoff-loader" aria-live="polite">
+            <span class="handoff-spinner" id="handoff-spinner" aria-hidden="true"></span>
+            <p id="handoff-text">Opening your conversation…</p>
+        </div>
         <div class="login-card">
             <img src="{{ branding.logo_url }}" alt="{{ branding.name }}" class="login-logo brand-logo" />
             <h4>Welcome to Nexa</h4>

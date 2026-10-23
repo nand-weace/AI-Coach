@@ -94,6 +94,13 @@ const NexaHeader = (() => {
         try { sessionStorage.setItem('we_ace_tab_nav', String(Date.now())); } catch (_) {}
     }
 
+    // The WeAce platform's calendar page, where a user connects or changes the
+    // calendar Nexa reads. Also used by the Today page's empty calendar card.
+    function openCalendarSettings() {
+        window.open('https://we-ace.com/app/?redirection_url=app/employee/calendar'
+            + '&refresh_token=' + encodeURIComponent(refreshToken()));
+    }
+
     function closeMenus() {
         const chip = $('user-chip-wrap');
         const lang = $('language-menu-wrap');
@@ -404,8 +411,7 @@ const NexaHeader = (() => {
         const calendarSettings = $('btn-calendar-settings');
         if (calendarSettings) {
             calendarSettings.addEventListener('click', () => {
-                window.open('https://we-ace.com/app/?redirection_url=app/employee/calendar'
-                    + '&refresh_token=' + encodeURIComponent(refreshToken()));
+                openCalendarSettings();
                 closeMenus();
             });
         }
@@ -449,6 +455,7 @@ const NexaHeader = (() => {
         // product, so the bar collapses to Admin — Chat, Language, My Insights
         // and Knowledge Base are not theirs to see.
         show('tab-talk', !isWeaceAdmin);
+        show('tab-today', !isWeaceAdmin);
         show('language-menu-wrap', !isWeaceAdmin);
         // A corporate super admin works from the org-wide views, so the
         // personal My Insights and Career tabs are hidden for them too.
@@ -456,12 +463,9 @@ const NexaHeader = (() => {
         // Career Horoscope ships with Nexa Pro, same as Daily Pulse.
         show('career-horoscope-link', !isWeaceAdmin && !isOrgAdmin && hasPulse);
         show('career-subnav', !isWeaceAdmin && !isOrgAdmin && hasPulse);
-        show('pulse-link', !isWeaceAdmin && hasPulse);
-        // Mirrors the server-rendered label in _header.html: a corporate super
-        // admin gets the org-wide Pulse Dashboard at the same /pulse route, not
-        // their own check-in, so the tab reads accordingly.
-        const pulseLabel = $('pulse-link-label');
-        if (pulseLabel) pulseLabel.textContent = isOrgAdmin ? 'Pulse Dashboard' : 'Daily Pulse';
+        // Only a corporate super admin keeps a pulse tab — the org-wide Pulse
+        // Dashboard. Everyone else checks in from the card on Today.
+        show('pulse-link', !isWeaceAdmin && isOrgAdmin && hasPulse);
         show('my-insights-subnav', !isWeaceAdmin && !isOrgAdmin);
         show('admin-subnav', isWeaceAdmin);
         show('btn-corp-content', isOrgAdmin && !isWeaceAdmin);
@@ -477,7 +481,7 @@ const NexaHeader = (() => {
     }
 
     return { init, applyRoles, setNexaAccess, renderLanguageMenu, getLanguage, hasRole,
-             closeMenus, setDrawer, syncSubnav, markTabNav, applyBranding };
+             closeMenus, openCalendarSettings, setDrawer, syncSubnav, markTabNav, applyBranding };
 })();
 
 window.NexaHeader = NexaHeader;

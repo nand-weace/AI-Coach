@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexa - Today</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ asset('header.css') }}">
+    <link rel="icon" id="app-favicon" href="{{ branding.favicon_url }}">
+    <style>
+        :root {
+            --primary-color: #070790;
+            --heading: #1f2a8a;
+            --accent: #2b5ce6;
+            --accent-hover: #2149c4;
+            --text-main: #1b2433;
+            --text-muted: #566274;
+            --card-bg: #ffffff;
+            --card-border: rgba(59, 89, 138, 0.14);
+            --icon-bg: #eef1fd;
+            --card-shadow: 0 12px 32px -18px rgba(32, 62, 110, 0.30);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            /* Same face and ground as the chat page (style.css). */
+            font-family: 'Inter', sans-serif;
+            background-color: oklch(0.95 0.02 278.05);
+            color: var(--text-main);
+            min-height: 100vh;
+        }
+
+        .today-page { padding: 60px 18px 56px; max-width: 1280px; }
+        .today-label { font-size: 1.6rem; font-weight: 600; color: var(--heading); }
+
+        .today-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(300px, 400px);
+            gap: 56px;
+        }
+
+        /* ── Left: greeting + ask box ── */
+        .greeting {
+            font-size: clamp(2rem, 4vw, 2.1rem);
+            font-weight: 600;
+            color: var(--heading);
+            letter-spacing: -0.02em;
+            line-height: 1.15;
+            margin-top: 10px
+        }
+        .ask-title { margin-top: 10px; font-size: 1.2rem; font-weight: 500; }
+
+        .ask-box {
+            display: flex; align-items: center; gap: 8px;
+            margin-top: 16px;
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 8px 8px 8px 20px;
+            box-shadow: var(--card-shadow);
+        }
+        .ask-box:focus-within { border-color: var(--accent); }
+        .ask-box input {
+            flex: 1; min-width: 0;
+            border: 0; outline: 0; background: transparent;
+            font: inherit; font-size: 1rem; color: var(--text-main);
+            padding: 10px 0;
+        }
+        .ask-box input::placeholder { color: #8a93a4; }
+        .icon-btn {
+            flex: none; display: grid; place-items: center;
+            width: 44px; height: 44px; border-radius: 50%;
+            border: 0; background: transparent; color: #5b6577; cursor: pointer;
+        }
+        .icon-btn:hover { background: var(--icon-bg); }
+        .icon-btn.listening { color: #d33; background: #fdecec; }
+        .send-btn { width: 52px; height: 52px; background: var(--accent); color: #fff; }
+        .send-btn:hover { background: var(--accent-hover); }
+        .icon-btn svg { width: 22px; height: 22px; }
+
+        .nudges { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 18px; }
+        .nudge {
+            font: inherit; font-size: 0.95rem; font-weight: 500;
+            color: var(--accent);
+            background: rgba(255, 255, 255, 0.85);
+            border: 1px solid var(--card-border);
+            border-radius: 999px;
+            padding: 10px 20px;
+            cursor: pointer;
+            text-align: left;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .nudge:hover { background: #fff; border-color: var(--accent); }
+        .nudge.skeleton { width: 220px; height: 44px; color: transparent; pointer-events: none; }
+
+        /* ── Right: Your Day ── */
+        .day-title { font-size: 1.5rem; font-weight: 600; color: var(--heading); margin-top: -46px; }
+        .day-cards { display: flex; flex-direction: column; gap: 22px; margin-top: 18px; }
+        .day-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 26px 28px;
+            box-shadow: var(--card-shadow);
+        }
+        .day-card-head { display: flex; align-items: center; gap: 16px; }
+        .day-card-icon {
+            flex: none; display: grid; place-items: center;
+            width: 52px; height: 52px; border-radius: 12px;
+            background: var(--icon-bg); color: var(--heading);
+        }
+        .day-card-icon svg { width: 24px; height: 24px; }
+        .day-card-kicker { font-size: 0.9rem; font-weight: 500; color: var(--text-muted); }
+        .day-card h3 { margin-top: 20px; font-size: 1.2rem; font-weight: 600; line-height: 1.35; }
+        .day-card p {
+            margin-top: 10px; color: var(--text-muted); font-size: 0.95rem; line-height: 1.55;
+            display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;
+        }
+        .day-card-link {
+            display: inline-flex; align-items: center; gap: 8px;
+            margin-top: 22px;
+            font: inherit; font-weight: 600; font-size: 0.98rem;
+            color: var(--accent); text-decoration: none;
+            background: none; border: 0; padding: 0; cursor: pointer;
+        }
+        .day-card-link:hover { text-decoration: underline; }
+        .day-card-link svg { width: 16px; height: 16px; }
+
+        .shimmer {
+            display: block; border-radius: 6px;
+            background: linear-gradient(90deg, #eef0f6 25%, #f7f8fb 50%, #eef0f6 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.2s infinite;
+        }
+        .shimmer.h { height: 22px; width: 80%; margin-top: 20px; }
+        .shimmer.t { height: 14px; width: 95%; margin-top: 12px; }
+        @keyframes shimmer { to { background-position: -200% 0; } }
+
+        /* ── Daily Pulse ── */
+        .today-main { display: flex; flex-direction: column; gap: 36px; min-width: 0; }
+        .pulse-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 14px 18px;
+            box-shadow: var(--card-shadow);
+        }
+        .pulse-card-head { display: flex; align-items: center; gap: 16px; }
+        .pulse-title { font-size: 1.1rem; font-weight: 600; color: var(--heading); }
+        .pulse-loading { margin-top: 12px; }
+        .pulse-question { margin-top: 20px; font-size: 0.95rem; font-weight: 500; }
+        .mood-row { display: flex; gap: 8px; margin-top: 12px; }
+        .mood-btn {
+            flex: 1; cursor: pointer; font-family: inherit;
+            background: #fff;
+            border: 1.5px solid var(--card-border);
+            border-radius: 14px; padding: 12px 4px 10px;
+            display: flex; flex-direction: column; align-items: center; gap: 6px;
+            transition: border-color .15s ease, background .15s ease, transform .12s ease;
+        }
+        .mood-btn:hover { transform: translateY(-2px); border-color: var(--accent); }
+        .mood-face { width: 28px; height: 28px; color: var(--text-muted); }
+        .mood-label { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); }
+        .mood-btn.selected { border-color: var(--accent); background: var(--icon-bg); }
+        .mood-btn.selected .mood-face,
+        .mood-btn.selected .mood-label { color: var(--accent); }
+        .pulse-note-label { display: block; margin-top: 20px; font-size: 0.9rem; font-weight: 500; }
+        .pulse-note-label span { font-weight: 400; color: var(--text-muted); font-size: 0.82rem; }
+        .note-input {
+            width: 100%; min-height: 96px; resize: vertical; margin-top: 8px;
+            font-family: inherit; font-size: 0.92rem; line-height: 1.6; color: var(--text-main);
+            background: #fff;
+            border: 1.5px solid var(--card-border);
+            border-radius: 12px; padding: 12px 14px;
+        }
+        .note-input:focus { outline: none; border-color: var(--accent); }
+        .note-foot { display: flex; align-items: center; gap: 12px; margin-top: 10px; font-size: 0.78rem; color: var(--text-muted); }
+        .pulse-names-hint { margin-right: auto; }
+        .pulse-submit-row { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 16px; }
+        .submit-error { font-size: 0.82rem; color: #b91c1c; margin-right: auto; }
+        .note-count.over { color: #b91c1c; font-weight: 600; }
+        .pulse-submit {
+            font: inherit; font-size: 0.9rem; font-weight: 600;
+            color: #fff; background: var(--accent);
+            border: 0; border-radius: 10px; padding: 10px 20px; cursor: pointer;
+        }
+        .pulse-submit:hover:not(:disabled) { background: var(--accent-hover); }
+        .pulse-submit:disabled { opacity: 0.45; cursor: not-allowed; }
+        .pulse-done {
+            display: flex; align-items: center; gap: 10px; margin-top: 18px;
+            font-size: 0.95rem; color: var(--text-muted);
+        }
+        .pulse-done[hidden], #pulse-form[hidden], #pulse-note-wrap[hidden], .pulse-loading[hidden] { display: none; }
+        .pulse-done svg { width: 20px; height: 20px; flex: none; color: #16a34a; }
+
+        @media (max-width: 600px) {
+            .mood-row { flex-wrap: wrap; }
+            .mood-btn { flex: 1 1 30%; }
+            .pulse-card { padding: 22px 20px; }
+        }
+
+        @media (max-width: 1024px) {
+            .today-grid { grid-template-columns: 1fr; gap: 40px; }
+            .day-title { margin-top: 0; }
+        }
+        @media (max-width: 600px) {
+            .today-page { padding: 16px 16px 40px; }
+            .day-card { padding: 22px 20px; }
+        }
+    </style>
+</head>
+<body>
+
+{% include '_header.html' %}
+
+<main class="today-page" id="today-page">
+    <div class="today-grid" id="today-grid">
+        <div class="today-main" id="today-main">
+        <section id="today-ask-section">
+            <h2 class="greeting" id="greeting">Hello, {{ first_name }}.</h2>
+
+            <h2 class="ask-title" id="ask-title">What would you like to work through today?</h2>
+            <form class="ask-box" id="ask-form" autocomplete="off">
+                <input type="text" id="ask-input" placeholder="Ask Nexa anything..." aria-label="Ask Nexa anything">
+                <button type="button" class="icon-btn" id="ask-mic" aria-label="Speak your question" hidden>
+                    <svg id="ask-mic-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="18" x2="12" y2="22"/>
+                    </svg>
+                </button>
+                <button type="submit" class="icon-btn send-btn" id="ask-send" aria-label="Send">
+                    <svg id="ask-send-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                    </svg>
+                </button>
+            </form>
+
+            {# The buttons inside are rendered by renderNudges() as #nudge-0, #nudge-1, … #}
+            <div class="nudges" id="nudges">
+                <span class="nudge skeleton" id="nudge-skeleton-0"></span><span class="nudge skeleton" id="nudge-skeleton-1"></span><span class="nudge skeleton" id="nudge-skeleton-2"></span>
+            </div>
+        </section>
+
+        {% if show_pulse_checkin %}
+        {# Daily Pulse — the same anonymous one-note-a-day check-in as /pulse,
+           posted to /api/pulse. The state shown (form or done) is decided by
+           /api/pulse/today, so it opens on the loader. #}
+        <section class="pulse-card" id="pulse-section">
+            <div class="pulse-card-head" id="pulse-head">
+                <div class="day-card-icon" id="pulse-icon">
+                    <svg id="pulse-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                </div>
+                <div id="pulse-head-text">
+                    <h2 class="pulse-title" id="pulse-title">How is your day going?</h2>
+                </div>
+            </div>
+
+            <div class="pulse-loading" id="pulse-loading">
+                <span class="shimmer t" id="pulse-skeleton"></span>
+            </div>
+
+            <div id="pulse-form" hidden>
+                <div class="mood-row" id="mood-row">
+                    {% for m in moods %}
+                    <button type="button" class="mood-btn" id="mood-btn-{{ m.value }}" data-mood="{{ m.value }}"
+                            aria-pressed="false" aria-label="{{ m.label }}">
+                        <svg class="mood-face" id="mood-face-{{ m.value }}" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                             stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="9"/>
+                            <circle cx="9" cy="10" r="0.6" fill="currentColor" stroke="none"/>
+                            <circle cx="15" cy="10" r="0.6" fill="currentColor" stroke="none"/>
+                            {% if m.value == 1 %}<path d="M8.5 16.5c1-1.4 2.1-2.1 3.5-2.1s2.5.7 3.5 2.1"/>
+                            {% elif m.value == 2 %}<path d="M8.7 15.9c.9-.9 2-1.3 3.3-1.3s2.4.4 3.3 1.3"/>
+                            {% elif m.value == 3 %}<path d="M8.5 15h7"/>
+                            {% elif m.value == 4 %}<path d="M8.7 14.4c.9.9 2 1.4 3.3 1.4s2.4-.5 3.3-1.4"/>
+                            {% else %}<path d="M8.2 13.8c1 1.6 2.2 2.4 3.8 2.4s2.8-.8 3.8-2.4"/>{% endif %}
+                        </svg>
+                        <span class="mood-label" id="mood-label-{{ m.value }}">{{ m.label }}</span>
+                    </button>
+                    {% endfor %}
+                </div>
+
+                <div id="pulse-note-wrap">
+                    <textarea id="pulse-note" class="note-input" maxlength="{{ note_max }}"
+                              placeholder="What's working, what isn't, what would help. Write it the way you'd say it." hidden>
+                    </textarea>
+                    <div class="note-foot" id="pulse-note-foot" hidden>
+                        <span class="note-count" id="note-count" hidden>0 / {{ note_max }}</span>
+                    </div>
+                    <div class="pulse-submit-row" id="pulse-submit-row">
+                        <span class="submit-error" id="pulse-error"></span>
+                        <button type="button" class="pulse-submit" id="pulse-submit" disabled>Send anonymously</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+        {% endif %}
+        </div>
+
+        <aside id="today-day-section">
+            <div class="day-cards" id="day-cards">
+                <article class="day-card" id="calendar-card">
+                    <div class="day-card-head" id="calendar-head">
+                        <div class="day-card-icon" id="calendar-icon">
+                            <svg id="calendar-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                        </div>
+                        <div class="day-card-kicker" id="calendar-kicker">Your calendar</div>
+                    </div>
+                    {# Filled by renderMeeting(): #calendar-title, #calendar-text, #prep-btn #}
+                    <div id="calendar-body">
+                        <span class="shimmer h" id="calendar-skeleton-title"></span><span class="shimmer t" id="calendar-skeleton-line"></span>
+                    </div>
+                </article>
+                {# Daily Horoscope ships with Nexa Pro — hidden outright otherwise. #}
+                <article class="day-card" id="reading-card"{% if not show_pulse %} hidden{% endif %}>
+                    <div class="day-card-head" id="reading-head">
+                        <div class="day-card-icon" id="reading-icon">
+                            <svg id="reading-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                        </div>
+                        <div class="day-card-kicker" id="reading-kicker">Today's Reading</div>
+                    </div>
+                    {# Filled by loadReading(): #reading-title, #reading-text, #reading-link #}
+                    <div id="reading-body">
+                        <span class="shimmer h" id="reading-skeleton-title"></span><span class="shimmer t" id="reading-skeleton-line-1"></span><span class="shimmer t" id="reading-skeleton-line-2"></span>
+                    </div>
+                </article>
+
+            </div>
+        </aside>
+    </div>
+</main>
+
+<script src="{{ asset('header.js') }}"></script>
+<script>
+(function () {
+    const ARROW = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>';
+
+    function authHeaders() {
+        const token = localStorage.getItem('we_ace_access_token') || '';
+        return { 'Authorization': `Bearer ${token}` };
+    }
+
+    function esc(str) {
+        return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // Greeting by the viewer's own clock, not the server's.
+    (function greet() {
+        const h = new Date().getHours();
+        const part = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+        document.getElementById('greeting').textContent = `${part}, {{ first_name|e }}.`;
+    })();
+
+    // ── Hand-off to the chat page ──────────────────────────────────────────
+    // Same mechanism as My Insights' focus sessions: park the message for this
+    // tab and open chat, which sends it once its session is up. Unlike those,
+    // it leaves the tab-nav marker, so chat resumes the session opened at
+    // sign-in (/session/resume — no login chain, no new welcome) and the
+    // message goes straight in. index.html shows a hand-off loader meanwhile.
+    function askNexa(message, label) {
+        message = (message || '').trim();
+        if (!message) return;
+        try {
+            sessionStorage.setItem('we_ace_focus_session', JSON.stringify({
+                label: label || 'Today', message,
+            }));
+        } catch (_) { /* private mode — chat opens without the message */ }
+        NexaHeader.markTabNav();
+        window.location.href = '/';
+    }
+
+    const form = document.getElementById('ask-form');
+    const input = document.getElementById('ask-input');
+    form.addEventListener('submit', e => {
+        e.preventDefault();
+        askNexa(input.value);
+    });
+
+    // Dictation into the ask box, where the browser supports it.
+    const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const mic = document.getElementById('ask-mic');
+    if (Recognition) {
+        mic.hidden = false;
+        let rec = null;
+        mic.addEventListener('click', () => {
+            if (rec) { rec.stop(); return; }
+            rec = new Recognition();
+            rec.interimResults = true;
+            rec.lang = navigator.language || 'en-US';
+            const base = input.value ? input.value.trim() + ' ' : '';
+            rec.onresult = ev => {
+                input.value = base + Array.from(ev.results).map(r => r[0].transcript).join('');
+            };
+            rec.onend = () => { rec = null; mic.classList.remove('listening'); input.focus(); };
+            mic.classList.add('listening');
+            rec.start();
+        });
+    }
+
+    // ── Nudges + calendar ──────────────────────────────────────────────────
+    function renderNudges(list) {
+        const wrap = document.getElementById('nudges');
+        wrap.innerHTML = '';
+        list.forEach((text, i) => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.id = `nudge-${i}`;
+            b.className = 'nudge';
+            b.textContent = text;
+            b.addEventListener('click', () => askNexa(text));
+            wrap.appendChild(b);
+        });
+    }
+
+    function renderMeeting(m) {
+        const kicker = document.getElementById('calendar-kicker');
+        const body = document.getElementById('calendar-body');
+        if (!m) {
+            kicker.textContent = 'Your calendar';
+            // Nothing to show is often a calendar that isn't connected (or
+            // isn't the right one), so offer the way to fix that.
+            body.innerHTML = `<h3 id="calendar-title">No upcoming meetings found</h3>
+                <p id="calendar-text">Connect or update your calendar so Nexa can help you prepare for the meetings that matter.</p>
+                <button type="button" class="day-card-link" id="calendar-settings-btn">Update Calendar Settings ${ARROW}</button>`;
+            document.getElementById('calendar-settings-btn')
+                .addEventListener('click', () => NexaHeader.openCalendarSettings());
+            return;
+        }
+        kicker.textContent = ['Your calendar', `Next ${m.day}`, m.time].filter(Boolean).join(' · ');
+        const who = m.attendees && m.attendees.length
+            ? `With ${m.attendees.slice(0, 3).join(', ')}${m.attendee_count > 3 ? ` and ${m.attendee_count - 3} more` : ''}. `
+            : '';
+        body.innerHTML = `<h3 id="calendar-title">${esc(m.title)}</h3>
+            <p id="calendar-text">${esc(who)}Prepare for the conversation before you go in.</p>
+            <button type="button" class="day-card-link" id="prep-btn">Prepare with Nexa ${ARROW}</button>`;
+        const when = [m.day.toLowerCase(), m.time && `at ${m.time}`].filter(Boolean).join(' ');
+        document.getElementById('prep-btn').addEventListener('click', () => askNexa(
+            `I have "${m.title}" ${when}. Help me prepare for it: what I want out of it, ` +
+            `what might come up, and how I should handle it.`, 'Meeting prep'));
+    }
+
+    async function loadToday() {
+        try {
+            const res = await fetch('/api/today', { headers: authHeaders(), credentials: 'omit' });
+            if (res.status === 401) { window.location.href = '/'; return; }
+            const data = await res.json();
+            renderNudges(data.nudges || []);
+            renderMeeting(data.meeting);
+        } catch (_) {
+            renderNudges(['Difficult conversation with a stakeholder', 'Give feedback to my team',
+                          'Think through a career move']);
+            renderMeeting(null);
+        }
+    }
+
+    // ── Daily Horoscope ────────────────────────────────────────────────────
+    async function loadReading() {
+        const card = document.getElementById('reading-card');
+        if (card.hidden) return;
+        const body = document.getElementById('reading-body');
+        try {
+            const res = await fetch('/api/career-horoscope/daily', { headers: authHeaders(), credentials: 'omit' });
+            if (res.status === 403) { card.hidden = true; return; }
+            const data = await res.json();
+            if (res.status === 400) {
+                // No birth details on file yet — the first career reading collects them.
+                body.innerHTML = `<h3 id="reading-title">Your daily reading is waiting</h3>
+                    <p id="reading-text">Add your birth details once and Nexa will have a fresh career reading for you every day.</p>
+                    <a class="day-card-link" id="reading-link" href="/career-horoscope#reading">Set up Career Reading ${ARROW}</a>`;
+                return;
+            }
+            if (!res.ok || !data.daily) throw new Error(data.error || 'unavailable');
+            const d = data.daily;
+            body.innerHTML = `<h3 id="reading-title">${esc(d.headline || "Today's career outlook")}</h3>
+                <p id="reading-text">${esc(d.guidance || d.focus || '')}</p>
+                <a class="day-card-link" id="reading-link" href="/career-horoscope#daily">Open Daily Horoscope ${ARROW}</a>`;
+        } catch (_) {
+            body.innerHTML = `<h3 id="reading-title">Today's reading isn't ready</h3>
+                <p id="reading-text">We couldn't load it just now.</p>
+                <a class="day-card-link" id="reading-link" href="/career-horoscope#daily">Open Daily Horoscope ${ARROW}</a>`;
+        }
+    }
+
+    // ── Daily Pulse ────────────────────────────────────────────────────────
+    function initPulse() {
+        const section = document.getElementById('pulse-section');
+        if (!section) return;
+        const $ = id => document.getElementById(id);
+        const NOTE_MAX = {{ note_max }};
+        const els = {
+            loading: $('pulse-loading'), form: $('pulse-form'), done: $('pulse-done'),
+            note: $('pulse-note'), count: $('note-count'),
+            submit: $('pulse-submit'), error: $('pulse-error'),
+        };
+        let mood = null;
+        let sending = false;
+
+        function show(state) {
+            els.loading.hidden = state !== 'loading';
+            els.form.hidden = state !== 'form';
+            els.done.hidden = state !== 'done';
+        }
+        function syncSubmit() {
+            els.submit.disabled = sending || mood === null || els.note.value.length > NOTE_MAX;
+            els.submit.textContent = sending ? 'Sending…' : 'Send anonymously';
+        }
+
+        section.querySelectorAll('.mood-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                mood = parseInt(btn.dataset.mood, 10);
+                section.querySelectorAll('.mood-btn').forEach(b => {
+                    b.classList.toggle('selected', b === btn);
+                    b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
+                });
+                els.error.textContent = '';
+                syncSubmit();
+            });
+        });
+
+        els.note.addEventListener('input', () => {
+            const n = els.note.value.length;
+            els.count.textContent = `${n} / ${NOTE_MAX}`;
+            els.count.classList.toggle('over', n > NOTE_MAX);
+            syncSubmit();
+        });
+
+        els.submit.addEventListener('click', async () => {
+            if (mood === null || sending) return;
+            sending = true; els.error.textContent = ''; syncSubmit();
+            try {
+                const res = await fetch('/api/pulse', {
+                    method: 'POST',
+                    headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+                    credentials: 'omit',
+                    body: JSON.stringify({ mood, note: els.note.value.trim() }),
+                });
+                const data = await res.json().catch(() => ({}));
+                // 409: today's note is already in — that's the done state arriving late.
+                if (res.ok || res.status === 409) {
+                    els.note.value = '';   // nothing of the note stays on the page
+                    show('done');
+                } else {
+                    els.error.textContent = data.error || 'Could not send that. Try again.';
+                }
+            } catch (_) {
+                els.error.textContent = 'Network trouble. Try again in a moment.';
+            } finally {
+                sending = false; syncSubmit();
+            }
+        });
+
+        (async function load() {
+            try {
+                const res = await fetch('/api/pulse/today', { headers: authHeaders(), credentials: 'omit' });
+                if (res.status === 403) { section.hidden = true; return; }
+                const data = await res.json().catch(() => ({}));
+                show(res.ok && data.submitted ? 'done' : 'form');
+            } catch (_) {
+                show('form');   // a duplicate is caught server-side anyway
+            }
+        })();
+    }
+
+    NexaHeader.init();
+    initPulse();
+    loadToday();
+    loadReading();
+})();
+</script>
+</body>
+</html>

@@ -62,7 +62,7 @@
             border: 1px solid rgba(59, 89, 138, 0.12);
             border-radius: 20px;
             box-shadow: var(--card-shadow);
-            padding: 26px;
+            padding: 15px;
         }
 
         .form-grid {
@@ -476,6 +476,22 @@
             color: var(--primary-color); background: var(--primary-soft);
             padding: 4px 10px; border-radius: 999px;
         }
+        .daily-birth {
+            display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end;
+            gap: 4px 12px; font-size: 0.8rem; color: var(--text-muted);
+        }
+        .daily-birth-item { white-space: nowrap; }
+        .daily-birth-edit {
+            font: inherit; font-weight: 600; color: var(--primary-color); background: none;
+            border: 0; padding: 0; cursor: pointer;
+        }
+        .daily-birth-edit:hover { text-decoration: underline; }
+        .daily-birth-form {
+            background: rgba(70, 131, 229, 0.04); border: 1px solid rgba(67, 72, 170, 0.14);
+            border-radius: 14px; padding: 16px; margin-bottom: 16px;
+        }
+        .daily-birth-form .submit-row { margin-top: 14px; gap: 10px; justify-content: flex-end; }
+        .daily-birth-form .submit-error { margin-right: auto; }
         .daily-headline { font-size: 1.3rem; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 10px; }
         .daily-guidance { color: #303c4f; line-height: 1.75; font-size: 1rem; margin-bottom: 2em}
         .daily-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 18px; }
@@ -488,6 +504,15 @@
         .sit-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 4px; }
         .sit-sub { color: var(--text-muted); font-size: 0.88rem; line-height: 1.55; margin-bottom: 14px; }
         .sit-count { font-size: 0.78rem; color: var(--text-muted); }
+        .sit-examples { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+        .sit-examples-label { font-size: 0.85rem; color: var(--text-muted); margin-right: 2px; }
+        .sit-example {
+            font: inherit; font-size: 0.85rem; font-weight: 500; color: var(--primary-color);
+            background: #fff; border: 1px solid var(--primary-ring); border-radius: 999px;
+            padding: 6px 14px; cursor: pointer; transition: background .15s, border-color .15s;
+        }
+        .sit-example:hover, .sit-example.active { background: var(--primary-soft); }
+        .sit-example:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; }
         .sit-result { margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(59,89,138,.10); }
         .sit-asked {
             font-size: 0.85rem; color: var(--text-muted); font-style: italic; line-height: 1.55;
@@ -506,7 +531,7 @@
             --card-shadow: 0 12px 32px -14px rgba(40, 42, 120, 0.30);
         }
         #daily-panel .card,
-        #daily-panel .item-card { border-color: rgba(67, 72, 170, 0.14); }
+        #daily-panel .item-card { border-color: rgba(67, 72, 170, 0.14); margin-bottom: 10px;}
         #daily-panel .item-card,
         #daily-panel .sit-asked { background: rgba(70, 131, 229, 0.04); }
         #daily-panel .field textarea { border-color: rgba(67, 72, 170, 0.22); }
@@ -521,19 +546,6 @@
 
         .sit-disclaimer { margin-top: 12px; font-size: 0.75rem; color: var(--text-muted); }
         .sit-date { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); margin-bottom: 8px; }
-        .sit-history { margin-top: 24px; padding-top: 18px; border-top: 1px solid rgba(59,89,138,.10); }
-        .sit-history-title { font-size: 0.9rem; font-weight: 700; margin-bottom: 10px; }
-        .sit-past { border: 1px solid rgba(59,89,138,.12); border-radius: 12px; margin-bottom: 8px; }
-        .sit-past summary {
-            cursor: pointer; padding: 10px 14px; font-size: 0.85rem; line-height: 1.5;
-            display: flex; gap: 12px; align-items: baseline;
-        }
-        .sit-past summary .sit-past-q { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .sit-past[open] summary .sit-past-q { white-space: normal; }
-        .sit-past summary .sit-date { margin: 0; white-space: nowrap; }
-        .sit-past-body { padding: 0 14px 12px; }
-        #daily-panel .sit-history { border-top-color: rgba(67, 72, 170, 0.12); }
-        #daily-panel .sit-past { border-color: rgba(67, 72, 170, 0.14); }
 
         @media (max-width: 620px) {
             .form-grid { grid-template-columns: 1fr; }
@@ -560,7 +572,7 @@
         <button type="button" class="ghost-btn" id="futures-refresh">Refresh</button>
     </div>
 
-    <div class="daily-wrap" id="daily-panel" style="display:grid;">
+    <div class="daily-wrap" id="daily-panel" style="display:inline;">
         <div class="card" id="daily-card">
             <div class="daily-empty" id="daily-loading">
                 <div class="spinner"></div>Reading today's stars…
@@ -570,10 +582,17 @@
         <div class="card" id="sit-card">
             <div class="sit-title">What's likely to happen?</div>
             <p class="sit-sub">
-                Describe a work situation you're facing, like an interview, a promotion
-                conversation, a job switch or a tricky project, and we'll read how it's
-                likely to unfold for you.
+                Facing a big moment at work? Tell us, and see how it's likely to play out.
             </p>
+            <div class="sit-examples" id="sit-examples" role="group" aria-label="Example situations">
+                <span class="sit-examples-label" id="sit-examples-label">Try an example:</span>
+                <button type="button" class="sit-example" id="sit-example-promotion"
+                    data-example="I'm up for a promotion this quarter. How is the conversation with my manager likely to go?">Promotion</button>
+                <button type="button" class="sit-example" id="sit-example-interview"
+                    data-example="I have a final-round interview coming up next week. How is it likely to go?">Interview</button>
+                <button type="button" class="sit-example" id="sit-example-investor-meeting"
+                    data-example="I have an important investor meeting coming up. How is it likely to go?">Investor meeting</button>
+            </div>
             <div class="field full">
                 <textarea id="sit-input" maxlength="1500"
                     placeholder="e.g. I have a final-round interview for a product lead role next Thursday. How is it likely to go?"></textarea>
@@ -1032,6 +1051,9 @@
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Something went wrong.');
+            birth = { place_of_birth: place, birth_date: date, birth_time: time };
+            if ($('daily-birth')) $('daily-birth').innerHTML = birthSummary();
+            if ($('daily-birth-edit')) $('daily-birth-edit').addEventListener('click', openBirthForm);
             lastStatus = 'running';
             startPolling();
         } catch (e) {
@@ -1072,12 +1094,12 @@
     // ── Views: Daily Horoscope / Career Reading / Career Futures ─────
     // The page opens on Daily Horoscope; the other tabs live behind a
     // #reading / #futures hash so a reload (or a shared link) lands back on them.
-    let dailyLoaded = false, futuresLoaded = false;
+    let dailyLoaded = false, futuresLoaded = false, readingLoaded = false;
 
     const TAB_HEADS = {
         daily:   ['Daily Horoscope', "Today's career outlook, read from your chart"],
         reading: ['Career Reading', 'A personal career reader personalised to your details'],
-        futures: ['Career Path', 'Where your career could go next, based on your conversations and profile'],
+        futures: ['Career Path', 'Where might I be heading?'],
     };
 
     function showTab(tab) {
@@ -1088,11 +1110,12 @@
         $('horo-page').classList.toggle('on-daily', daily);
         $('horo-page').classList.toggle('on-futures', futures);
         $('reading-panel').style.display = tab === 'reading' ? '' : 'none';
-        $('daily-panel').style.display = daily ? 'grid' : 'none';
+        $('daily-panel').style.display = daily ? 'inline' : 'none';
         $('futures-panel').style.display = futures ? 'flex' : 'none';
         try { history.replaceState(null, '', daily ? location.pathname + location.search : '#' + tab); } catch (e) {}
         NexaHeader.syncSubnav();
-        if (daily && !dailyLoaded) { dailyLoaded = true; loadDaily(false); loadLastSituation(); }
+        if (daily && !dailyLoaded) { dailyLoaded = true; loadDaily(false); }
+        if (tab === 'reading' && !readingLoaded) { readingLoaded = true; resumeReading(); }
         if (futures && !futuresLoaded) { futuresLoaded = true; loadFutures(false); }
         // The book measured itself while hidden; let it re-fit now it's visible.
         if (tab === 'reading') window.dispatchEvent(new Event('resize'));
@@ -1106,20 +1129,112 @@
     }
 
     function renderDaily(d) {
-        const num = (d.lucky_number !== undefined && d.lucky_number !== null && d.lucky_number !== '') ? d.lucky_number : '';
         $('daily-card').innerHTML = `
             <div class="daily-top">
                 <span class="daily-date">${escHtml(formatDay(d.date))}</span>
-                <button type="button" class="ghost-btn" id="daily-refresh">Refresh</button>
+                <div class="daily-birth" id="daily-birth">${birthSummary()}</div>
+            </div>
+            <div class="daily-birth-form" id="daily-birth-form" style="display:none;">
+                <div class="form-grid">
+                    <div class="field full">
+                        <label class="field-label" for="db-place">Place of birth</label>
+                        <input type="text" id="db-place" autocomplete="off" placeholder="City, Country">
+                    </div>
+                    <div class="field">
+                        <label class="field-label" for="db-date">Date of birth</label>
+                        <input type="date" id="db-date">
+                    </div>
+                    <div class="field">
+                        <label class="field-label" for="db-time">
+                            Time of birth <span class="field-hint">(optional)</span>
+                        </label>
+                        <input type="time" id="db-time">
+                    </div>
+                </div>
+                <div class="submit-row">
+                    <span class="submit-error" id="db-error"></span>
+                    <button type="button" class="ghost-btn" id="db-cancel">Cancel</button>
+                    <button type="button" class="submit-btn" id="db-save">Save</button>
+                </div>
             </div>
             ${d.headline ? `<div class="daily-headline">${escHtml(d.headline)}</div>` : ''}
             ${d.guidance ? `<p class="daily-guidance">${escHtml(d.guidance)}</p>` : ''}
             <div class="daily-meta">
                 ${d.focus ? `<div class="item-card"><div class="ic-title">Today's focus</div><p>${escHtml(d.focus)}</p></div>` : ''}
-                ${d.lucky_colour ? `<div class="item-card"><div class="ic-title">Lucky colour</div><p><span class="swatch" style="margin:0"><span class="swatch-dot" style="background:${colourSwatch(d.lucky_colour)}"></span>${escHtml(d.lucky_colour)}</span></p></div>` : ''}
-                ${num !== '' ? `<div class="item-card"><div class="ic-title">Lucky number</div><p>${escHtml(num)}</p></div>` : ''}
             </div>`;
-        $('daily-refresh').addEventListener('click', () => loadDaily(true));
+        $('daily-birth-edit').addEventListener('click', openBirthForm);
+        $('db-cancel').addEventListener('click', () => { $('daily-birth-form').style.display = 'none'; });
+        $('db-save').addEventListener('click', saveBirth);
+    }
+
+    // Birth details behind the daily note, shown in its header with an Edit
+    // link. Seeded from the server and kept in step with the reading form.
+    let birth = {{ (birth or {})|tojson }};
+
+    function formatBirthDate(iso) {
+        const d = new Date(iso + 'T00:00:00');
+        return isNaN(d) ? iso : d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+    }
+
+    function formatBirthTime(hhmm) {
+        const d = new Date('1970-01-01T' + hhmm);
+        return isNaN(d) ? hhmm : d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    }
+
+    function birthSummary() {
+        const items = [
+            birth.birth_date && formatBirthDate(birth.birth_date),
+            birth.birth_time ? formatBirthTime(birth.birth_time) : 'Time not set',
+            birth.place_of_birth,
+        ].filter(Boolean);
+        return `${items.map(t => `<span class="daily-birth-item">${escHtml(t)}</span>`).join('<span aria-hidden="true">·</span>')}
+            <button type="button" class="daily-birth-edit" id="daily-birth-edit">Edit</button>`;
+    }
+
+    function openBirthForm() {
+        $('db-place').value = birth.place_of_birth || '';
+        $('db-date').value = birth.birth_date || '';
+        $('db-time').value = birth.birth_time || '';
+        $('db-error').textContent = '';
+        $('daily-birth-form').style.display = '';
+        $('db-place').focus();
+    }
+
+    async function saveBirth() {
+        const next = {
+            place_of_birth: $('db-place').value.trim(),
+            birth_date: $('db-date').value,
+            birth_time: $('db-time').value,
+        };
+        if (!next.place_of_birth || !next.birth_date) {
+            $('db-error').textContent = 'Please fill in your place of birth and date of birth.';
+            return;
+        }
+        const btn = $('db-save');
+        btn.disabled = true;
+        btn.textContent = 'Saving…';
+        try {
+            const res = await fetch('/api/career-horoscope/birth', {
+                method: 'POST',
+                headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+                credentials: 'include',
+                body: JSON.stringify(next)
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Could not save your birth details.');
+            birth = next;
+            // Keep the Career Reading form in step (including a cleared time).
+            if ($('f-place')) $('f-place').value = next.place_of_birth;
+            if ($('f-date')) $('f-date').value = next.birth_date;
+            if ($('f-time')) $('f-time').value = next.birth_time;
+            // Saved — now rebuild today's note from the new details, with the
+            // usual loading state while it's written.
+            loadDaily(false);
+        } catch (e) {
+            $('db-error').textContent = e.message || 'Could not save your birth details.';
+            btn.disabled = false;
+            btn.textContent = 'Save';
+        }
     }
 
     function renderDailyEmpty(msg, needsReading) {
@@ -1249,10 +1364,8 @@
     }
 
     // ── "What's likely to happen?" ──────────────────────────────────
-    // Every reading is kept: the newest is shown in full, earlier ones are
-    // fetched only when asked for and sit below it as collapsible entries.
+    // Only the reading just asked for is shown; nothing is restored on reload.
     let sitLatest = null;
-    let sitPast = null;          // null until "View past readings" is clicked
 
     function sitDate(r) {
         const raw = r.created_at || r.date;
@@ -1270,51 +1383,14 @@
 
     function renderSituations() {
         if (!sitLatest) { $('sit-result').innerHTML = ''; return; }
-        const latest = sitLatest, past = sitPast || [];
+        const latest = sitLatest;
         const date = sitDate(latest);
         $('sit-result').innerHTML = `<div class="sit-result">
             ${date ? `<div class="sit-date">${escHtml(date)}</div>` : ''}
             ${latest.situation ? `<div class="sit-asked">“${escHtml(latest.situation)}”</div>` : ''}
             ${sitBody(latest)}
             <p class="sit-disclaimer">An astrological reading of tendencies, not a certainty.</p>
-        </div>
-        ${sitPast === null ? `<div class="sit-history">
-            <button type="button" class="ghost-btn" id="sit-past-btn">View past readings</button>
-        </div>` : past.length ? `<div class="sit-history">
-            <div class="sit-history-title">Past readings (${past.length})</div>
-            ${past.map(r => `<details class="sit-past">
-                <summary><span class="sit-past-q">${escHtml(r.situation || 'Situation')}</span>
-                    <span class="sit-date">${escHtml(sitDate(r))}</span></summary>
-                <div class="sit-past-body">${sitBody(r)}</div>
-            </details>`).join('')}
-        </div>` : `<div class="sit-history"><div class="sit-disclaimer">No past readings yet.</div></div>`}`;
-        const btn = $('sit-past-btn');
-        if (btn) btn.addEventListener('click', loadPastSituations);
-    }
-
-    function loadLastSituation() {
-        fetch('/api/career-horoscope/situation', { headers: getAuthHeaders(), credentials: 'include' })
-            .then(r => r.ok ? r.json() : null)
-            .then(data => { if (data && data.reading) { sitLatest = data.reading; renderSituations(); } })
-            .catch(() => { /* not critical */ });
-    }
-
-    async function loadPastSituations() {
-        const btn = $('sit-past-btn');
-        btn.disabled = true;
-        btn.textContent = 'Loading…';
-        try {
-            const res = await fetch('/api/career-horoscope/situation/history',
-                { headers: getAuthHeaders(), credentials: 'include' });
-            const data = await res.json();
-            if (!res.ok || !Array.isArray(data.history)) throw new Error();
-            // The first row is the reading already shown in full.
-            sitPast = data.history.slice(1);
-            renderSituations();
-        } catch (e) {
-            btn.disabled = false;
-            btn.textContent = 'Could not load. Try again';
-        }
+        </div>`;
     }
 
     async function askSituation() {
@@ -1335,11 +1411,11 @@
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Something went wrong.');
-            if (sitPast !== null && sitLatest) sitPast.unshift(sitLatest);
             sitLatest = data.reading;
             renderSituations();
             $('sit-input').value = '';
             updateSitCount();
+            sitExamples.forEach(o => o.classList.remove('active'));
         } catch (e) {
             errEl.textContent = e.message || 'Could not read this situation. Please try again.';
         } finally {
@@ -1350,7 +1426,20 @@
     }
 
     function updateSitCount() { $('sit-count').textContent = `${$('sit-input').value.length} / 1500`; }
-    $('sit-input').addEventListener('input', updateSitCount);
+    // "Try an example" chips fill the box; editing the text clears the highlight.
+    const sitExamples = document.querySelectorAll('.sit-example');
+    sitExamples.forEach(b => b.addEventListener('click', () => {
+        const input = $('sit-input');
+        input.value = b.dataset.example;
+        updateSitCount();
+        sitExamples.forEach(o => o.classList.toggle('active', o === b));
+        input.focus();
+        input.setSelectionRange(input.value.length, input.value.length);
+    }));
+    $('sit-input').addEventListener('input', () => {
+        updateSitCount();
+        sitExamples.forEach(o => o.classList.remove('active'));
+    });
     $('sit-submit').addEventListener('click', askSituation);
 
     document.querySelectorAll('[data-goto-reading]').forEach(b =>
@@ -1361,10 +1450,10 @@
     window.addEventListener('hashchange', () => showTab(tabFromHash()));
     showTab(tabFromHash());
 
-    // On load, pick up any run already in progress — or a previously saved
-    // reading — so a reload or a return visit lands the user right back where
-    // they left off.
-    (function resume() {
+    // When Career Reading is first opened, pick up any run already in progress
+    // — or a previously saved reading — so a reload or a return visit lands the
+    // user right back where they left off. The other tabs don't need it.
+    function resumeReading() {
         fetch('/api/career-horoscope/status', { headers: getAuthHeaders(), credentials: 'include' })
             .then(r => r.ok ? r.json() : null)
             .then(data => {
@@ -1381,7 +1470,7 @@
                 }
             })
             .catch(() => { /* not critical on load */ });
-    })();
+    }
 </script>
 </body>
 </html>

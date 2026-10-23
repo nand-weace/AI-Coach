@@ -2273,6 +2273,92 @@ def my_insights():
     )
 
 
+@app.route('/today')
+def today_page():
+    """Today — the user's day at a glance: an ask-Nexa box with starter nudges,
+    the Daily Horoscope and their next important meeting. The cards fill in
+    from /api/today and /api/career-horoscope/daily once the page loads."""
+    if 'user_id' not in session:
+        return redirect('/')
+    if _has_role(session.get('role'), 'weace_super_admin'):
+        return redirect('/admin')
+    name = session['user_name']
+    initials = ''.join(w[0].upper() for w in name.split()[:2])
+    return render_template('today.html',
+        user_name=name,
+        first_name=name.split()[0] if name.split() else name,
+        initials=initials,
+        profile_image=session.get('profile_image', ''),
+        org_name=session.get('org_name', 'Organisation'),
+        refresh_token=session.get('refresh_token', ''),
+        # Daily Pulse check-in card — the personal note box only; a corporate
+        # super admin's /pulse is the org dashboard, so they don't get the card.
+        show_pulse_checkin=_has_pulse(session.get('org_slug'))
+            and not _has_role(session.get('role'), 'corporate_super_admin'),
+        moods=[{'value': v, 'label': l} for v, l in sorted(_PULSE_MOODS.items())],
+        note_max=_PULSE_NOTE_MAX,
+        # shared header (_header.html)
+        active_tab='today',
+        show_pulse=_has_pulse(session.get('org_slug')),
+        show_org_tabs=_has_role(session.get('role'), 'corporate_super_admin'),
+        show_admin=False,
+    )
+
+
+# Starter prompts for the Today page when there is nothing more personal to offer.
+_TODAY_DEFAULT_NUDGES = [
+    'Difficult conversation with a stakeholder',
+    'Give feedback to my team',
+    'Think through a career move',
+]
+
+
+def _today_meeting(summary: dict | None) -> dict | None:
+    """The meeting worth preparing for: the next important one, else simply
+    the next one still to come today or this week."""
+    if not summary:
+        return None
+    ev = summary.get('next_important') or next(iter(summary.get('upcoming') or []), None)
+    if not ev:
+        return None
+    now = summary['now']
+    delta = (ev['start'].date() - now.date()).days
+    day = ('Today' if delta == 0 else 'Tomorrow' if delta == 1
+           else ev['start'].strftime('%A') if delta < 7 else ev['start'].strftime('%a %d %b'))
+    return {
+        'title': ev['title'],
+        'start': ev['start'].isoformat(),
+        'day': day,
+        'time': '' if ev['all_day'] else ev['start'].strftime('%-I:%M %p'),
+        'all_day': ev['all_day'],
+        'attendee_count': ev['attendee_count'],
+        'attendees': ev['attendees'][:4],
+        'important': ev is summary.get('next_important'),
+    }
+
+
+@app.route('/api/today')
+@require_weace_token
+def api_today():
+    """Data for the Today page: the next meeting from the calendar and the
+    chat nudges. The Daily Horoscope has its own endpoint, since generating it
+    can take a few seconds and shouldn't hold up the rest of the page."""
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    user_id = g.user['user_id']
+    try:
+        meeting = _today_meeting(_get_calendar_cached(user_id, g.access_token))
+    except Exception:
+        logger.warning('[today] calendar unavailable for user_id=%s', user_id, exc_info=True)
+        meeting = None
+
+    nudges = []
+    if meeting:
+        nudges.append(f'Prepare for "{meeting["title"]}"')
+    nudges += _TODAY_DEFAULT_NUDGES
+    return jsonify({'meeting': meeting, 'nudges': nudges[:4]})
+
+
 # Birth details are remembered per user, separate from any single reading, so
 # the form comes back pre-filled every time — even before a first reading, and
 # regardless of whether the last run finished. Kept as its own row in the
@@ -2558,7 +2644,7 @@ def career_horoscope_status():
 
 # ── Daily Horoscope ─────────────────────────────────────────────────────────
 # A short, separate note from the full reading above: one quick call, cached
-# per calendar day, with a manual refresh button on the page. It needs the
+# per calendar day, regenerated when the birth details are edited. It needs the
 # same birth details as the full reading, so it only lights up once those are
 # on file (i.e. after a first career horoscope has been generated).
 _HOROSCOPE_DAILY = 'career_daily_horoscope'
@@ -2631,6 +2717,35 @@ def career_horoscope_daily_refresh():
     if not _has_pulse((g.user.get('org_id') or '').strip()):
         return jsonify({'error': HOROSCOPE_UPGRADE_MESSAGE}), 403
     return _daily_horoscope_response(g.user['user_id'], g.user['user_name'], force=True)
+
+
+@app.route('/api/career-horoscope/birth', methods=['POST'])
+@require_weace_token
+def career_horoscope_birth_update():
+    """Edit the birth details from the Daily Horoscope card. Saves them and
+    drops today's cached note (it was read from the old details), then replies
+    straight away; the page fetches /api/career-horoscope/daily next, which
+    regenerates the note from the new details."""
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    if not _has_pulse((g.user.get('org_id') or '').strip()):
+        return jsonify({'error': HOROSCOPE_UPGRADE_MESSAGE}), 403
+    data = request.get_json(silent=True) or {}
+    place = (data.get('place_of_birth') or '').strip()
+    birth_date = (data.get('birth_date') or '').strip()
+    birth_time = (data.get('birth_time') or '').strip()
+    if not place or not birth_date:
+        return jsonify({'error': 'Please fill in your place of birth and date of birth.'}), 400
+    user_id = g.user['user_id']
+    _save_birth_details(user_id, place, birth_date, birth_time)
+    try:
+        upsert_user_insight_report(user_id, _HOROSCOPE_DAILY, {})
+    except Exception:
+        logger.warning('[career-horoscope] could not clear daily note for user_id=%s',
+                       user_id, exc_info=True)
+    return jsonify({'ok': True, 'birth': {
+        'place_of_birth': place, 'birth_date': birth_date, 'birth_time': birth_time,
+    }})
 
 
 # ── Situation reading ───────────────────────────────────────────────────────

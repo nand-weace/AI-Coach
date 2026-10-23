@@ -383,6 +383,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const _urlRefreshToken = _qp.get('refresh_token');
     const _extToken = _qp.get('access_token');
     let _authed = false;
+    // Tokens in the URL mean the user just signed in on the WeAce platform —
+    // an entry into the app, so showApp() sends them on to Today.
+    if (_urlRefreshToken || _extToken) window._nexaLoginEntry = true;
 
     // ── Auth Step 0: resume the chat session this browser was already in ────
     // Only when the user got here by clicking a tab (Talk ⇄ Sentiment Analysis
@@ -577,6 +580,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Store tokens and user ID from login response immediately
         loginProgress.advanceTo(1);   // credentials accepted
+        window._nexaLoginEntry = true;   // showApp() lands a fresh sign-in on Today
         storeTokens(authData.accessToken, authData.refreshToken);
         extractAndStoreUserId(authData);
         storeProfileRoles(authData.profileDetails?.roles);
@@ -1066,6 +1070,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
+        // Signing in lands on Today rather than in chat. The chat session
+        // /session just opened is kept, and the Chat tab resumes it. Not when
+        // the user is already headed into a conversation — a tab hop back
+        // (resumed), a hand-off from Today or My Insights (focus intent) — and
+        // not without Nexa access, whose notice lives here on the chat page.
+        if (!resumed && nexaAccess && shouldLandOnToday()) {
+            window.location.replace('/today');
+            return;
+        }
+
         loginProgress.stop();
         document.getElementById('login-overlay').style.display = 'none';
         const appEl = document.getElementById('app-container');
@@ -1165,6 +1179,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         consumeFocusIntent();
     }
 
+    // A sign-in (login form or platform tokens), or opening the app fresh from
+    // outside it — a bookmark, a typed URL, an external link. A reload of the
+    // chat page, or any link inside the app, stays in chat.
+    function shouldLandOnToday() {
+        try {
+            if (sessionStorage.getItem('we_ace_focus_session')) return false;
+        } catch (_) { /* no sessionStorage — no hand-off either */ }
+        if (window._nexaLoginEntry) return true;
+        const nav = performance.getEntriesByType('navigation')[0];
+        if (nav && nav.type !== 'navigate') return false;   // reload, back/forward
+        if (!document.referrer) return true;
+        try { return new URL(document.referrer).origin !== location.origin; }
+        catch (_) { return true; }
+    }
+
     // ── Focus session — arrived from a Growth Area on My Insights ─────────────
     // The insights page parks {label, message} in sessionStorage and sends the
     // browser here. Read it once (so a refresh doesn't re-ask the same thing)
@@ -1186,6 +1215,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function showLoginForm() {
+        document.documentElement.classList.remove('nexa-handoff');
         loginProgress.stop();
         document.getElementById('login-loader').style.display = 'none';
         document.getElementById('login-form').style.display = 'block';
