@@ -31,7 +31,7 @@
             min-height: 100vh;
         }
 
-        .today-page { padding: 60px 18px 56px; max-width: 1280px; }
+        .today-page { padding: 30px 18px 56px; max-width: 1280px; }
         .today-label { font-size: 1.6rem; font-weight: 600; color: var(--heading); }
 
         .today-grid {
@@ -42,14 +42,14 @@
 
         /* ── Left: greeting + ask box ── */
         .greeting {
-            font-size: clamp(2rem, 4vw, 2.1rem);
+            font-size: 25px;
             font-weight: 600;
             color: var(--heading);
             letter-spacing: -0.02em;
             line-height: 1.15;
             margin-top: 10px
         }
-        .ask-title { margin-top: 10px; font-size: 1.2rem; font-weight: 500; }
+        .ask-title { margin-top: 10px; font-size: 15px; font-weight: 500; }
 
         .ask-box {
             display: flex; align-items: center; gap: 8px;
@@ -101,7 +101,7 @@
             background: var(--card-bg);
             border: 1px solid var(--card-border);
             border-radius: 16px;
-            padding: 26px 28px;
+            padding: 16px 18px;
             box-shadow: var(--card-shadow);
         }
         .day-card-head { display: flex; align-items: center; gap: 16px; }
@@ -324,6 +324,18 @@
                         <span class="shimmer h" id="reading-skeleton-title"></span><span class="shimmer t" id="reading-skeleton-line-1"></span><span class="shimmer t" id="reading-skeleton-line-2"></span>
                     </div>
                 </article>
+                <article class="day-card" id="resource-card">
+                    <div class="day-card-head" id="resource-head">
+                        <div class="day-card-icon" id="resource-icon">
+                            <svg id="resource-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                        </div>
+                        <div class="day-card-kicker" id="resource-kicker">Recommended for you</div>
+                    </div>
+                    {# Filled by loadResource(): #resource-title, #resource-text, #resource-link #}
+                    <div id="resource-body">
+                        <span class="shimmer h" id="resource-skeleton-title"></span><span class="shimmer t" id="resource-skeleton-line"></span>
+                    </div>
+                </article>
 
             </div>
         </aside>
@@ -482,6 +494,40 @@
         }
     }
 
+    // ── Recommended resource ───────────────────────────────────────────────
+    // One pick, at random, from the list My Insights › Resources curated. The
+    // endpoint is cache-only, so an empty list sends the user there to build it.
+    const REC_LABELS = { article: 'Article', book: 'Book', video: 'Video', lecture: 'Lecture' };
+
+    async function loadResource() {
+        const kicker = document.getElementById('resource-kicker');
+        const body = document.getElementById('resource-body');
+        const empty = (title, text) => {
+            body.innerHTML = `<h3 id="resource-title">${esc(title)}</h3>
+                <p id="resource-text">${esc(text)}</p>
+                <a class="day-card-link" id="resource-link" href="/my-insights#recs">Open Resources ${ARROW}</a>`;
+        };
+        try {
+            const res = await fetch('/api/my-recommendations', { headers: authHeaders(), credentials: 'omit' });
+            if (res.status === 401) { window.location.href = '/'; return; }
+            const data = await res.json();
+            const items = (data.recommendations || []).filter(r => r.url && r.title);
+            if (!res.ok || !items.length) {
+                empty('Nothing picked out yet',
+                      'Let Nexa find articles, books and videos on the topics you talk about.');
+                return;
+            }
+            const r = items[Math.floor(Math.random() * items.length)];
+            const label = REC_LABELS[r.type] || 'Resource';
+            kicker.textContent = ['Recommended for you', label].join(' · ');
+            body.innerHTML = `<h3 id="resource-title">${esc(r.title)}</h3>
+                <p id="resource-text">${esc(r.description || (r.author ? `By ${r.author}` : ''))}</p>
+                <a class="day-card-link" id="resource-link" href="${esc(r.url)}" target="_blank" rel="noopener noreferrer">Open ${esc(label)} ${ARROW}</a>`;
+        } catch (_) {
+            empty("Today's pick isn't ready", "We couldn't load your recommendations just now.");
+        }
+    }
+
     // ── Daily Pulse ────────────────────────────────────────────────────────
     function initPulse() {
         const section = document.getElementById('pulse-section');
@@ -566,6 +612,7 @@
     initPulse();
     loadToday();
     loadReading();
+    loadResource();
 })();
 </script>
 </body>
