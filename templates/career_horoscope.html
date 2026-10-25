@@ -6,7 +6,7 @@
     <title>Nexa - Career Horoscope</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Lora:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('header.css') }}">
     <link rel="icon" id="app-favicon" href="{{ branding.favicon_url }}">
     <style>
@@ -23,17 +23,19 @@
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
-            font-family: 'Inter', sans-serif;
-            background-color: oklch(0.95 0.02 278.05);
+            font-family: 'Poppins',system-ui,-apple-system,'Segoe UI',sans-serif;
+            background-color: #E3DEFF;
+            background-image: linear-gradient(110deg, #DDEEFF 0%, #E3DEFF 48%, #D9EEFF 100%);
             color: var(--text-main);
             min-height: 100vh;
             background-attachment: fixed;
         }
 
-        .page { margin: 0 auto; padding: 24px 15px 60px; }
+        .page { max-width: 1200px; margin: 0 auto; padding: 36px 32px 80px; }
+        @media (max-width: 620px) { .page { padding: 24px 16px 56px; } }
 
         .horo-head {
-            display: flex; align-items: center; gap: 10px; margin-bottom: 14px;
+            display: flex; align-items: center; gap: 12px; margin-bottom: 28px;
             white-space: nowrap; overflow: hidden;
         }
         .horo-head .horo-badge {
@@ -43,10 +45,10 @@
             background: var(--primary-soft); border-radius: 999px; padding: 4px 12px;
         }
         .horo-head h2 {
-            flex: 0 0 auto; font-size: 1.2rem; font-weight: 700; letter-spacing: -0.03em;
+            flex: 0 0 auto; font-size: 1.45rem; font-weight: 700; letter-spacing: -0.02em;
         }
         .horo-head p {
-            flex: 1 1 auto; margin: 0; font-size: 0.82rem; color: var(--text-muted);
+            flex: 1 1 auto; margin: 0; font-size: 0.92rem; color: var(--text-muted);
             overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
         }
         .horo-head #regenerate-btn,
@@ -62,8 +64,9 @@
             border: 1px solid rgba(59, 89, 138, 0.12);
             border-radius: 20px;
             box-shadow: var(--card-shadow);
-            padding: 15px;
+            padding: 32px 36px;
         }
+        @media (max-width: 620px) { .card { padding: 24px 20px; } }
 
         .form-grid {
             display: grid; gap: 16px 18px;
@@ -87,7 +90,7 @@
 
         .submit-row {
             display: flex; align-items: center; justify-content: space-between;
-            gap: 12px; margin-top: 20px; flex-wrap: wrap;
+            gap: 12px; margin-top: 24px; flex-wrap: wrap;
         }
         .submit-error { color: #b42318; font-size: 0.85rem; }
         .submit-btn {
@@ -148,10 +151,10 @@
 
 
         /* Results */
-        .result { margin-top: 16px; display: flex; flex-direction: column; gap: 16px; }
+        .result { margin-top: 24px; display: flex; flex-direction: column; gap: 24px; }
         .result-summary {
             background: var(--surface); border: 1px solid rgba(59, 89, 138, 0.12);
-            border-radius: 20px; box-shadow: var(--card-shadow); padding: 24px;
+            border-radius: 20px; box-shadow: var(--card-shadow); padding: 32px 36px;
         }
         .result-summary .archetype {
             font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em;
@@ -161,7 +164,7 @@
         .result-summary p { color: var(--text-muted); line-height: 1.65; font-size: 0.95rem; }
 
         .sec { background: var(--surface); border: 1px solid rgba(59, 89, 138, 0.12);
-               border-radius: 18px; box-shadow: var(--card-shadow); padding: 22px; }
+               border-radius: 18px; box-shadow: var(--card-shadow); padding: 28px 32px; }
         .sec > h4 {
             font-size: 0.75rem; font-weight: 700; letter-spacing: 0.06em;
             text-transform: uppercase; color: var(--primary-color); margin-bottom: 14px;
@@ -190,10 +193,10 @@
         /* Lighter cards for lists of arbitrary length (roles, fields, strengths,
            growth themes, blind spots, prospects) — not tied to the fixed
            4-colour scheme the career-house cards use, so any item count scales. */
-        .item-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; }
+        .item-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
         .item-card {
             background: rgba(40,108,217,.035); border: 1px solid rgba(59,89,138,.10);
-            border-radius: 14px; padding: 16px 18px;
+            border-radius: 14px; padding: 20px 22px;
         }
         .item-card .ic-title { font-size: 0.95rem; font-weight: 700; color: var(--primary-hover); margin-bottom: 6px; }
         .item-card .ic-basis {
@@ -316,7 +319,7 @@
             flex: 0 0 100%; width: 100%;
             background: var(--surface); border: 1px solid rgba(59,89,138,.12);
             border-radius: 22px; box-shadow: var(--card-shadow);
-            padding: 30px 32px 34px;
+            padding: 40px 48px 44px;
             position: relative;
             opacity: .3; transform: scale(.985);
             transition: opacity .4s ease, transform .4s cubic-bezier(.4,0,.2,1);
@@ -329,11 +332,11 @@
         }
         .book-page-head {
             display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
-            padding-bottom: 14px; margin-bottom: 20px;
+            padding-bottom: 18px; margin-bottom: 26px;
             border-bottom: 1px solid rgba(59,89,138,.10);
         }
         .book-chapter {
-            font-family: 'Inter', sans-serif; font-size: 1.35rem; font-weight: 600;
+            font-family: 'Poppins',system-ui,-apple-system,'Segoe UI',sans-serif; font-size: 1.35rem; font-weight: 600;
             color: var(--text-main); letter-spacing: -0.01em;
         }
         .book-count {
@@ -341,44 +344,44 @@
             text-transform: uppercase; color: var(--primary-color);
             background: var(--primary-soft); padding: 4px 10px; border-radius: 999px;
         }
-        .book-page-body { font-family: 'Inter', sans-serif; }
+        .book-page-body { font-family: 'Poppins',system-ui,-apple-system,'Segoe UI',sans-serif; }
         .book-page-body p { color: #303c4f; line-height: 1.78; font-size: 1rem; margin-bottom: 12px; }
         .book-page-body p:last-child { margin-bottom: 0; }
         .book-page-body .muted { color: var(--text-muted); }
         .book-page-body .list li,
-        .book-page-body .timing-basis { font-family: 'Inter', sans-serif; }
+        .book-page-body .timing-basis { font-family: 'Poppins',system-ui,-apple-system,'Segoe UI',sans-serif; }
         .book-page-body .cover-summary { font-size: 1.08rem; line-height: 1.85; color: #404c5f; }
         .mini-head {
-            font-family: 'Inter', sans-serif; font-size: 0.72rem; font-weight: 700;
+            font-family: 'Poppins',system-ui,-apple-system,'Segoe UI',sans-serif; font-size: 0.72rem; font-weight: 700;
             letter-spacing: .08em; text-transform: uppercase; color: var(--primary-color);
             margin: 26px 0 12px;
         }
         .book-page-body .mini-head:first-child { margin-top: 0; }
-        .book-page-body .lucky-block h5 { font-family: 'Inter', sans-serif; }
+        .book-page-body .lucky-block h5 { font-family: 'Poppins',system-ui,-apple-system,'Segoe UI',sans-serif; }
 
         /* The opening chapter reads like a title page */
-        .book-page.is-cover { text-align: center; padding: 40px 34px 44px; }
+        .book-page.is-cover { text-align: center; padding: 56px 48px 60px; }
         .book-page.is-cover::before { display: none; }
         .book-page.is-cover .book-page-head { display: none; }
         .cover-archetype {
-            font-family: 'Inter', sans-serif;
+            font-family: 'Poppins',system-ui,-apple-system,'Segoe UI',sans-serif;
             font-size: 0.75rem; font-weight: 700; letter-spacing: 0.14em;
             text-transform: uppercase; color: var(--primary-color); margin-bottom: 14px;
         }
         .cover-archetype::before, .cover-archetype::after { content: '\2726'; margin: 0 8px; opacity: .6; }
         .cover-desc {
-            font-family: 'Inter', sans-serif; font-size: 1.7rem; line-height: 1.3; font-weight: 600;
+            font-family: 'Poppins',system-ui,-apple-system,'Segoe UI',sans-serif; font-size: 1.7rem; line-height: 1.3; font-weight: 600;
             color: var(--text-main); margin-bottom: 16px; letter-spacing: -0.02em;
         }
         .cover-summary {
-            font-family: 'Inter', sans-serif; font-size: 1.06rem; line-height: 1.8; color: #404c5f;
+            font-family: 'Poppins',system-ui,-apple-system,'Segoe UI',sans-serif; font-size: 1.06rem; line-height: 1.8; color: #404c5f;
             max-width: 560px; margin: 0 auto;
         }
 
         /* Prev / dots / next */
         .book-nav {
             display: flex; align-items: center; justify-content: center; gap: 16px;
-            margin-top: 18px;
+            margin-top: 24px;
         }
         .book-arrow {
             width: 46px; height: 46px; border-radius: 50%; cursor: pointer;
@@ -401,135 +404,112 @@
         /* ── Views (picked from the Career sub-nav in the sidebar) ─────── */
         .page.on-daily #regenerate-btn,
         .page.on-futures #regenerate-btn { display: none !important; }
-        .futures-wrap { display: flex; flex-direction: column; gap: 16px; }
+        .futures-wrap { display: flex; flex-direction: column; gap: 24px; }
         .futures-wrap > :empty { display: none; }
 
         /* Future paths: four selectable path cards, then the selected path's
            detail (timeline, evidence, gaps) beside its likelihood ring. */
-        .path-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+        .path-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
         @media (max-width: 900px) { .path-tabs { grid-template-columns: 1fr 1fr; } }
         .path-tab {
             display: flex; flex-direction: column; justify-content: flex-start;
             text-align: left; font-family: inherit; cursor: pointer; min-width: 0;
             background: #fff; border: 1px solid rgba(59,89,138,.14); border-radius: 14px;
-            padding: 14px 16px; transition: border-color .12s, background .12s;
+            padding: 20px 22px; transition: border-color .12s, background .12s;
         }
         .path-tab:hover { border-color: var(--primary-ring); }
-        .path-tab.active { border: 2px solid var(--primary-color); background: var(--primary-soft); padding: 13px 15px; }
-        .path-tab .pt-kind { font-size: 0.68rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); }
+        .path-tab.active { border: 2px solid var(--primary-color); background: var(--primary-soft); padding: 19px 21px; }
+        .path-tab .pt-kind { font-size: 0.72rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); }
         .path-tab .pt-role {
             font-size: 1.12rem; font-weight: 500; color: var(--text-main);
-            margin: 6px 0 6px; line-height: 1.3;
+            margin: 8px 0 8px; line-height: 1.3;
         }
-        .path-tab .pt-conf { font-size: 0.75rem; color: var(--text-muted); }
+        .path-tab .pt-conf { font-size: 0.82rem; color: var(--text-muted); }
         .path-tab.risk .pt-kind { color: #b45309; }
 
         .path-detail {
             background: #fff; border: 1px solid rgba(59,89,138,.12);
-            border-radius: 20px; box-shadow: var(--card-shadow); padding: 28px 30px;
+            border-radius: 20px; box-shadow: var(--card-shadow); padding: 36px 40px;
         }
-        @media (max-width: 620px) { .path-detail { padding: 22px 18px; } }
-        .pd-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px 24px; }
-        @media (max-width: 780px) { .pd-head { flex-direction: column-reverse; } }
-        .pd-head-text { min-width: 0; max-width: 640px; }
-        .pd-when { font-size: 0.85rem; font-weight: 600; color: var(--primary-color); }
+        @media (max-width: 620px) { .path-detail { padding: 26px 20px; } }
+
+        /* Head: likelihood ring on the left, timeline, role and summary beside it. */
+        .pd-head { display: flex; align-items: center; gap: 20px 36px; }
+        .pd-head-text { min-width: 0; }
+        .pd-when {
+            font-size: 0.8rem; font-weight: 600; letter-spacing: .1em;
+            text-transform: uppercase; color: var(--text-muted);
+        }
         .path-detail.risk .pd-when { color: #b45309; }
-        .pd-role { font-size: 2rem; font-weight: 600; letter-spacing: -0.01em; line-height: 1.2; margin: 6px 0 10px; }
-        .pd-summary { color: var(--text-muted); font-size: 1rem; line-height: 1.6; }
+        .pd-role { font-size: 1.75rem; font-weight: 700; letter-spacing: -0.01em; line-height: 1.25; margin: 6px 0 10px; }
+        .pd-summary { color: var(--text-muted); font-size: 1.02rem; line-height: 1.6; }
 
-        .pd-conf {
-            flex: 0 0 auto; display: inline-flex; align-items: center; gap: 10px;
-            background: var(--primary-soft); border-radius: 10px; padding: 8px 12px;
-            font-size: 0.85rem; color: var(--text-muted); white-space: nowrap;
+        .pd-ring { position: relative; flex: 0 0 auto; width: 156px; height: 156px; }
+        .pd-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+        .pd-ring .track { stroke: rgba(59,89,138,.10); }
+        .pd-ring .fill { stroke: var(--primary-color); transition: stroke-dasharray .5s ease; }
+        .path-detail.risk .pd-ring .fill { stroke: #d97706; }
+        .pd-ring-num {
+            position: absolute; inset: 0; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; line-height: 1;
         }
-        .pd-conf .sig-bars { display: inline-flex; align-items: flex-end; gap: 2px; height: 12px; }
-        .pd-conf .sig-bars i { width: 3px; border-radius: 1px; background: var(--primary-ring); }
-        .pd-conf .sig-bars i:nth-child(1) { height: 5px; }
-        .pd-conf .sig-bars i:nth-child(2) { height: 8px; }
-        .pd-conf .sig-bars i:nth-child(3) { height: 12px; }
-        .pd-conf .sig-bars i.on { background: var(--primary-color); }
-        .path-detail.risk .pd-conf { background: rgba(217,119,6,.08); }
-        .path-detail.risk .pd-conf .sig-bars i { background: rgba(217,119,6,.3); }
-        .path-detail.risk .pd-conf .sig-bars i.on { background: #d97706; }
-        .pd-conf .sep { width: 1px; height: 16px; background: rgba(59,89,138,.18); }
-        .pd-conf strong { color: var(--text-main); font-weight: 600; }
-        .pd-info { position: relative; display: inline-flex; color: var(--text-muted); cursor: help; }
-        .pd-info svg { width: 16px; height: 16px; }
-        .pd-info .pd-tip {
-            display: none; position: absolute; right: 0; top: calc(100% + 8px); z-index: 5;
-            width: 260px; white-space: normal; text-align: left;
-            background: var(--text-main); color: #fff; border-radius: 8px; padding: 10px 12px;
-            font-size: 0.78rem; line-height: 1.5;
+        .pd-ring-num strong { font-size: 2.6rem; font-weight: 700; color: var(--text-main); }
+        .pd-ring-num span { font-size: 0.95rem; color: var(--text-muted); margin-top: 8px; }
+        @media (max-width: 620px) {
+            .pd-head { flex-direction: column; align-items: flex-start; }
+            .pd-ring { width: 112px; height: 112px; }
+            .pd-ring-num strong { font-size: 1.9rem; }
+            .pd-ring-num span { font-size: 0.8rem; margin-top: 5px; }
+            .pd-role { font-size: 1.45rem; }
         }
-        .pd-info:hover .pd-tip, .pd-info:focus .pd-tip { display: block; }
 
-        .pd-why { border-top: 1px solid rgba(59,89,138,.12); margin-top: 22px; padding-top: 22px; }
-        .pd-why h4 { font-size: 1.15rem; font-weight: 600; color: var(--text-main); }
-        .pd-why-sub { color: var(--text-muted); font-size: 0.9rem; margin-top: 4px; }
-        .pd-signals { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 16px; }
-        @media (max-width: 900px) { .pd-signals { grid-template-columns: 1fr; } }
-        .pd-signal {
-            display: flex; align-items: center; gap: 14px; min-width: 0;
-            border: 1px solid rgba(59,89,138,.16); border-radius: 12px; padding: 14px 16px;
-        }
-        .pd-icon {
-            flex: 0 0 auto; width: 40px; height: 40px; border-radius: 10px;
-            display: flex; align-items: center; justify-content: center;
-            background: var(--primary-soft); color: var(--primary-color);
-        }
-        .pd-icon svg { width: 20px; height: 20px; }
-        .path-detail.risk .pd-icon { background: rgba(217,119,6,.10); color: #b45309; }
-        .pd-signal-name { font-size: 0.95rem; font-weight: 600; color: var(--text-main); line-height: 1.35; }
-        .pd-signal-src { font-size: 0.82rem; color: var(--text-muted); line-height: 1.4; margin-top: 2px; }
+        /* Two columns: what already supports the path, and what to build next. */
+        .pd-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 28px 48px; margin-top: 36px; }
+        @media (max-width: 780px) { .pd-cols { grid-template-columns: 1fr; } }
+        .pd-cols h4 { font-size: 1.1rem; font-weight: 600; color: var(--text-main); margin-bottom: 16px; }
+        .pd-list { list-style: none; display: flex; flex-direction: column; gap: 16px; }
+        .pd-list li { display: flex; align-items: flex-start; gap: 14px; font-size: 1rem; line-height: 1.5; color: var(--text-main); }
+        .pd-list li svg { flex: 0 0 auto; width: 22px; height: 22px; margin-top: 1px; }
+        .pd-list.ok li svg { color: #2f9e5b; }
+        .pd-list.gap li svg { color: #d92d20; }
+        .pd-empty { font-size: 0.92rem; color: var(--text-muted); }
 
-        .pd-more {
-            display: inline-flex; align-items: center; gap: 6px; margin-top: 16px;
-            background: none; border: 0; padding: 0; cursor: pointer;
-            font-family: inherit; font-size: 0.92rem; font-weight: 600; color: var(--primary-color);
+        .pd-next {
+            margin-top: 36px; background: rgba(59,89,138,.06);
+            border-radius: 14px; padding: 22px 26px;
         }
-        .pd-more:hover { text-decoration: underline; }
-        .pd-more .arr { transition: transform .15s; }
-        .pd-more[aria-expanded="true"] .arr { transform: rotate(90deg); }
-        .pd-all { margin-top: 12px; display: flex; flex-direction: column; gap: 14px; }
-        .pd-all[hidden] { display: none; }
-        .pd-all h5 { font-size: 0.75rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px; }
-        .pd-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
-        .pd-list li { position: relative; padding-left: 22px; font-size: 0.9rem; line-height: 1.5; color: #303c4f; }
-        .pd-list li::before { position: absolute; left: 2px; top: 0; font-weight: 700; }
-        .pd-list.ok li::before { content: '✓'; color: var(--primary-color); }
-        .pd-list.gap li::before { content: '!'; color: #d97706; font-style: italic; left: 5px; }
-
-        .pd-strengthen {
-            display: flex; align-items: center; gap: 16px; margin-top: 24px;
-            background: var(--primary-soft); border: 1px dashed var(--primary-ring);
-            border-radius: 12px; padding: 18px 20px;
+        .path-detail.risk .pd-next { background: rgba(217,119,6,.07); }
+        .pd-next-label {
+            font-size: 0.75rem; font-weight: 600; letter-spacing: .12em;
+            text-transform: uppercase; color: var(--text-muted);
         }
-        .pd-strengthen .pd-icon { width: 48px; height: 48px; background: #fff; border: 1px solid rgba(59,89,138,.14); }
-        .pd-strengthen .pd-icon svg { width: 24px; height: 24px; }
-        .pd-strengthen h4 { font-size: 1rem; font-weight: 600; color: var(--text-main); }
-        .pd-strengthen p { font-size: 0.92rem; color: var(--text-muted); line-height: 1.55; margin-top: 4px; }
-        .path-detail.risk .pd-strengthen { background: rgba(217,119,6,.06); border-color: rgba(217,119,6,.35); }
+        .pd-next p { font-size: 1.05rem; font-weight: 600; color: var(--text-main); line-height: 1.5; margin-top: 8px; }
         .futures-cta {
-            display: flex; align-items: center; gap: 18px;
-            background: var(--primary-soft); border-radius: 14px; padding: 18px 22px;
+            display: flex; align-items: center; gap: 20px;
+            background: white; border-radius: 16px; padding: 24px 28px;
         }
         @media (max-width: 720px) { .futures-cta { flex-wrap: wrap; } .futures-cta .submit-btn { width: 100%; justify-content: center; } }
         .futures-cta .cta-icon { flex: 0 0 auto; color: var(--primary-color); display: flex; }
-        .futures-cta .cta-icon svg { width: 24px; height: 24px; }
+        .futures-cta .cta-icon img { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; }
         .futures-cta .cta-text { flex: 1 1 260px; min-width: 0; }
         .futures-cta h4 { font-size: 1.05rem; font-weight: 600; color: var(--text-main); }
-        .futures-cta p { font-size: 0.9rem; color: var(--text-muted); line-height: 1.5; margin-top: 2px; }
+        .futures-cta p { font-size: 0.92rem; color: var(--text-muted); line-height: 1.55; margin-top: 4px; }
         .futures-cta .submit-btn { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 8px; }
-        .pd-actions { display: flex; justify-content: flex-end; margin-top: 22px; }
+        .pd-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
         .pd-explore { display: inline-flex; align-items: center; gap: 8px; }
+        /* Nexa's avatar marks the buttons that open a chat with Nexa. */
+        .submit-btn .nexa-avatar {
+            width: 26px; height: 26px; border-radius: 50%; object-fit: cover; flex: none;
+            margin: -4px 2px -4px -10px; border: 2px solid rgba(255,255,255,.85);
+        }
         @media (max-width: 620px) { .pd-actions .pd-explore { width: 100%; justify-content: center; } }
         .paths-stale { font-size: 0.85rem; color: var(--text-muted); }
 
         /* Daily note on the left, "What's likely to happen?" on the right;
            stacked on narrow screens. */
-        .daily-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+        .daily-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
         @media (max-width: 900px) { .daily-wrap { grid-template-columns: 1fr; } }
-        .daily-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+        .daily-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
         .daily-date {
             font-size: 0.72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
             color: var(--primary-color); background: var(--primary-soft);
@@ -551,19 +531,19 @@
         }
         .daily-birth-form .submit-row { margin-top: 14px; gap: 10px; justify-content: flex-end; }
         .daily-birth-form .submit-error { margin-right: auto; }
-        .daily-headline { font-size: 1.3rem; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 10px; }
+        .daily-headline { font-size: 1.4rem; font-weight: 700; letter-spacing: -0.02em; line-height: 1.3; margin-bottom: 14px; }
         .daily-guidance { color: #303c4f; line-height: 1.75; font-size: 1rem; margin-bottom: 2em}
-        .daily-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 18px; }
+        .daily-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 24px; }
         .daily-meta .item-card:first-child { grid-column: 1 / -1; }
         @media (max-width: 620px) { .daily-meta { grid-template-columns: 1fr; } }
         .daily-meta .item-card p { font-size: 0.92rem; }
         .daily-empty { text-align: center; color: var(--text-muted); line-height: 1.6; }
         .daily-empty .ghost-btn { margin-top: 14px; }
 
-        .sit-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 4px; }
-        .sit-sub { color: var(--text-muted); font-size: 0.88rem; line-height: 1.55; margin-bottom: 14px; }
+        .sit-title { font-size: 1.25rem; font-weight: 700; margin-bottom: 6px; }
+        .sit-sub { color: var(--text-muted); font-size: 0.95rem; line-height: 1.6; margin-bottom: 20px; }
         .sit-count { font-size: 0.78rem; color: var(--text-muted); }
-        .sit-examples { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+        .sit-examples { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 16px; }
         .sit-examples-label { font-size: 0.85rem; color: var(--text-muted); margin-right: 2px; }
         .sit-example {
             font: inherit; font-size: 0.85rem; font-weight: 500; color: var(--primary-color);
@@ -572,7 +552,7 @@
         }
         .sit-example:hover, .sit-example.active { background: var(--primary-soft); }
         .sit-example:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; }
-        .sit-result { margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(59,89,138,.10); }
+        .sit-result { margin-top: 28px; padding-top: 28px; border-top: 1px solid rgba(59,89,138,.10); }
         .sit-asked {
             font-size: 0.85rem; color: var(--text-muted); font-style: italic; line-height: 1.55;
             background: rgba(40,108,217,.035); border-radius: 12px; padding: 10px 14px; margin-bottom: 14px;
@@ -590,7 +570,7 @@
             --card-shadow: 0 12px 32px -14px rgba(40, 42, 120, 0.30);
         }
         #daily-panel .card,
-        #daily-panel .item-card { border-color: rgba(67, 72, 170, 0.14); margin-bottom: 10px;}
+        #daily-panel .item-card { border-color: rgba(67, 72, 170, 0.14); margin-bottom: 24px;}
         #daily-panel .item-card,
         #daily-panel .sit-asked { background: rgba(70, 131, 229, 0.04); }
         #daily-panel .field textarea { border-color: rgba(67, 72, 170, 0.22); }
@@ -611,8 +591,8 @@
             .lucky-grid { grid-template-columns: 1fr; }
             .timing-row { flex-direction: column; }
             .timing-when { min-width: 0; }
-            .book-page { padding: 24px 20px 28px; }
-            .book-page.is-cover { padding: 32px 22px; }
+            .book-page { padding: 28px 22px 32px; }
+            .book-page.is-cover { padding: 40px 24px; }
             .cover-desc { font-size: 1.35rem; }
             .book-chapter { font-size: 1.15rem; }
             .book-nav { gap: 10px; }
@@ -628,7 +608,7 @@
         <h2 id="horo-title">Daily Horoscope</h2>
         <p id="horo-sub">Today's career outlook, read from your chart</p>
         <button type="button" class="ghost-btn" id="regenerate-btn" title="" style="display:none;">Regenerate</button>
-        <button type="button" class="ghost-btn" id="futures-refresh">Refresh</button>
+        <button type="button" class="ghost-btn" id="futures-refresh">Refresh Career Paths</button>
     </div>
 
     <div class="daily-wrap" id="daily-panel" style="display:inline;">
@@ -1340,12 +1320,12 @@
             : `<p class="paths-stale">Refresh to see your likely paths, with how likely each one is.</p>`);
         $('futures-card').innerHTML = body;
         $('futures-cta').innerHTML = `<div class="futures-cta">
-            <span class="cta-icon" aria-hidden="true">${pdIcon('chat')}</span>
+            <span class="cta-icon" aria-hidden="true"><img src="/static/nexa-avatar.png" alt=""></span>
             <div class="cta-text">
                 <h4>Have a different role in mind?</h4>
                 <p>Discuss your career options, explore new possibilities or get a personalised development plan.</p>
             </div>
-            <button type="button" class="submit-btn" id="futures-talk">Talk to Nexa about my career <span aria-hidden="true">→</span></button>
+            <button type="button" class="submit-btn" id="futures-talk"><img class="nexa-avatar" src="/static/nexa-avatar.png" alt="">Talk to Nexa about my career <span aria-hidden="true">→</span></button>
         </div>`;
         $('path-detail').innerHTML = '';
         $('futures-talk').addEventListener('click', () => startNexaSession('Career',
@@ -1356,12 +1336,6 @@
             const select = i => {
                 tabs.forEach((t, j) => { t.classList.toggle('active', j === i); t.setAttribute('aria-selected', j === i); });
                 $('path-detail').innerHTML = pathDetail(paths[i]);
-                const more = document.querySelector('#path-detail .pd-more');
-                if (more) more.addEventListener('click', () => {
-                    const open = more.getAttribute('aria-expanded') !== 'true';
-                    more.setAttribute('aria-expanded', open);
-                    more.nextElementSibling.hidden = !open;
-                });
                 document.querySelector('#path-detail .pd-explore')
                     .addEventListener('click', () => explorePathWithNexa(paths[i]));
             };
@@ -1380,89 +1354,57 @@
         return `<button type="button" role="tab" class="path-tab${p.type === 'risk' ? ' risk' : ''}" data-i="${i}">
             <div class="pt-kind">${escHtml(PATH_KINDS[p.type] || '')}</div>
             <div class="pt-role">${escHtml(p.role)}</div>
-            <div class="pt-conf">${pct(p.likelihood)}% confidence</div>
+            <div class="pt-conf">${pct(p.likelihood)}% probability</div>
         </button>`;
     }
 
-    // Line icons for the evidence cards; the model picks one key per signal.
-    const PD_ICONS = {
-        chart: '<path d="M4 20h16M7 16v-4M11 16V8M15 16v-6"/>',
-        team: '<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 5.2a3 3 0 0 1 0 5.6M21 20c0-2.6-1.6-4.8-4-5.6"/>',
-        layers: '<path d="M12 3 3 8l9 5 9-5-9-5z"/><path d="m3 13 9 5 9-5"/>',
-        target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>',
-        compass: '<circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5 5-2z"/>',
-        briefcase: '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 13h18"/>',
-        chat: '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/>',
-        star: '<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2-5.5-2.9-5.5 2.9 1-6.2L3 9.6l6.2-.9L12 3z"/>',
-    };
-    const PD_ICON_ORDER = ['chart', 'team', 'layers'];
-    const pdIcon = key => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${PD_ICONS[key] || PD_ICONS.star}</svg>`;
-
-    const PATH_KICKERS = {
-        most_likely: 'Likely direction', accelerated: 'Accelerated path',
-        adjacent: 'Adjacent possibility', risk: 'Risk trajectory',
-    };
-    // Turns the likelihood into a plain-words signal strength (bars lit, label).
-    const signalOf = conf => conf >= 65 ? [3, 'Strong signal'] : conf >= 35 ? [2, 'Moderate signal'] : [1, 'Early signal'];
+    const PD_TICK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
+    const PD_ALERT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 7v6M12 16.5h.01"/></svg>';
 
     function pathDetail(p) {
         const conf = pct(p.likelihood);
-        const [bars, sigLabel] = signalOf(conf);
         const isRisk = p.type === 'risk';
-        // Older runs saved evidence as plain strings, with no source line.
+        // Older runs saved evidence as plain strings.
         const evidence = (Array.isArray(p.evidence) ? p.evidence : [])
-            .map(e => typeof e === 'string' ? { signal: e } : e)
-            .filter(e => e && e.signal);
+            .map(e => typeof e === 'string' ? e : e && e.signal).filter(Boolean);
         const missing = Array.isArray(p.missing) ? p.missing : [];
-        const when = [PATH_KICKERS[p.type], p.timeline].filter(Boolean).map(escHtml).join(' · ');
-        const list = (cls, items) => `<ul class="pd-list ${cls}">${items.map(x => `<li>${escHtml(x)}</li>`).join('')}</ul>`;
-        const signals = evidence.map((e, i) => `<div class="pd-signal">
-                <div class="pd-icon">${pdIcon(PD_ICONS[e.icon] ? e.icon : PD_ICON_ORDER[i % PD_ICON_ORDER.length])}</div>
-                <div>
-                    <div class="pd-signal-name">${escHtml(e.signal)}</div>
-                    ${e.source ? `<div class="pd-signal-src">${escHtml(e.source)}</div>` : ''}
-                </div>
-            </div>`).join('');
+        // Runs saved before next_step existed fall back to the top gap.
+        const nextStep = p.next_step || missing[0] || '';
+        const list = (cls, icon, items) => items.length
+            ? `<ul class="pd-list ${cls}">${items.map(x => `<li>${icon}<span>${escHtml(x)}</span></li>`).join('')}</ul>`
+            : '<p class="pd-empty">Not yet evidenced.</p>';
         return `<div class="path-detail${isRisk ? ' risk' : ''}">
             <div class="pd-head">
+                <div class="pd-ring" role="img" aria-label="Likelihood ${conf} out of 100">
+                    <svg viewBox="0 0 120 120" aria-hidden="true">
+                        <circle class="track" cx="60" cy="60" r="52" fill="none" stroke-width="10"/>
+                        <circle class="fill" cx="60" cy="60" r="52" fill="none" stroke-width="10" stroke-linecap="round"
+                            pathLength="100" stroke-dasharray="${conf} 100"/>
+                    </svg>
+                    <div class="pd-ring-num"><strong>${conf}</strong><span>of 100</span></div>
+                </div>
                 <div class="pd-head-text">
-                    ${when ? `<div class="pd-when">${when}</div>` : ''}
+                    ${p.timeline ? `<div class="pd-when">${escHtml(p.timeline)}</div>` : ''}
                     <div class="pd-role">${escHtml(p.role)}</div>
                     ${p.summary ? `<p class="pd-summary">${escHtml(p.summary)}</p>` : ''}
                 </div>
-                <div class="pd-conf">
-                    <span class="sig-bars" aria-hidden="true">${[1, 2, 3].map(n => `<i class="${n <= bars ? 'on' : ''}"></i>`).join('')}</span>
-                    <span>${sigLabel}</span>
-                    <span class="sep" aria-hidden="true"></span>
-                    <strong>${conf}% confidence</strong>
-                    <span class="pd-info" tabindex="0" aria-label="About this estimate">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>
-                        <span class="pd-tip" role="tooltip">Our estimate of how likely this path is within its timeline if you carry on as you are, based on your profile and Nexa conversations. Paths can overlap, so the numbers don't add up to 100%.</span>
-                    </span>
-                </div>
             </div>
-            <div class="pd-why">
-                <h4>${isRisk ? 'Why this pattern is showing' : 'Why this path is emerging'}</h4>
-                <p class="pd-why-sub">${isRisk
-                    ? 'These signals from your profile and conversations suggest this is worth watching.'
-                    : 'These signals from your profile and conversations suggest this could be a good fit.'}</p>
-                ${evidence.length ? `<div class="pd-signals">${signals}</div>` : '<p class="paths-stale" style="margin-top:12px">Not yet evidenced.</p>'}
-                ${evidence.length || missing.length > 1 ? `
-                <button type="button" class="pd-more" aria-expanded="false">View all evidence <span class="arr" aria-hidden="true">→</span></button>
-                <div class="pd-all" hidden>
-                    ${evidence.length ? `<div><h5>Evidence supporting this path</h5>${list('ok', evidence.map(e => e.source ? `${e.signal}: ${e.source}` : e.signal))}</div>` : ''}
-                    ${missing.length ? `<div><h5>What is still missing</h5>${list('gap', missing)}</div>` : ''}
-                </div>` : ''}
-            </div>
-            ${missing.length ? `<div class="pd-strengthen">
-                <div class="pd-icon">${pdIcon('target')}</div>
+            <div class="pd-cols">
                 <div>
-                    <h4>${isRisk ? 'One thing to change' : 'One area to strengthen'}</h4>
-                    <p>${escHtml(missing[0])}</p>
+                    <h4>${isRisk ? 'Why this pattern is showing' : 'What supports this path'}</h4>
+                    ${list('ok', PD_TICK, evidence)}
                 </div>
+                <div>
+                    <h4>${isRisk ? 'What to change' : 'What to build next'}</h4>
+                    ${list('gap', PD_ALERT, missing)}
+                </div>
+            </div>
+            ${nextStep ? `<div class="pd-next">
+                <div class="pd-next-label">A practical next step</div>
+                <p>${escHtml(nextStep)}</p>
             </div>` : ''}
             <div class="pd-actions">
-                <button type="button" class="submit-btn pd-explore">Explore this path with Nexa <span aria-hidden="true">→</span></button>
+                <button type="button" class="submit-btn pd-explore"><img class="nexa-avatar" src="/static/nexa-avatar.png" alt="">Plan this with Nexa</button>
             </div>
         </div>`;
     }

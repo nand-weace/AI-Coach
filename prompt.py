@@ -276,6 +276,7 @@ WHAT TO PRODUCE
      - source: where it showed up, 8 words or fewer (e.g. "Discussed in 3 recent conversations", "Aligned with your profile and goal setting", "Listed in your LinkedIn history").
      - icon: the one that best fits, from: chart, team, layers, target, compass, briefcase, chat, star.
    - missing: 1 to 3 short sentences (18 words or fewer each) of what is not yet evidenced and would strengthen it, most important first, written as an action (e.g. "Build evidence of leading commercial outcomes across multiple teams or markets, not just your own function.").
+   - next_step: one concrete action they could take this quarter toward the top "missing" item, 18 words or fewer (e.g. "Agree a scorecard with your manager and take over two client renewals this quarter.").
    - likelihood: 0 to 100, your honest estimate of the chance this path actually happens within its timeline, if they carry on as they are now.
      Base it on how far the path is from where they are today, how strongly their profile and words point to it, and how recent that signal is.
      Be calibrated, not flattering. Paths are not exclusive, so the four need not add up to 100. As a guide: most_likely usually 50 to 80, accelerated and adjacent usually 15 to 50, risk reflects how strongly the warning pattern already shows. Never go above 90 or below 5.
@@ -297,6 +298,7 @@ Return ONLY valid JSON, with no markdown and no preamble:
   "paths": [
     { "type": "most_likely", "role": "...", "timeline": "...", "summary": "...",
       "evidence": [ { "signal": "...", "source": "...", "icon": "chart" } ], "missing": [ "..." ],
+      "next_step": "...",
       "likelihood": 0 }
   ]
 }

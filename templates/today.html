@@ -25,35 +25,45 @@
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             /* Same face and ground as the chat page (style.css). */
-            font-family: 'Inter', sans-serif;
-            background-color: oklch(0.95 0.02 278.05);
+            font-family: 'Poppins',system-ui,-apple-system,'Segoe UI',sans-serif;
+            background-color: #E3DEFF;
+            background-image: linear-gradient(110deg, #DDEEFF 0%, #E3DEFF 48%, #D9EEFF 100%);
+            background-attachment: fixed;
             color: var(--text-main);
             min-height: 100vh;
         }
 
-        .today-page { padding: 30px 18px 56px; max-width: 1280px; }
+        .today-page { padding: 15px 15px 90px; max-width: 1280px; }
         .today-label { font-size: 1.6rem; font-weight: 600; color: var(--heading); }
 
         .today-grid {
             display: grid;
             grid-template-columns: minmax(0, 1fr) minmax(300px, 400px);
-            gap: 56px;
+            grid-template-areas:
+                "ask     calendar"
+                "reading resource"
+                "insights insights";
+            gap: 15px;
         }
+        #ask-card { grid-area: ask; }
+        #calendar-card { grid-area: calendar; }
+        #reading-card { grid-area: reading; }
+        #resource-card { grid-area: resource; }
+        #insights-row { grid-area: insights; }
 
-        /* ── Left: greeting + ask box ── */
+        /* ── Greeting + ask box ── */
         .greeting {
-            font-size: 25px;
+            font-size: 22px;
             font-weight: 600;
             color: var(--heading);
             letter-spacing: -0.02em;
             line-height: 1.15;
-            margin-top: 10px
         }
-        .ask-title { margin-top: 10px; font-size: 15px; font-weight: 500; }
+        .ask-title { margin-top: 18px; font-size: 14px; font-weight: 500; color: var(--text-muted); }
 
         .ask-box {
             display: flex; align-items: center; gap: 8px;
-            margin-top: 16px;
+            margin-top: 26px;
             background: var(--card-bg);
             border: 1px solid var(--card-border);
             border-radius: 16px;
@@ -64,7 +74,7 @@
         .ask-box input {
             flex: 1; min-width: 0;
             border: 0; outline: 0; background: transparent;
-            font: inherit; font-size: 1rem; color: var(--text-main);
+            font: inherit; font-size: 0.92rem; color: var(--text-main);
             padding: 10px 0;
         }
         .ask-box input::placeholder { color: #8a93a4; }
@@ -79,29 +89,33 @@
         .send-btn:hover { background: var(--accent-hover); }
         .icon-btn svg { width: 22px; height: 22px; }
 
-        .nudges { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 18px; }
+        /* Inside the card the box and pills sit on a light tint rather than
+           a second white surface with its own shadow. */
+        .ask-card .ask-title { margin-top: 10px; }
+        .ask-card .ask-box { background: #f6f7fd; box-shadow: none; }
+        .ask-card .nudge { background: #f6f7fd; }
+        .nudges { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
         .nudge {
-            font: inherit; font-size: 0.95rem; font-weight: 500;
+            font: inherit; font-size: 0.84rem; font-weight: 500;
             color: var(--accent);
             background: rgba(255, 255, 255, 0.85);
             border: 1px solid var(--card-border);
             border-radius: 999px;
-            padding: 10px 20px;
+            padding: 8px 18px;
             cursor: pointer;
             text-align: left;
             transition: background 0.15s, border-color 0.15s;
         }
         .nudge:hover { background: #fff; border-color: var(--accent); }
-        .nudge.skeleton { width: 220px; height: 44px; color: transparent; pointer-events: none; }
+        .nudge.skeleton { width: 200px; height: 38px; color: transparent; pointer-events: none; }
 
         /* ── Right: Your Day ── */
         .day-title { font-size: 1.5rem; font-weight: 600; color: var(--heading); margin-top: -46px; }
-        .day-cards { display: flex; flex-direction: column; gap: 22px; margin-top: 18px; }
         .day-card {
             background: var(--card-bg);
             border: 1px solid var(--card-border);
             border-radius: 16px;
-            padding: 16px 18px;
+            padding: 20px 21px;
             box-shadow: var(--card-shadow);
         }
         .day-card-head { display: flex; align-items: center; gap: 16px; }
@@ -111,21 +125,22 @@
             background: var(--icon-bg); color: var(--heading);
         }
         .day-card-icon svg { width: 24px; height: 24px; }
-        .day-card-kicker { font-size: 0.9rem; font-weight: 500; color: var(--text-muted); }
-        .day-card h3 { margin-top: 20px; font-size: 1.2rem; font-weight: 600; line-height: 1.35; }
+        .day-card-kicker { font-size: 0.8rem; font-weight: 500; color: var(--text-muted); }
+        .day-card h3 { margin-top: 26px; font-size: 1.05rem; font-weight: 600; line-height: 1.35; }
         .day-card p {
-            margin-top: 10px; color: var(--text-muted); font-size: 0.95rem; line-height: 1.55;
+            margin-top: 12px; color: var(--text-muted); font-size: 0.86rem; line-height: 1.6;
             display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;
         }
         .day-card-link {
             display: inline-flex; align-items: center; gap: 8px;
-            margin-top: 22px;
-            font: inherit; font-weight: 600; font-size: 0.98rem;
+            margin-top: 28px;
+            font: inherit; font-weight: 600; font-size: 0.86rem;
             color: var(--accent); text-decoration: none;
             background: none; border: 0; padding: 0; cursor: pointer;
         }
         .day-card-link:hover { text-decoration: underline; }
         .day-card-link svg { width: 16px; height: 16px; }
+        .day-card-link .nexa-avatar { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex: none; }
 
         .shimmer {
             display: block; border-radius: 6px;
@@ -137,31 +152,80 @@
         .shimmer.t { height: 14px; width: 95%; margin-top: 12px; }
         @keyframes shimmer { to { background-position: -200% 0; } }
 
-        /* ── Daily Pulse ── */
-        .today-main { display: flex; flex-direction: column; gap: 36px; min-width: 0; }
-        .pulse-card {
-            background: var(--card-bg);
-            border: 1px solid var(--card-border);
-            border-radius: 16px;
-            padding: 14px 18px;
-            box-shadow: var(--card-shadow);
+        /* ── Today's Reading: the featured card under the ask box ── */
+        .reading-feature {
+            padding: 15px 15px;
+            border-color: rgba(43, 92, 230, 0.22);
         }
+        .reading-feature .day-card-icon { background: var(--accent); color: #fff; }
+        .reading-feature .day-card-kicker {
+            font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+            color: var(--accent);
+        }
+        .reading-feature h3 { margin-top: 15px; font-size: 1.35rem; color: var(--heading); letter-spacing: -0.01em; }
+        .reading-feature p { margin-top: 18px; font-size: 0.92rem; line-height: 1.7; color: var(--text-main); -webkit-line-clamp: 4; }
+        .reading-feature .shimmer.h { height: 30px; }
+        /* The card stretches to the resource card's height, so the body fills it
+           and the link sits in the bottom-right corner; the paragraph's bottom
+           margin keeps a gap above it when the card is at its natural height. */
+        .reading-feature { display: flex; flex-direction: column; }
+        #reading-body { flex: 1; display: flex; flex-direction: column; }
+        .reading-feature p { margin-bottom: 15px; }
+        .reading-feature .day-card-link {
+            margin-top: auto; align-self: flex-end;
+            padding: 10px 18px; border-radius: 10px;
+            background: var(--accent); color: #fff;
+        }
+        .reading-feature .day-card-link:hover { background: var(--accent-hover); text-decoration: none; }
+
+        /* ── Insight teasers: a taste of My Insights and Career Path ── */
+        .insights-row {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }
+        .insights-row .day-card { display: flex; flex-direction: column; }
+        .teaser-list { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+        .teaser-item { padding: 10px 14px; border-radius: 10px; background: #f6f7fd; }
+        .teaser-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+        .teaser-tag {
+            font-size: 0.68rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+            color: var(--text-muted);
+        }
+        .teaser-label { margin-top: 2px; font-size: 0.9rem; font-weight: 600; color: var(--heading); line-height: 1.35; }
+        .teaser-row .teaser-label { margin-top: 0; }
+        .teaser-text {
+            margin-top: 4px; font-size: 0.8rem; line-height: 1.5; color: var(--text-muted);
+            display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;
+        }
+        .teaser-score { flex: none; font-size: 0.8rem; font-weight: 600; color: var(--accent); }
+        .teaser-bar { height: 4px; margin-top: 6px; border-radius: 999px; background: #e3e6f3; overflow: hidden; }
+        .teaser-bar span { display: block; height: 100%; border-radius: inherit; background: var(--accent); }
+        .teaser-empty { margin-top: 12px; font-size: 0.84rem; line-height: 1.6; color: var(--text-muted); }
+        .insights-row .day-card-link { margin-top: auto; padding-top: 14px; }
+        /* Compact head: a smaller icon keeps the four teasers short. */
+        .insights-row .day-card-head { gap: 12px; }
+        .insights-row .day-card-icon { width: 36px; height: 36px; border-radius: 10px; }
+        .insights-row .day-card-icon svg { width: 18px; height: 18px; }
+        .insights-row .shimmer.h { margin-top: 14px; }
+
+        /* ── Daily Pulse: the last card in the insights row ── */
         .pulse-card-head { display: flex; align-items: center; gap: 16px; }
-        .pulse-title { font-size: 1.1rem; font-weight: 600; color: var(--heading); }
+        .pulse-title { font-size: 0.84rem; font-weight: 600; color: var(--text-muted); }
         .pulse-loading { margin-top: 12px; }
         .pulse-question { margin-top: 20px; font-size: 0.95rem; font-weight: 500; }
-        .mood-row { display: flex; gap: 8px; margin-top: 12px; }
+        .mood-row { display: flex; gap: 8px; margin-top: 14px; }
         .mood-btn {
             flex: 1; cursor: pointer; font-family: inherit;
             background: #fff;
-            border: 1.5px solid var(--card-border);
-            border-radius: 14px; padding: 12px 4px 10px;
-            display: flex; flex-direction: column; align-items: center; gap: 6px;
+            border: 1px solid var(--card-border);
+            border-radius: 10px; padding: 8px 2px 6px;
+            display: flex; flex-direction: column; align-items: center; gap: 4px;
             transition: border-color .15s ease, background .15s ease, transform .12s ease;
         }
         .mood-btn:hover { transform: translateY(-2px); border-color: var(--accent); }
-        .mood-face { width: 28px; height: 28px; color: var(--text-muted); }
-        .mood-label { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); }
+        .mood-face { width: 22px; height: 22px; color: var(--text-muted); }
+        .mood-label { font-size: 0.64rem; font-weight: 600; color: var(--text-muted); }
         .mood-btn.selected { border-color: var(--accent); background: var(--icon-bg); }
         .mood-btn.selected .mood-face,
         .mood-btn.selected .mood-label { color: var(--accent); }
@@ -169,7 +233,7 @@
         .pulse-note-label span { font-weight: 400; color: var(--text-muted); font-size: 0.82rem; }
         .note-input {
             width: 100%; min-height: 96px; resize: vertical; margin-top: 8px;
-            font-family: inherit; font-size: 0.92rem; line-height: 1.6; color: var(--text-main);
+            font-family: inherit; font-size: 0.85rem; line-height: 1.6; color: var(--text-main);
             background: #fff;
             border: 1.5px solid var(--card-border);
             border-radius: 12px; padding: 12px 14px;
@@ -177,19 +241,19 @@
         .note-input:focus { outline: none; border-color: var(--accent); }
         .note-foot { display: flex; align-items: center; gap: 12px; margin-top: 10px; font-size: 0.78rem; color: var(--text-muted); }
         .pulse-names-hint { margin-right: auto; }
-        .pulse-submit-row { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 16px; }
+        .pulse-submit-row { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 20px; }
         .submit-error { font-size: 0.82rem; color: #b91c1c; margin-right: auto; }
         .note-count.over { color: #b91c1c; font-weight: 600; }
         .pulse-submit {
-            font: inherit; font-size: 0.9rem; font-weight: 600;
+            font: inherit; font-size: 0.82rem; font-weight: 600;
             color: #fff; background: var(--accent);
             border: 0; border-radius: 10px; padding: 10px 20px; cursor: pointer;
         }
         .pulse-submit:hover:not(:disabled) { background: var(--accent-hover); }
         .pulse-submit:disabled { opacity: 0.45; cursor: not-allowed; }
         .pulse-done {
-            display: flex; align-items: center; gap: 10px; margin-top: 18px;
-            font-size: 0.95rem; color: var(--text-muted);
+            display: flex; align-items: center; gap: 8px; margin-top: 12px;
+            font-size: 0.82rem; color: var(--text-muted);
         }
         .pulse-done[hidden], #pulse-form[hidden], #pulse-note-wrap[hidden], .pulse-loading[hidden] { display: none; }
         .pulse-done svg { width: 20px; height: 20px; flex: none; color: #16a34a; }
@@ -197,16 +261,21 @@
         @media (max-width: 600px) {
             .mood-row { flex-wrap: wrap; }
             .mood-btn { flex: 1 1 30%; }
-            .pulse-card { padding: 22px 20px; }
+            .reading-feature { padding: 15px 15px; }
+            .reading-feature h3 { font-size: 1.2rem; }
         }
 
         @media (max-width: 1024px) {
-            .today-grid { grid-template-columns: 1fr; gap: 40px; }
+            .today-grid {
+                grid-template-columns: 1fr;
+                grid-template-areas: "ask" "calendar" "reading" "resource" "insights";
+            }
+            .insights-row { grid-template-columns: 1fr; }
             .day-title { margin-top: 0; }
         }
         @media (max-width: 600px) {
-            .today-page { padding: 16px 16px 40px; }
-            .day-card { padding: 22px 20px; }
+            .today-page { padding: 24px 16px 48px; }
+            .day-card { padding: 15px 15px; }
         }
     </style>
 </head>
@@ -215,11 +284,12 @@
 {% include '_header.html' %}
 
 <main class="today-page" id="today-page">
+    {# Two columns laid out by row, so each left card lines up with the one beside it:
+       ask | calendar, reading | resource, then the insight teasers and Pulse two to
+       a row across both. #}
     <div class="today-grid" id="today-grid">
-        <div class="today-main" id="today-main">
-        <section id="today-ask-section">
+        <section class="day-card ask-card" id="ask-card">
             <h2 class="greeting" id="greeting">Hello, {{ first_name }}.</h2>
-
             <h2 class="ask-title" id="ask-title">What would you like to work through today?</h2>
             <form class="ask-box" id="ask-form" autocomplete="off">
                 <input type="text" id="ask-input" placeholder="Ask Nexa anything..." aria-label="Ask Nexa anything">
@@ -241,104 +311,147 @@
             </div>
         </section>
 
-        {% if show_pulse_checkin %}
-        {# Daily Pulse — the same anonymous one-note-a-day check-in as /pulse,
-           posted to /api/pulse. The state shown (form or done) is decided by
-           /api/pulse/today, so it opens on the loader. #}
-        <section class="pulse-card" id="pulse-section">
-            <div class="pulse-card-head" id="pulse-head">
-                <div class="day-card-icon" id="pulse-icon">
-                    <svg id="pulse-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        <article class="day-card" id="calendar-card">
+            <div class="day-card-head" id="calendar-head">
+                <div class="day-card-icon" id="calendar-icon">
+                    <svg id="calendar-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                 </div>
-                <div id="pulse-head-text">
-                    <h2 class="pulse-title" id="pulse-title">How is your day going?</h2>
-                </div>
+                <div class="day-card-kicker" id="calendar-kicker">Your calendar</div>
             </div>
-
-            <div class="pulse-loading" id="pulse-loading">
-                <span class="shimmer t" id="pulse-skeleton"></span>
+            {# Filled by renderMeeting(): #calendar-title, #calendar-text, #prep-btn #}
+            <div id="calendar-body">
+                <span class="shimmer h" id="calendar-skeleton-title"></span><span class="shimmer t" id="calendar-skeleton-line"></span>
             </div>
+        </article>
 
-            <div id="pulse-form" hidden>
-                <div class="mood-row" id="mood-row">
-                    {% for m in moods %}
-                    <button type="button" class="mood-btn" id="mood-btn-{{ m.value }}" data-mood="{{ m.value }}"
-                            aria-pressed="false" aria-label="{{ m.label }}">
-                        <svg class="mood-face" id="mood-face-{{ m.value }}" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                             stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="12" cy="12" r="9"/>
-                            <circle cx="9" cy="10" r="0.6" fill="currentColor" stroke="none"/>
-                            <circle cx="15" cy="10" r="0.6" fill="currentColor" stroke="none"/>
-                            {% if m.value == 1 %}<path d="M8.5 16.5c1-1.4 2.1-2.1 3.5-2.1s2.5.7 3.5 2.1"/>
-                            {% elif m.value == 2 %}<path d="M8.7 15.9c.9-.9 2-1.3 3.3-1.3s2.4.4 3.3 1.3"/>
-                            {% elif m.value == 3 %}<path d="M8.5 15h7"/>
-                            {% elif m.value == 4 %}<path d="M8.7 14.4c.9.9 2 1.4 3.3 1.4s2.4-.5 3.3-1.4"/>
-                            {% else %}<path d="M8.2 13.8c1 1.6 2.2 2.4 3.8 2.4s2.8-.8 3.8-2.4"/>{% endif %}
-                        </svg>
-                        <span class="mood-label" id="mood-label-{{ m.value }}">{{ m.label }}</span>
-                    </button>
-                    {% endfor %}
+        {# Daily Horoscope ships with Nexa Pro — hidden outright otherwise. #}
+        <article class="day-card reading-feature" id="reading-card"{% if not show_pulse %} hidden{% endif %}>
+            <div class="day-card-head" id="reading-head">
+                <div class="day-card-icon" id="reading-icon">
+                    <svg id="reading-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
                 </div>
+                <div class="day-card-kicker" id="reading-kicker">Today's Reading</div>
+            </div>
+            {# Filled by loadReading(): #reading-title, #reading-text, #reading-link #}
+            <div id="reading-body">
+                <span class="shimmer h" id="reading-skeleton-title"></span><span class="shimmer t" id="reading-skeleton-line-1"></span><span class="shimmer t" id="reading-skeleton-line-2"></span>
+            </div>
+        </article>
 
-                <div id="pulse-note-wrap">
-                    <textarea id="pulse-note" class="note-input" maxlength="{{ note_max }}"
-                              placeholder="What's working, what isn't, what would help. Write it the way you'd say it." hidden>
-                    </textarea>
-                    <div class="note-foot" id="pulse-note-foot" hidden>
-                        <span class="note-count" id="note-count" hidden>0 / {{ note_max }}</span>
+        <article class="day-card" id="resource-card">
+            <div class="day-card-head" id="resource-head">
+                <div class="day-card-icon" id="resource-icon">
+                    <svg id="resource-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                </div>
+                <div class="day-card-kicker" id="resource-kicker">Recommended for you</div>
+            </div>
+            {# Filled by loadResource(): #resource-title, #resource-text, #resource-link #}
+            <div id="resource-body">
+                <span class="shimmer h" id="resource-skeleton-title"></span><span class="shimmer t" id="resource-skeleton-line"></span>
+            </div>
+        </article>
+
+        {# Teasers: two random sentiments, two random Growth Mirror items, and the
+           likeliest career paths — each one a nudge to open the full page. #}
+        <section class="insights-row" id="insights-row">
+            <article class="day-card" id="sentiment-teaser">
+                <div class="day-card-head" id="sentiment-teaser-head">
+                    <div class="day-card-icon" id="sentiment-teaser-icon">
+                        <svg id="sentiment-teaser-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
                     </div>
-                    <div class="pulse-submit-row" id="pulse-submit-row">
-                        <span class="submit-error" id="pulse-error"></span>
-                        <button type="button" class="pulse-submit" id="pulse-submit" disabled>Send anonymously</button>
+                    <div class="day-card-kicker" id="sentiment-teaser-kicker">Sentiment analysis</div>
+                </div>
+                {# Filled by loadSentimentTeaser() #}
+                <div class="teaser-body" id="sentiment-teaser-body">
+                    <span class="shimmer h" id="sentiment-teaser-skeleton-title"></span><span class="shimmer t" id="sentiment-teaser-skeleton-line-1"></span><span class="shimmer t" id="sentiment-teaser-skeleton-line-2"></span>
+                </div>
+            </article>
+            <article class="day-card" id="growth-teaser">
+                <div class="day-card-head" id="growth-teaser-head">
+                    <div class="day-card-icon" id="growth-teaser-icon">
+                        <svg id="growth-teaser-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                    </div>
+                    <div class="day-card-kicker" id="growth-teaser-kicker">Growth mirror</div>
+                </div>
+                {# Filled by loadGrowthTeaser() #}
+                <div class="teaser-body" id="growth-teaser-body">
+                    <span class="shimmer h" id="growth-teaser-skeleton-title"></span><span class="shimmer t" id="growth-teaser-skeleton-line-1"></span><span class="shimmer t" id="growth-teaser-skeleton-line-2"></span>
+                </div>
+            </article>
+            {# Career Path ships with Nexa Pro, like the reading card. #}
+            <article class="day-card" id="career-teaser"{% if not show_pulse %} hidden{% endif %}>
+                <div class="day-card-head" id="career-teaser-head">
+                    <div class="day-card-icon" id="career-teaser-icon">
+                        <svg id="career-teaser-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
+                    </div>
+                    <div class="day-card-kicker" id="career-teaser-kicker">Career path</div>
+                </div>
+                {# Filled by loadCareerTeaser() #}
+                <div class="teaser-body" id="career-teaser-body">
+                    <span class="shimmer h" id="career-teaser-skeleton-title"></span><span class="shimmer t" id="career-teaser-skeleton-line-1"></span><span class="shimmer t" id="career-teaser-skeleton-line-2"></span>
+                </div>
+            </article>
+
+            {% if show_pulse_checkin %}
+            {# Daily Pulse — the same anonymous one-note-a-day check-in as /pulse,
+               posted to /api/pulse. The state shown (form or done) is decided by
+               /api/pulse/today, so it opens on the loader. #}
+            <section class="day-card pulse-card" id="pulse-section">
+                <div class="pulse-card-head" id="pulse-head">
+                    <div class="day-card-icon" id="pulse-icon">
+                        <svg id="pulse-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                    </div>
+                    <div id="pulse-head-text">
+                        <h2 class="pulse-title" id="pulse-title">How is your day going?</h2>
                     </div>
                 </div>
-            </div>
+
+                <div class="pulse-loading" id="pulse-loading">
+                    <span class="shimmer t" id="pulse-skeleton"></span>
+                </div>
+
+                <div id="pulse-form" hidden>
+                    <div class="mood-row" id="mood-row">
+                        {% for m in moods %}
+                        <button type="button" class="mood-btn" id="mood-btn-{{ m.value }}" data-mood="{{ m.value }}"
+                                aria-pressed="false" aria-label="{{ m.label }}" title="{{ m.label }}">
+                            <svg class="mood-face" id="mood-face-{{ m.value }}" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                 stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="9"/>
+                                <circle cx="9" cy="10" r="0.6" fill="currentColor" stroke="none"/>
+                                <circle cx="15" cy="10" r="0.6" fill="currentColor" stroke="none"/>
+                                {% if m.value == 1 %}<path d="M8.5 16.5c1-1.4 2.1-2.1 3.5-2.1s2.5.7 3.5 2.1"/>
+                                {% elif m.value == 2 %}<path d="M8.7 15.9c.9-.9 2-1.3 3.3-1.3s2.4.4 3.3 1.3"/>
+                                {% elif m.value == 3 %}<path d="M8.5 15h7"/>
+                                {% elif m.value == 4 %}<path d="M8.7 14.4c.9.9 2 1.4 3.3 1.4s2.4-.5 3.3-1.4"/>
+                                {% else %}<path d="M8.2 13.8c1 1.6 2.2 2.4 3.8 2.4s2.8-.8 3.8-2.4"/>{% endif %}
+                            </svg>
+                            <span class="mood-label" id="mood-label-{{ m.value }}">{{ m.label }}</span>
+                        </button>
+                        {% endfor %}
+                    </div>
+
+                    <div id="pulse-note-wrap">
+                        <textarea id="pulse-note" class="note-input" maxlength="{{ note_max }}"
+                                  placeholder="What's working, what isn't, what would help. Write it the way you'd say it." hidden>
+                        </textarea>
+                        <div class="note-foot" id="pulse-note-foot" hidden>
+                            <span class="note-count" id="note-count" hidden>0 / {{ note_max }}</span>
+                        </div>
+                        <div class="pulse-submit-row" id="pulse-submit-row">
+                            <span class="submit-error" id="pulse-error"></span>
+                            <button type="button" class="pulse-submit" id="pulse-submit" disabled>Send anonymously</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pulse-done" id="pulse-done" hidden>
+                    <svg id="pulse-done-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    <span id="pulse-done-text">Thanks. Today's note is in.</span>
+                </div>
+            </section>
+            {% endif %}
         </section>
-        {% endif %}
-        </div>
-
-        <aside id="today-day-section">
-            <div class="day-cards" id="day-cards">
-                <article class="day-card" id="calendar-card">
-                    <div class="day-card-head" id="calendar-head">
-                        <div class="day-card-icon" id="calendar-icon">
-                            <svg id="calendar-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                        </div>
-                        <div class="day-card-kicker" id="calendar-kicker">Your calendar</div>
-                    </div>
-                    {# Filled by renderMeeting(): #calendar-title, #calendar-text, #prep-btn #}
-                    <div id="calendar-body">
-                        <span class="shimmer h" id="calendar-skeleton-title"></span><span class="shimmer t" id="calendar-skeleton-line"></span>
-                    </div>
-                </article>
-                {# Daily Horoscope ships with Nexa Pro — hidden outright otherwise. #}
-                <article class="day-card" id="reading-card"{% if not show_pulse %} hidden{% endif %}>
-                    <div class="day-card-head" id="reading-head">
-                        <div class="day-card-icon" id="reading-icon">
-                            <svg id="reading-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-                        </div>
-                        <div class="day-card-kicker" id="reading-kicker">Today's Reading</div>
-                    </div>
-                    {# Filled by loadReading(): #reading-title, #reading-text, #reading-link #}
-                    <div id="reading-body">
-                        <span class="shimmer h" id="reading-skeleton-title"></span><span class="shimmer t" id="reading-skeleton-line-1"></span><span class="shimmer t" id="reading-skeleton-line-2"></span>
-                    </div>
-                </article>
-                <article class="day-card" id="resource-card">
-                    <div class="day-card-head" id="resource-head">
-                        <div class="day-card-icon" id="resource-icon">
-                            <svg id="resource-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-                        </div>
-                        <div class="day-card-kicker" id="resource-kicker">Recommended for you</div>
-                    </div>
-                    {# Filled by loadResource(): #resource-title, #resource-text, #resource-link #}
-                    <div id="resource-body">
-                        <span class="shimmer h" id="resource-skeleton-title"></span><span class="shimmer t" id="resource-skeleton-line"></span>
-                    </div>
-                </article>
-
-            </div>
-        </aside>
     </div>
 </main>
 
@@ -445,7 +558,7 @@
             : '';
         body.innerHTML = `<h3 id="calendar-title">${esc(m.title)}</h3>
             <p id="calendar-text">${esc(who)}Prepare for the conversation before you go in.</p>
-            <button type="button" class="day-card-link" id="prep-btn">Prepare with Nexa ${ARROW}</button>`;
+            <button type="button" class="day-card-link" id="prep-btn"><img class="nexa-avatar" id="prep-btn-avatar" src="/static/nexa-avatar.png" alt="">Prepare with Nexa ${ARROW}</button>`;
         const when = [m.day.toLowerCase(), m.time && `at ${m.time}`].filter(Boolean).join(' ');
         document.getElementById('prep-btn').addEventListener('click', () => askNexa(
             `I have "${m.title}" ${when}. Help me prepare for it: what I want out of it, ` +
@@ -525,6 +638,125 @@
                 <a class="day-card-link" id="resource-link" href="${esc(r.url)}" target="_blank" rel="noopener noreferrer">Open ${esc(label)} ${ARROW}</a>`;
         } catch (_) {
             empty("Today's pick isn't ready", "We couldn't load your recommendations just now.");
+        }
+    }
+
+    // ── Insight teasers ────────────────────────────────────────────────────
+    // A small random sample from each report, so the page reads a little
+    // differently each visit; the full view is one click away.
+    function pickRandom(list, n) {
+        const pool = list.slice();
+        for (let i = pool.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [pool[i], pool[j]] = [pool[j], pool[i]];
+        }
+        return pool.slice(0, n);
+    }
+
+    function teaserHtml(key, items, href, linkText, extra = '') {
+        return `<div class="teaser-list" id="${key}-teaser-list">${items.join('')}</div>${extra}
+            <a class="day-card-link" id="${key}-teaser-link" href="${href}">${esc(linkText)} ${ARROW}</a>`;
+    }
+
+    function teaserEmpty(key, text, href, linkText) {
+        document.getElementById(`${key}-teaser-body`).innerHTML =
+            `<p class="teaser-empty" id="${key}-teaser-empty">${esc(text)}</p>
+            <a class="day-card-link" id="${key}-teaser-link" href="${href}">${esc(linkText)} ${ARROW}</a>`;
+    }
+
+    async function loadSentimentTeaser() {
+        const href = '/my-insights#sentiment';
+        try {
+            const res = await fetch('/api/my-sentiment', { headers: authHeaders(), credentials: 'omit' });
+            if (res.status === 401) { window.location.href = '/'; return; }
+            const data = await res.json();
+            const list = (data.sentiments || []).filter(d => d.title && typeof d.score === 'number');
+            if (!res.ok || !list.length) {
+                teaserEmpty('sentiment', 'Talk with Nexa a few more times and your sentiment picture will start to show here.',
+                            href, 'Open Sentiment Analysis');
+                return;
+            }
+            const items = pickRandom(list, 2).map((d, i) => {
+                return `<div class="teaser-item" id="sentiment-teaser-item-${i}">
+                    <div class="teaser-row">
+                        <div class="teaser-label">${esc(d.title)}</div>
+                        <span class="teaser-score">${d.score}/100</span>
+                    </div>
+                    <div class="teaser-bar"><span style="width:${d.score}%"></span></div>
+                </div>`;
+            });
+            document.getElementById('sentiment-teaser-body').innerHTML =
+                teaserHtml('sentiment', items, href, 'See full analysis');
+        } catch (_) {
+            teaserEmpty('sentiment', "We couldn't load your sentiment just now.", href, 'Open Sentiment Analysis');
+        }
+    }
+
+    const GROWTH_KINDS = [
+        ['strengths', 'Strength'], ['growth_areas', 'Growth area'],
+        ['opportunities', 'Opportunity'], ['patterns', 'Pattern to watch'],
+    ];
+
+    async function loadGrowthTeaser() {
+        const href = '/my-insights#growth';
+        try {
+            const res = await fetch('/api/my-growth', { headers: authHeaders(), credentials: 'omit' });
+            if (res.status === 401) { window.location.href = '/'; return; }
+            const data = await res.json();
+            const list = GROWTH_KINDS.flatMap(([key, tag]) =>
+                (data[key] || []).filter(it => it && it.label).map(it => ({ ...it, tag })));
+            if (!res.ok || !list.length) {
+                teaserEmpty('growth', 'Once you have talked through a few sessions, your strengths and growth areas show up here.',
+                            href, 'Open Growth Mirror');
+                return;
+            }
+            const items = pickRandom(list, 2).map((it, i) => `
+                <div class="teaser-item" id="growth-teaser-item-${i}">
+                    <div class="teaser-tag">${esc(it.tag)}</div>
+                    <div class="teaser-label">${esc(it.label)}</div>
+                    ${it.summary ? `<div class="teaser-text">${esc(it.summary)}</div>` : ''}
+                </div>`);
+            document.getElementById('growth-teaser-body').innerHTML =
+                teaserHtml('growth', items, href, 'See your Growth Mirror');
+        } catch (_) {
+            teaserEmpty('growth', "We couldn't load your Growth Mirror just now.", href, 'Open Growth Mirror');
+        }
+    }
+
+    async function loadCareerTeaser() {
+        const card = document.getElementById('career-teaser');
+        if (card.hidden) return;
+        const href = '/career-horoscope#futures';
+        try {
+            const res = await fetch('/api/career-futures', { headers: authHeaders(), credentials: 'omit' });
+            if (res.status === 401) { window.location.href = '/'; return; }
+            if (res.status === 403) { card.hidden = true; return; }
+            const data = await res.json();
+            const paths = ((data.futures && data.futures.paths) || []).filter(p => p && p.role);
+            if (!res.ok || !paths.length) {
+                teaserEmpty('career', data.error || 'Chat with Nexa about your work and goals to see where you might be heading.',
+                            href, 'Open Career Path');
+                return;
+            }
+            // Only the two likeliest, and only the role and its odds: the
+            // evidence and timeline are what the full page is for.
+            const top = paths.slice().sort((a, b) => (b.likelihood || 0) - (a.likelihood || 0)).slice(0, 2);
+            const items = top.map((p, i) => {
+                const pct = Math.max(0, Math.min(100, Math.round(Number(p.likelihood) || 0)));
+                return `<div class="teaser-item" id="career-teaser-item-${i}">
+                    <div class="teaser-row">
+                        <div class="teaser-label">${esc(p.role)}</div>
+                        <span class="teaser-score">${pct}%</span>
+                    </div>
+                    <div class="teaser-bar"><span style="width:${pct}%"></span></div>
+                </div>`;
+            });
+            const more = paths.length > top.length
+                ? `<p class="teaser-empty" id="career-teaser-more">+${paths.length - top.length} more path${paths.length - top.length > 1 ? 's' : ''} to explore</p>` : '';
+            document.getElementById('career-teaser-body').innerHTML =
+                teaserHtml('career', items, href, 'Explore your career paths', more);
+        } catch (_) {
+            teaserEmpty('career', "We couldn't load your career paths just now.", href, 'Open Career Path');
         }
     }
 
@@ -613,6 +845,9 @@
     loadToday();
     loadReading();
     loadResource();
+    loadSentimentTeaser();
+    loadGrowthTeaser();
+    loadCareerTeaser();
 })();
 </script>
 </body>

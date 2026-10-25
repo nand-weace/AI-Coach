@@ -2973,6 +2973,8 @@ def _score_future_paths(paths) -> list:
         p['evidence'] = [e for e in (p.get('evidence') or [])
                          if isinstance(e, str) or (isinstance(e, dict) and e.get('signal'))][:3]
         p['missing'] = [m for m in (p.get('missing') or []) if isinstance(m, str)][:3]
+        if not isinstance(p.get('next_step'), str):
+            p.pop('next_step', None)
         scored.append(p)
     return scored
 

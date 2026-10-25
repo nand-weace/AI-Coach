@@ -17,8 +17,8 @@
 }
 
 :root {
-    --bg-color: #e2e6fc;
-    --bg-gradient: linear-gradient(100deg, #dfeafd 0%, #e2ecfb 30%, #e2ecfb 52%, #e0e6fc 74%, #dcebfd 100%);
+    --bg-color: #E3DEFF;
+    --bg-gradient: linear-gradient(110deg, #DDEEFF 0%, #E3DEFF 48%, #D9EEFF 100%);
     --glass-bg: rgba(255, 255, 255, 0.78);
     --glass-border: rgba(59, 89, 138, 0.14);
     --primary-color: #1461F9;
@@ -43,8 +43,10 @@
 }
 
 body {
-    font-family: 'Inter', sans-serif;
-    background-color: oklch(0.95 0.02 278.05);
+    font-family: 'Poppins',system-ui,-apple-system,'Segoe UI',sans-serif;
+    background-color: #E3DEFF;
+    background-image: linear-gradient(110deg, #DDEEFF 0%, #E3DEFF 48%, #D9EEFF 100%);
+    background-attachment: fixed;
     color: var(--text-main);
     height: 100vh;
     display: flex;
@@ -1318,8 +1320,8 @@ body {
    gives way to a plain loader on the app's own background. */
 .handoff-loader { display: none; }
 .nexa-handoff .login-overlay {
-    background-color: oklch(0.95 0.02 278.05);
-    background-image: none;
+    background-color: #E3DEFF;
+    background-image: linear-gradient(110deg, #DDEEFF 0%, #E3DEFF 48%, #D9EEFF 100%);
 }
 .nexa-handoff .login-card { display: none; }
 .nexa-handoff .handoff-loader {

@@ -111,11 +111,17 @@ _RECS_MAX_CHARS = 3_000     # recommendation prompt cap
 _RECS_MSG_SAMPLE = 40       # messages read when there are no cached themes
 _RECS_MSG_CHARS = 220       # per-message truncation in that fallback
 _MIN_RECS_MESSAGES = 5      # below this we cannot tell what to recommend
-_RECS_COUNT = 6             # resources to ask for per run
+_RECS_COUNT = 10            # resources to ask for per run
+# The list leads with short videos — the easiest thing to fit into a working day
+# — and carries at most one book, which is a commitment rather than a quick win.
+_RECS_VIDEOS = 4            # short videos asked for within that count
+_RECS_MAX_BOOKS = 1         # books kept per run; extras are dropped
 # Searches run one after another and dominate the wall-clock time, so the cap is
 # below the resource count on purpose: the model spends them on the resources
 # whose links it is least sure of, and the rest fall back to a search URL.
-_RECS_SEARCHES = 4          # hard cap on web searches per run
+# Videos come first — only a real YouTube link plays inline on the page — and
+# one search usually turns up several of them.
+_RECS_SEARCHES = 5          # hard cap on web searches per run
 _RECS_TYPES = ('article', 'book', 'video', 'lecture')
 # Tips ride along on the recommendations run rather than costing their own call.
 # One is shown per day, rotated on the client, so a single run covers a week.
@@ -505,12 +511,17 @@ Their messages:
 _RECS_SEARCH_PROMPT = """You are an executive coach curating a reading and watching list for ONE leader, \
 from the coaching topics below.
 
-Recommend {count} resources — at least one each of: "article" (a substantial article, essay, or research), \
-"book" (a well-regarded book), "video" (a YouTube video or talk), "lecture" (a talk, university lecture, \
-or course session). Prefer well-known, high-quality sources.
+Recommend {count} resources, in this mix:
+- {videos} "video" — SHORT YouTube videos, ideally under 12 minutes (talks, explainers, interview \
+clips). Each on a different angle of their topics.
+- exactly 1 "book" — the single most useful well-regarded book for them. Never more than one.
+- the rest split between "article" (a substantial article, essay, or research) and "lecture" (a talk, \
+university lecture, or course session).
+Prefer well-known, high-quality sources.
 
 Links: you have at most {searches} web searches — fewer than the number of resources, so spend them on the \
-ones whose URL you are least sure of, and batch several resources into one search where you can. Never invent \
+videos first (only a real YouTube watch link can play on the page), then on the others whose URL you are \
+least sure of. Batch several resources into one search where you can. Never invent \
 or pattern-guess a URL, and do not open or read the pages — the search result link is enough. Leave "url" as \
 "" for anything you did not find a link for; do not spend a search confirming something you already have.
 
@@ -565,16 +576,18 @@ Their coaching topics:
 _RECS_OFFLINE_PROMPT = """You are an executive coach curating a reading and watching list for ONE leader, \
 from the coaching topics below.
 
-Recommend {count} resources — at least one each of: "article" (a substantial article, essay, or research), \
-"book" (a well-regarded book), "video" (a YouTube video or talk), "lecture" (a talk, university lecture, \
-or course session).
+Recommend {count} resources, in this mix:
+- {videos} "video" — SHORT YouTube videos, ideally under 12 minutes (talks, explainers, interview clips).
+- exactly 1 "book" — the single most useful well-regarded book for them. Never more than one.
+- the rest split between "article" (a substantial article, essay, or research) and "lecture" (a talk, \
+university lecture, or course session).
 
 Recommend ONLY works you are confident genuinely exist and are well known — a real title by a real author. \
 Do NOT output any URL: leave "url" as "". Accuracy of title and author matters more than novelty.
 
 Per resource: title (real title), author (author, speaker, or publication), type, \
 description (ONE short sentence to them — "you" — on why it fits, max 20 words), topic (2-4 words), \
-length (e.g. "12 min read", "288 pages", else ""), url ("").
+length (e.g. "12 min read", "8 min", "288 pages", else ""), url ("").
 
 Return ONLY a valid JSON object with no markdown fences:
 {
@@ -1317,16 +1330,17 @@ def generate_recommendations(user_id: str) -> dict | None:
     can_search = ai_provider == 'claude'
     prompt = (_RECS_SEARCH_PROMPT if can_search else _RECS_OFFLINE_PROMPT) \
         .replace('{count}', str(_RECS_COUNT)) \
+        .replace('{videos}', str(_RECS_VIDEOS)) \
         .replace('{searches}', str(_RECS_SEARCHES)) \
         .replace('{messages}', block)
 
     raw = None
     try:
         if can_search:
-            raw = _call_llm_websearch(prompt, client, ai_model, max_tokens=3072,
+            raw = _call_llm_websearch(prompt, client, ai_model, max_tokens=4096,
                                       system=_PERSONAL_SYSTEM)
         else:
-            raw = _call_llm(prompt, client, ai_provider, ai_model, max_tokens=2048,
+            raw = _call_llm(prompt, client, ai_provider, ai_model, max_tokens=3072,
                             system=_PERSONAL_SYSTEM)
         result = _extract_json(raw)
     except ReportUnavailable:
@@ -1343,12 +1357,18 @@ def generate_recommendations(user_id: str) -> dict | None:
         return None
 
     cleaned = []
-    for it in items[:12]:
+    books = 0
+    for it in items[:14]:
         if not isinstance(it, dict) or not it.get('title'):
             continue
         rtype = str(it.get('type', '')).lower().strip()
         if rtype not in _RECS_TYPES:
             rtype = 'article'
+        # The prompt asks for one book; a model that sends more still gets one.
+        if rtype == 'book':
+            books += 1
+            if books > _RECS_MAX_BOOKS:
+                continue
         url = str(it.get('url', '') or '').strip()
         entry = {
             'title':       str(it['title'])[:160],
