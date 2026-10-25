@@ -199,7 +199,7 @@
             display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;
         }
         .teaser-score { flex: none; font-size: 0.8rem; font-weight: 600; color: var(--accent); }
-        .teaser-bar { height: 4px; margin-top: 6px; border-radius: 999px; background: #e3e6f3; overflow: hidden; }
+        .teaser-bar { height: 10px; margin-top: 6px; border-radius: 999px; background: #e3e6f3; overflow: hidden; }
         .teaser-bar span { display: block; height: 100%; border-radius: inherit; background: var(--accent); }
         .teaser-empty { margin-top: 12px; font-size: 0.84rem; line-height: 1.6; color: var(--text-muted); }
         .insights-row .day-card-link { margin-top: auto; padding-top: 14px; }
@@ -664,6 +664,14 @@
             <a class="day-card-link" id="${key}-teaser-link" href="${href}">${esc(linkText)} ${ARROW}</a>`;
     }
 
+    // Same bands, colours and 0-10 display as the full Sentiment Analysis
+    // (scoreClasses / BAND_COLORS / toTen in my_insights.html).
+    function sentimentBandColor(score) {
+        if (score >= 60) return 'green';
+        if (score >= 25) return '#e1a34e';
+        return 'red';
+    }
+
     async function loadSentimentTeaser() {
         const href = '/my-insights#sentiment';
         try {
@@ -677,12 +685,14 @@
                 return;
             }
             const items = pickRandom(list, 2).map((d, i) => {
+                const score = Math.max(0, Math.min(100, d.score));
+                const color = sentimentBandColor(score);
                 return `<div class="teaser-item" id="sentiment-teaser-item-${i}">
                     <div class="teaser-row">
                         <div class="teaser-label">${esc(d.title)}</div>
-                        <span class="teaser-score">${d.score}/100</span>
+                        <span class="teaser-score" style="color:${color}">${(Math.round(score) / 10).toFixed(1)}</span>
                     </div>
-                    <div class="teaser-bar"><span style="width:${d.score}%"></span></div>
+                    <div class="teaser-bar"><span style="width:${score}%; background:${color}"></span></div>
                 </div>`;
             });
             document.getElementById('sentiment-teaser-body').innerHTML =
