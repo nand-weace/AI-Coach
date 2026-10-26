@@ -6,3 +6,5 @@ Flask==3.0.3
 PyMySQL>=1.1.0
 gunicorn>=22.0.0
 APScheduler>=3.10.0
+skyfield>=1.49
+tzdata>=2024.1

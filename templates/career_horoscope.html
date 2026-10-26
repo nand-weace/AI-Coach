@@ -542,6 +542,27 @@
         @media (max-width: 620px) { .daily-meta { grid-template-columns: 1fr; } }
         .daily-meta .item-card p { font-size: 0.92rem; }
         .daily-empty { text-align: center; color: var(--text-muted); line-height: 1.6; }
+
+        /* 7-day row above the daily note: today and the six days after it.
+           Picking a day loads (or writes) that day's note. */
+        .daily-week { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(7, 1fr); gap: 12px; }
+        @media (max-width: 620px) { .daily-week { gap: 6px; padding: 12px; } }
+        .daily-day {
+            display: flex; flex-direction: column; align-items: center; gap: 4px;
+            font-family: inherit; cursor: pointer; min-width: 0;
+            background: #fff; border: 1px solid rgba(59,89,138,.16); border-radius: 12px;
+            padding: 12px 4px; color: var(--text-main); transition: border-color .12s, background .12s;
+        }
+        .daily-day:hover { border-color: var(--primary-ring); }
+        .daily-day .dd-week { font-size: 12px; color: var(--text-muted); }
+        .daily-day .dd-num { font-size: 18px; font-weight: 700; line-height: 1.1; }
+        .daily-day.active { background: #2d2b86; border-color: #2d2b86; color: #fff; }
+        .daily-day.active .dd-week { color: rgba(255,255,255,.8); }
+        @media (max-width: 620px) {
+            .daily-day { padding: 8px 2px; border-radius: 10px; }
+            .daily-day .dd-week { font-size: 11px; }
+            .daily-day .dd-num { font-size: 15px; }
+        }
         .daily-empty .ghost-btn { margin-top: 14px; }
 
         .sit-title { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
@@ -616,6 +637,8 @@
     </div>
 
     <div class="daily-wrap" id="daily-panel">
+        <div class="card daily-week" id="daily-week" role="tablist" aria-label="Pick a day"></div>
+
         <div class="card" id="daily-card">
             <div class="daily-empty" id="daily-loading">
                 <div class="spinner"></div>Reading today's stars…
@@ -1272,8 +1295,9 @@
             if ($('f-place')) $('f-place').value = next.place_of_birth;
             if ($('f-date')) $('f-date').value = next.birth_date;
             if ($('f-time')) $('f-time').value = next.birth_time;
-            // Saved — now rebuild today's note from the new details, with the
-            // usual loading state while it's written.
+            // Saved — the notes already shown were read from the old details,
+            // so drop them and rebuild the selected day's note.
+            Object.keys(dailyNotes).forEach(k => delete dailyNotes[k]);
             loadDaily(false);
         } catch (e) {
             $('db-error').textContent = e.message || 'Could not save your birth details.';
@@ -1281,6 +1305,37 @@
             btn.textContent = 'Save';
         }
     }
+
+    // ── 7-day row: today and the next six days, in the viewer's time zone.
+    const isoDay = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const weekDays = (() => {
+        const start = new Date();
+        return Array.from({ length: 7 }, (_, i) => {
+            const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+            return { iso: isoDay(d), week: d.toLocaleDateString(undefined, { weekday: 'short' }), num: d.getDate() };
+        });
+    })();
+    let dailyDay = weekDays[0].iso;
+    // Notes already fetched this visit, so flicking between days is instant.
+    const dailyNotes = {};
+
+    function renderWeek() {
+        $('daily-week').innerHTML = weekDays.map((d, i) => `
+            <button type="button" role="tab" class="daily-day${d.iso === dailyDay ? ' active' : ''}"
+                data-day="${d.iso}" aria-selected="${d.iso === dailyDay}"
+                aria-label="${escHtml(i === 0 ? 'Today, ' + formatDay(d.iso) : formatDay(d.iso))}">
+                <span class="dd-week">${escHtml(d.week)}</span>
+                <span class="dd-num">${d.num}</span>
+            </button>`).join('');
+        document.querySelectorAll('#daily-week .daily-day').forEach(b =>
+            b.addEventListener('click', () => {
+                if (b.dataset.day === dailyDay) return;
+                dailyDay = b.dataset.day;
+                renderWeek();
+                loadDaily(false);
+            }));
+    }
+    renderWeek();
 
     function renderDailyEmpty(msg, needsReading) {
         $('daily-card').innerHTML = `<div class="daily-empty">
@@ -1295,20 +1350,28 @@
     }
 
     async function loadDaily(force) {
-        $('daily-card').innerHTML = `<div class="daily-empty"><div class="spinner"></div>Reading today's stars…</div>`;
+        const day = dailyDay;
+        if (!force && dailyNotes[day]) { renderDaily(dailyNotes[day]); return; }
+        const isToday = day === weekDays[0].iso;
+        $('daily-card').innerHTML = `<div class="daily-empty"><div class="spinner"></div>${isToday ? "Reading today's stars…" : `Reading the stars for ${escHtml(formatDay(day))}…`}</div>`;
+        const failMsg = isToday ? "Could not load today's horoscope." : "Could not load this day's horoscope.";
         try {
-            const res = await fetch(force ? '/api/career-horoscope/daily/refresh' : '/api/career-horoscope/daily', {
+            const url = (force ? '/api/career-horoscope/daily/refresh' : '/api/career-horoscope/daily') + '?date=' + day;
+            const res = await fetch(url, {
                 method: force ? 'POST' : 'GET',
                 headers: getAuthHeaders(), credentials: 'include'
             });
             const data = await res.json();
+            // The user may have picked another day while this one loaded.
+            if (day !== dailyDay) return;
             if (!res.ok) {
-                renderDailyEmpty(data.error || "Could not load today's horoscope.", res.status === 400);
+                renderDailyEmpty(data.error || failMsg, res.status === 400);
                 return;
             }
-            renderDaily(data.daily || {});
+            dailyNotes[day] = data.daily || {};
+            renderDaily(dailyNotes[day]);
         } catch (e) {
-            renderDailyEmpty("Could not load today's horoscope. Please try again.", false);
+            if (day === dailyDay) renderDailyEmpty(failMsg + ' Please try again.', false);
         }
     }
 

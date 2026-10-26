@@ -73,6 +73,7 @@ from database import (
 )
 import linkedin
 import calendar_context
+import birth_chart
 
 # Languages Nexa can coach in, as code -> (display label, name used in the prompt).
 # Keep in sync with the picker in static/script.js.
@@ -2392,6 +2393,57 @@ def _save_birth_details(user_id: str, place: str, birth_date: str, birth_time: s
                        user_id, exc_info=True)
 
 
+# The natal chart is fixed by the birth details, so it's worked out the first
+# time any horoscope needs it and stored; later calls reuse it until the birth
+# details change (its saved `inputs` stop matching) or CHART_VERSION is bumped.
+_HOROSCOPE_CHART = 'career_birth_chart'
+
+
+def _get_birth_chart(user_id: str, birth: dict):
+    """The user's stored chart, computing and saving it if it's missing or
+    out of date. None when it can't be worked out; the prompts then fall back
+    to reading from the raw birth details as before."""
+    inputs = {k: birth.get(k) or '' for k in ('place_of_birth', 'birth_date', 'birth_time')}
+    try:
+        saved = get_user_insight_report(user_id, _HOROSCOPE_CHART) or {}
+    except Exception:
+        saved = {}
+    if saved.get('v') == birth_chart.CHART_VERSION and saved.get('inputs') == inputs:
+        # A place that couldn't be found is remembered too, so it isn't
+        # looked up again on every request until the details are edited.
+        return None if saved.get('error') else saved
+    try:
+        chart = birth_chart.compute_chart(inputs['place_of_birth'], inputs['birth_date'],
+                                          inputs['birth_time'])
+    except birth_chart.ChartError as e:
+        logger.info('[career-horoscope] no chart for user_id=%s: %s', user_id, e)
+        chart = {'v': birth_chart.CHART_VERSION, 'inputs': inputs, 'error': str(e)}
+    except Exception:
+        # Network or ephemeris trouble: don't store anything, try again next time.
+        logger.warning('[career-horoscope] chart computation failed for user_id=%s',
+                       user_id, exc_info=True)
+        return None
+    try:
+        upsert_user_insight_report(user_id, _HOROSCOPE_CHART, chart)
+    except Exception:
+        logger.warning('[career-horoscope] could not save chart for user_id=%s',
+                       user_id, exc_info=True)
+    return None if chart.get('error') else chart
+
+
+def _chart_block(user_id: str, birth: dict, on: str, upcoming: bool = False) -> str:
+    """The prompt section for the chart, or '' when there's no chart."""
+    chart = _get_birth_chart(user_id, birth)
+    if not chart:
+        return ''
+    try:
+        return birth_chart.prompt_block(chart, on, upcoming=upcoming) + '\n\n'
+    except Exception:
+        logger.warning('[career-horoscope] could not format chart for user_id=%s',
+                       user_id, exc_info=True)
+        return ''
+
+
 @app.route('/career-horoscope')
 def career_horoscope_page():
     """Career Horoscope — an astrological career reading (Vedic under the hood,
@@ -2545,10 +2597,10 @@ def career_horoscope_generate():
     The reading takes minutes, so this starts a background job and the page
     polls /api/career-horoscope/status for progress and the result.
 
-    The astrologer prompt is written to read a *pre-computed* chart. This
-    deployment has no ephemeris/chart service wired in yet, so we pass the raw
-    birth details and let the reader work from them at reduced confidence —
-    integrate a chart provider here to feed real D1/D10, dasha and transit data.
+    The astrologer prompt is written to read a *pre-computed* chart, which
+    birth_chart.py supplies (natal placements, dashas, today's transits). If
+    the chart can't be worked out, the raw birth details are passed and the
+    reader works from them at reduced confidence.
     """
     if not g.user:
         return jsonify({'error': 'Session not initialised — call /session first'}), 401
@@ -2597,6 +2649,20 @@ def career_horoscope_generate():
     system = CAREER_HOROSCOPE_PROMPT.replace('{{language}}', language)
 
     time_line = birth_time if birth_time else 'Unknown / not provided (interpret from Chandra lagna and lower the confidence for house-based sections)'
+    from datetime import date
+    chart = _chart_block(user_id, {'place_of_birth': place, 'birth_date': birth_date,
+                                   'birth_time': birth_time},
+                         date.today().isoformat(), upcoming=True)
+    data_note = (
+        "Use COMPUTED_CHART, the dashas and the transits above as the chart data. "
+        "Return ONLY the JSON object from the schema."
+    ) if chart else (
+        "No pre-computed chart, dasha or transit data has been supplied by a "
+        "chart service for this request. Derive the reading as best you can from "
+        "the birth details above, mark anything you cannot determine as "
+        "unavailable rather than inventing it, and lower your confidence in "
+        "house-based sections accordingly. Return ONLY the JSON object from the schema."
+    )
     user_block = (
         "BIRTH_DETAILS\n"
         f"- Name: {name}\n"
@@ -2605,12 +2671,9 @@ def career_horoscope_generate():
         f"- Time of birth: {time_line}\n\n"
         "PROFESSIONAL_CONTEXT\n"
         f"{context if context else 'Not provided.'}\n\n"
+        f"{chart}"
         "NOTE_ON_DATA\n"
-        "No pre-computed chart, dasha or transit data has been supplied by a "
-        "chart service for this request. Derive the reading as best you can from "
-        "the birth details above, mark anything you cannot determine as "
-        "unavailable rather than inventing it, and lower your confidence in "
-        "house-based sections accordingly. Return ONLY the JSON object from the schema."
+        f"{data_note}"
     )
 
     # Keep any previously saved reading in place while the new one is generated,
@@ -2650,82 +2713,149 @@ def career_horoscope_status():
 # same birth details as the full reading, so it only lights up once those are
 # on file (i.e. after a first career horoscope has been generated).
 _HOROSCOPE_DAILY = 'career_daily_horoscope'
+# Bumped when the daily prompt changes enough that saved notes should be
+# written again rather than served.
+_HOROSCOPE_DAILY_VERSION = 3
+
+_WEEKDAY_RULERS = ('the Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn', 'the Sun')
 
 
-def _generate_daily_horoscope(name: str, birth: dict, language: str) -> dict:
+def _generate_daily_horoscope(user_id: str, name: str, birth: dict, language: str, day: str,
+                              earlier: list) -> dict:
+    """`earlier` is the other days' headlines this week, so the day can
+    steer clear of their themes."""
     from datetime import date
-    today = date.today().isoformat()
+    weekday = date.fromisoformat(day)
     system = CAREER_DAILY_HOROSCOPE_PROMPT.replace('{{language}}', language)
     time_line = birth.get('birth_time') or 'Unknown / not provided'
+    earlier_block = ''.join(f"- {h}\n" for h in earlier) or 'None yet.\n'
+    chart = _chart_block(user_id, birth, day)
+    # The chart block already lists the day's transits; without one, the
+    # Moon's sign alone still gives the day some character of its own.
+    moon_line = ''
+    if not chart:
+        try:
+            moon_line = f"- Moon passing through: {birth_chart.transits(day)['Moon']['sign']} (sidereal)\n"
+        except Exception:
+            logger.warning('[career-horoscope] could not work out the Moon for %s', day, exc_info=True)
     user_block = (
         "BIRTH_DETAILS\n"
         f"- Name: {name}\n"
         f"- Place of birth: {birth.get('place_of_birth', '')}\n"
         f"- Date of birth: {birth.get('birth_date', '')}\n"
         f"- Time of birth: {time_line}\n\n"
-        f"TODAY'S DATE: {today}\n\n"
-        "Return ONLY the JSON object from the schema, written for today's date above."
+        # The prompt reads the day from TODAY'S DATE; for a day later in the
+        # week that label carries the chosen day.
+        f"TODAY'S DATE: {day}\n\n"
+        f"{chart}"
+        "DAY_SKY\n"
+        f"- Weekday: {weekday:%A}, ruled by {_WEEKDAY_RULERS[weekday.weekday()]}\n"
+        f"{moon_line}\n"
+        "EARLIER_THIS_WEEK (headlines already written for other days)\n"
+        f"{earlier_block}\n"
+        "Return ONLY the JSON object from the schema, written for the date above."
     )
     data = _parse_json_reply(_horoscope_reply(system, user_block, max_tokens=800))
     data = _strip_dashes_deep(data)
-    data['date'] = today
+    data['date'] = day
     return data
 
 
-def _daily_horoscope_response(user_id: str, name: str, force: bool):
+# The page shows a 7-day row starting from the viewer's today, so a day is
+# accepted from a day behind the server's date (time zones) to a week ahead.
+_DAILY_DAYS_BACK, _DAILY_DAYS_AHEAD = 1, 7
+
+
+def _daily_horoscope_day(raw):
+    """The requested day as an ISO date, the server's today when none is
+    given, or None when it's malformed or outside the allowed window."""
+    from datetime import date, timedelta
+    today = date.today()
+    if not raw:
+        return today.isoformat()
+    try:
+        day = date.fromisoformat(raw)
+    except ValueError:
+        return None
+    if not (today - timedelta(days=_DAILY_DAYS_BACK) <= day <= today + timedelta(days=_DAILY_DAYS_AHEAD)):
+        return None
+    return day.isoformat()
+
+
+def _daily_horoscope_cache(user_id: str) -> dict:
+    """Cached notes keyed by ISO date. Rows from an older prompt version
+    (including the old single-note shape) count as empty, so they're redone."""
+    cached = get_user_insight_report(user_id, _HOROSCOPE_DAILY) or {}
+    if cached.get('v') != _HOROSCOPE_DAILY_VERSION:
+        return {}
+    return dict(cached.get('days') or {})
+
+
+def _daily_horoscope_response(user_id: str, name: str, force: bool, day_raw=None):
+    day = _daily_horoscope_day(day_raw)
+    if day is None:
+        # 422, not 400: the page reads a 400 as "no birth details yet".
+        return jsonify({'error': 'Pick a day from this week.'}), 422
     birth = _get_birth_details(user_id)
     if not birth.get('place_of_birth') or not birth.get('birth_date'):
         return jsonify({'error': 'Generate your career horoscope first so we know your birth details.'}), 400
     if client is None:
         return jsonify({'error': 'The horoscope service is not available right now.'}), 503
 
-    from datetime import date
-    today = date.today().isoformat()
-    if not force:
-        cached = get_user_insight_report(user_id, _HOROSCOPE_DAILY)
-        if cached and cached.get('date') == today:
-            return jsonify({'daily': _strip_dashes_deep(cached)})
+    days = _daily_horoscope_cache(user_id)
+    if not force and days.get(day):
+        return jsonify({'daily': _strip_dashes_deep(days[day])})
 
     lang_code = get_user_language(user_id) or DEFAULT_LANGUAGE
     language = SUPPORTED_LANGUAGES.get(lang_code, (lang_code, lang_code))[1]
     try:
-        data = _generate_daily_horoscope(name, birth, language)
+        earlier = [v.get('headline') for d, v in sorted(days.items())
+                   if d != day and v.get('headline')]
+        data = _generate_daily_horoscope(user_id, name, birth, language, day, earlier)
     except Exception:
         logger.exception('[career-horoscope] daily generation failed for user_id=%s', user_id)
-        return jsonify({'error': "Could not load today's horoscope. Please try again."}), 502
+        return jsonify({'error': "Could not load this day's horoscope. Please try again."}), 502
 
-    upsert_user_insight_report(user_id, _HOROSCOPE_DAILY, data)
+    # Keep only the days the row can still show, so the map stays small.
+    floor = _daily_horoscope_day(None)
+    days = {d: v for d, v in days.items() if d >= floor or d == day}
+    days[day] = data
+    upsert_user_insight_report(user_id, _HOROSCOPE_DAILY,
+                               {'v': _HOROSCOPE_DAILY_VERSION, 'days': days})
     return jsonify({'daily': data})
 
 
 @app.route('/api/career-horoscope/daily')
 @require_weace_token
 def career_horoscope_daily():
-    """Today's short career note. Cached for the day — generated once, then
-    served as-is until the manual refresh button or the date rolls over."""
+    """A day's short career note (?date=YYYY-MM-DD, default today). Cached
+    per day — generated once, then served as-is until a manual refresh."""
     if not g.user:
         return jsonify({'error': 'Session not initialised — call /session first'}), 401
     if not _has_pulse((g.user.get('org_id') or '').strip()):
         return jsonify({'error': HOROSCOPE_UPGRADE_MESSAGE}), 403
-    return _daily_horoscope_response(g.user['user_id'], g.user['user_name'], force=False)
+    return _daily_horoscope_response(g.user['user_id'], g.user['user_name'], force=False,
+                                     day_raw=request.args.get('date'))
 
 
 @app.route('/api/career-horoscope/daily/refresh', methods=['POST'])
 @require_weace_token
 def career_horoscope_daily_refresh():
-    """Manually regenerate today's note, replacing whatever was cached."""
+    """Manually regenerate a day's note (?date=, default today), replacing
+    whatever was cached for it."""
     if not g.user:
         return jsonify({'error': 'Session not initialised — call /session first'}), 401
     if not _has_pulse((g.user.get('org_id') or '').strip()):
         return jsonify({'error': HOROSCOPE_UPGRADE_MESSAGE}), 403
-    return _daily_horoscope_response(g.user['user_id'], g.user['user_name'], force=True)
+    return _daily_horoscope_response(g.user['user_id'], g.user['user_name'], force=True,
+                                     day_raw=request.args.get('date'))
 
 
 @app.route('/api/career-horoscope/birth', methods=['POST'])
 @require_weace_token
 def career_horoscope_birth_update():
     """Edit the birth details from the Daily Horoscope card. Saves them and
-    drops today's cached note (it was read from the old details), then replies
+    drops the cached daily notes (they were read from the old details), then replies
     straight away; the page fetches /api/career-horoscope/daily next, which
     regenerates the note from the new details."""
     if not g.user:
@@ -2880,6 +3010,7 @@ def career_horoscope_situation():
         f"- Place of birth: {birth['place_of_birth']}\n"
         f"- Date of birth: {birth['birth_date']}\n"
         f"- Time of birth: {birth.get('birth_time') or 'Unknown / not provided'}\n\n"
+        f"{_chart_block(user_id, birth, today, upcoming=True)}"
         "PROFESSIONAL_CONTEXT\n"
         f"{context if context else 'Not provided.'}\n\n"
         "SAVED_READING\n"

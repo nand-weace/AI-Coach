@@ -28,3 +28,6 @@ build/
 custom_email.py
 recipients.csv
 send_log.csv
+
+# Skyfield ephemeris, downloaded on first use (birth_chart.py)
+ephemeris/

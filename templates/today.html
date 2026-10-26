@@ -49,6 +49,7 @@
         #reading-card { grid-area: reading; }
         #career-teaser { grid-area: career; }
         #resource-card { grid-area: resource; }
+        #themes-teaser { grid-area: themes; }
         #sentiment-teaser { grid-area: sentiment; }
         #growth-teaser { grid-area: growth; }
         #pulse-section { grid-area: pulse; }
@@ -236,22 +237,25 @@
 
         /* Resources: three picks, the whole item a link. */
         #resource-body { flex: 1; display: flex; flex-direction: column; }
-        /* Each pick gets its own blue gradient, by position, so the three always
-           read as separate items whatever their type: deep indigo, bright blue
-           to sky, and periwinkle, as in the Resources mockup. */
-        .resource-item {
+        /* Resource picks and recurring themes: each item gets its own blue
+           gradient, by position, so they always read as separate items: deep
+           indigo, bright blue to sky, and periwinkle, as in the Resources mockup. */
+        .blue-item {
             display: block; text-decoration: none;
             background: linear-gradient(110deg, #2e2b8c 0%, #5a5fd6 100%);
             transition: filter 0.15s;
         }
-        .resource-item:nth-child(3n+2) { background: linear-gradient(110deg, #3b5fe0 0%, #7fbdf0 100%); }
-        .resource-item:nth-child(3n+3) { background: linear-gradient(110deg, #6c6cd8 0%, #ada0ec 100%); }
-        .resource-item .teaser-tag { color: rgba(255, 255, 255, 0.8); }
-        .resource-item .teaser-label { color: #fff; }
-        .resource-item .teaser-text { color: rgba(255, 255, 255, 0.88); }
-        .resource-item:hover { filter: brightness(1.08); }
+        .blue-item:nth-child(3n+2) { background: linear-gradient(110deg, #3b5fe0 0%, #7fbdf0 100%); }
+        .blue-item:nth-child(3n+3) { background: linear-gradient(110deg, #6c6cd8 0%, #ada0ec 100%); }
+        .blue-item .teaser-tag { color: rgba(255, 255, 255, 0.8); }
+        .blue-item .teaser-label { color: #fff; }
+        .blue-item .teaser-text { color: rgba(255, 255, 255, 0.88); }
+        a.blue-item:hover { filter: brightness(1.08); }
         /* Side by side, the three share the row equally whatever their text. */
         .resource-list .resource-item { flex: 1 1 0; min-width: 0; }
+
+        /* Recurring themes: side by side, sharing the row equally. */
+        .themes-list .teaser-item { flex: 1 1 0; min-width: 0; }
 
         /* ── Daily Pulse ── */
         .pulse-title { font-size: 14px; font-weight: 600; color: var(--heading); }
@@ -314,7 +318,7 @@
             .today-grid {
                 display: grid; gap: 16px;
                 grid-template-columns: minmax(0, 1fr);
-                grid-template-areas: "ask" "calendar" "reading" "career" "resource" "sentiment" "growth" "pulse";
+                grid-template-areas: "ask" "calendar" "reading" "career" "resource" "themes" "sentiment" "growth" "pulse";
             }
             .today-col { display: contents; }
             .today-col-side { min-width: 0; }
@@ -402,6 +406,20 @@
                 {# Filled by loadResource(): #resource-list (#resource-item-0, …), #resource-link #}
                 <div id="resource-body">
                     <span class="shimmer h" id="resource-skeleton-title"></span><span class="shimmer t" id="resource-skeleton-line"></span>
+                </div>
+            </article>
+
+            {# Recurring themes from My Insights, as wide as the resources above. #}
+            <article class="day-card teaser-card" id="themes-teaser">
+                <div class="day-card-head" id="themes-teaser-head">
+                    <div class="day-card-icon" id="themes-teaser-icon">
+                        <svg id="themes-teaser-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+                    </div>
+                    <div class="day-card-kicker" id="themes-teaser-kicker">Recurring themes</div>
+                </div>
+                {# Filled by loadThemesTeaser() #}
+                <div class="teaser-body" id="themes-teaser-body">
+                    <span class="shimmer h" id="themes-teaser-skeleton-title"></span><span class="shimmer t" id="themes-teaser-skeleton-line"></span>
                 </div>
             </article>
 
@@ -709,7 +727,7 @@
             }
             const items = pickRandom(list, REC_MAX).map((r, i) => {
                 const text = r.description || (r.author ? `By ${r.author}` : '');
-                return `<a class="teaser-item resource-item" id="resource-item-${i}" href="${esc(r.url)}" target="_blank" rel="noopener noreferrer">
+                return `<a class="teaser-item blue-item resource-item" id="resource-item-${i}" href="${esc(r.url)}" target="_blank" rel="noopener noreferrer">
                     <div class="teaser-tag">${esc(REC_LABELS[r.type] || 'Resource')}</div>
                     <div class="teaser-label">${esc(r.title)}</div>
                 </a>`;
@@ -779,6 +797,34 @@
                 teaserHtml('sentiment', items, href, 'See full analysis');
         } catch (_) {
             teaserEmpty('sentiment', "We couldn't load your sentiment just now.", href, 'Open Sentiment Analysis');
+        }
+    }
+
+    // The topics My Insights' Recurring Themes found (at most two there), each
+    // with its short summary.
+    async function loadThemesTeaser() {
+        const href = '/my-insights#sentiment';
+        try {
+            const res = await fetch('/api/my-themes', { headers: authHeaders(), credentials: 'omit' });
+            if (res.status === 401) { window.location.href = '/'; return; }
+            const data = await res.json();
+            const themes = (data.themes || []).filter(t => t && t.label).slice(0, 2);
+            if (!res.ok || !themes.length) {
+                teaserEmpty('themes', (data && data.overview) ||
+                            'Once a topic shows up across a few sessions, it will appear here.',
+                            href, 'Open Recurring Themes');
+                return;
+            }
+            const items = themes.map((t, i) => `
+                <div class="teaser-item blue-item" id="themes-teaser-item-${i}">
+                    <div class="teaser-label">${esc(t.label)}</div>
+                    ${t.summary ? `<div class="teaser-text">${esc(t.summary)}</div>` : ''}
+                </div>`);
+            document.getElementById('themes-teaser-body').innerHTML =
+                `<div class="teaser-list themes-list" id="themes-teaser-list">${items.join('')}</div>
+                <a class="day-card-link" id="themes-teaser-link" href="${href}">See your recurring themes ${ARROW}</a>`;
+        } catch (_) {
+            teaserEmpty('themes', "We couldn't load your recurring themes just now.", href, 'Open Recurring Themes');
         }
     }
 
@@ -935,6 +981,7 @@
     loadToday();
     loadReading();
     loadResource();
+    loadThemesTeaser();
     loadSentimentTeaser();
     loadGrowthTeaser();
     loadCareerTeaser();
