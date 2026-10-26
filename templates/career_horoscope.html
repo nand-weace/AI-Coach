@@ -31,7 +31,7 @@
             background-attachment: fixed;
         }
 
-        .page { max-width: 1200px; margin: 0 auto; padding: 36px 32px 80px; }
+        .page { margin: 0 auto; padding: 36px 32px 80px; }
         @media (max-width: 620px) { .page { padding: 24px 16px 56px; } }
 
         .horo-head {
@@ -45,7 +45,7 @@
             background: var(--primary-soft); border-radius: 999px; padding: 4px 12px;
         }
         .horo-head h2 {
-            flex: 0 0 auto; font-size: 1.45rem; font-weight: 700; letter-spacing: -0.02em;
+            flex: 0 0 auto; font-size: 23px; font-weight: 700; letter-spacing: -0.02em;
         }
         .horo-head p {
             flex: 1 1 auto; margin: 0; font-size: 0.92rem; color: var(--text-muted);
@@ -62,9 +62,9 @@
         .card {
             background: var(--surface);
             border: 1px solid rgba(59, 89, 138, 0.12);
-            border-radius: 20px;
+            border-radius: 10px;
             box-shadow: var(--card-shadow);
-            padding: 32px 36px;
+            padding: 20px;
         }
         @media (max-width: 620px) { .card { padding: 24px 20px; } }
 
@@ -74,7 +74,7 @@
         }
         .field { display: flex; flex-direction: column; gap: 6px; }
         .field.full { grid-column: 1 / -1; }
-        .field-label { font-size: 0.85rem; font-weight: 600; color: var(--text-main); }
+        .field-label { font-size: 11.5px; font-weight: 600; color: var(--text-main); }
         .field-hint { font-weight: 400; color: var(--text-muted); font-size: 0.78rem; }
         .field input, .field textarea {
             width: 100%; font-family: inherit; font-size: 0.92rem;
@@ -92,7 +92,7 @@
             display: flex; align-items: center; justify-content: space-between;
             gap: 12px; margin-top: 24px; flex-wrap: wrap;
         }
-        .submit-error { color: #b42318; font-size: 0.85rem; }
+        .submit-error { color: #b42318; font-size: 11.5px; }
         .submit-btn {
             border: none; cursor: pointer; color: #fff;
             background: var(--accent-gradient);
@@ -404,7 +404,8 @@
         /* ── Views (picked from the Career sub-nav in the top bar) ─────── */
         .page.on-daily #regenerate-btn,
         .page.on-futures #regenerate-btn { display: none !important; }
-        .futures-wrap { display: flex; flex-direction: column; gap: 24px; }
+        .futures-wrap { display: flex; flex-direction: column; gap: 14px; }
+        .page.on-futures { padding-bottom: 24px; }
         .futures-wrap > :empty { display: none; }
 
         /* Future paths: four selectable path cards, then the selected path's
@@ -415,36 +416,36 @@
             display: flex; flex-direction: column; justify-content: flex-start;
             text-align: left; font-family: inherit; cursor: pointer; min-width: 0;
             background: #fff; border: 1px solid rgba(59,89,138,.14); border-radius: 14px;
-            padding: 20px 22px; transition: border-color .12s, background .12s;
+            padding: 12px 16px; transition: border-color .12s, background .12s;
         }
         .path-tab:hover { border-color: var(--primary-ring); }
-        .path-tab.active { border: 2px solid var(--primary-color); background: var(--primary-soft); padding: 19px 21px; }
-        .path-tab .pt-kind { font-size: 0.72rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); }
+        .path-tab.active { border: 2px solid var(--primary-color); background: var(--primary-soft); padding: 11px 15px; }
+        .path-tab .pt-kind { font-size: 11.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); }
         .path-tab .pt-role {
-            font-size: 1.12rem; font-weight: 500; color: var(--text-main);
-            margin: 8px 0 8px; line-height: 1.3;
+            font-size: 15px; font-weight: 500; color: var(--text-main);
+            margin: 4px 0; line-height: 1.3;
         }
-        .path-tab .pt-conf { font-size: 0.82rem; color: var(--text-muted); }
+        .path-tab .pt-conf { font-size: 12px; color: var(--text-muted); }
         .path-tab.risk .pt-kind { color: #b45309; }
 
         .path-detail {
             background: #fff; border: 1px solid rgba(59,89,138,.12);
-            border-radius: 20px; box-shadow: var(--card-shadow); padding: 36px 40px;
+            border-radius: 14px; box-shadow: var(--card-shadow); padding: 20px 24px;
         }
-        @media (max-width: 620px) { .path-detail { padding: 26px 20px; } }
+        @media (max-width: 620px) { .path-detail { padding: 18px 16px; } }
 
         /* Head: likelihood ring on the left, timeline, role and summary beside it. */
-        .pd-head { display: flex; align-items: center; gap: 20px 36px; }
+        .pd-head { display: flex; align-items: center; gap: 14px 24px; }
         .pd-head-text { min-width: 0; }
         .pd-when {
-            font-size: 0.8rem; font-weight: 600; letter-spacing: .1em;
+            font-size: 11.5px; font-weight: 600; letter-spacing: .1em;
             text-transform: uppercase; color: var(--text-muted);
         }
         .path-detail.risk .pd-when { color: #b45309; }
-        .pd-role { font-size: 1.75rem; font-weight: 700; letter-spacing: -0.01em; line-height: 1.25; margin: 6px 0 10px; }
-        .pd-summary { color: var(--text-muted); font-size: 1.02rem; line-height: 1.6; }
+        .pd-role { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.25; margin: 4px 0 6px; }
+        .pd-summary { color: var(--text-muted); font-size: 14px; line-height: 1.5; }
 
-        .pd-ring { position: relative; flex: 0 0 auto; width: 156px; height: 156px; }
+        .pd-ring { position: relative; flex: 0 0 auto; width: 96px; height: 96px; }
         .pd-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
         .pd-ring .track { stroke: rgba(59,89,138,.10); }
         .pd-ring .fill { stroke: var(--primary-color); transition: stroke-dasharray .5s ease; }
@@ -453,49 +454,52 @@
             position: absolute; inset: 0; display: flex; flex-direction: column;
             align-items: center; justify-content: center; line-height: 1;
         }
-        .pd-ring-num strong { font-size: 2.6rem; font-weight: 700; color: var(--text-main); }
-        .pd-ring-num span { font-size: 0.95rem; color: var(--text-muted); margin-top: 8px; }
+        .pd-ring-num strong { font-size: 1.5rem; font-weight: 700; color: var(--text-main); }
+        .pd-ring-num span { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
         @media (max-width: 620px) {
             .pd-head { flex-direction: column; align-items: flex-start; }
-            .pd-ring { width: 112px; height: 112px; }
-            .pd-ring-num strong { font-size: 1.9rem; }
-            .pd-ring-num span { font-size: 0.8rem; margin-top: 5px; }
-            .pd-role { font-size: 1.45rem; }
+            .pd-ring { width: 80px; height: 80px; }
+            .pd-ring-num strong { font-size: 1.25rem; }
+            .pd-ring-num span { font-size: 11.5px; margin-top: 5px; }
+            .pd-role { font-size: 16px; }
         }
 
         /* Two columns: what already supports the path, and what to build next. */
-        .pd-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 28px 48px; margin-top: 36px; }
+        .pd-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 32px; margin-top: 20px; }
         @media (max-width: 780px) { .pd-cols { grid-template-columns: 1fr; } }
-        .pd-cols h4 { font-size: 1.1rem; font-weight: 600; color: var(--text-main); margin-bottom: 16px; }
-        .pd-list { list-style: none; display: flex; flex-direction: column; gap: 16px; }
-        .pd-list li { display: flex; align-items: flex-start; gap: 14px; font-size: 1rem; line-height: 1.5; color: var(--text-main); }
-        .pd-list li svg { flex: 0 0 auto; width: 22px; height: 22px; margin-top: 1px; }
+        .pd-cols h4 { font-size: 15px; font-weight: 600; color: var(--text-main); margin-bottom: 10px; }
+        .pd-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+        .pd-list li { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; line-height: 1.45; color: var(--text-main); }
+        .pd-list li svg { flex: 0 0 auto; width: 18px; height: 18px; margin-top: 1px; }
         .pd-list.ok li svg { color: #2f9e5b; }
         .pd-list.gap li svg { color: #d92d20; }
-        .pd-empty { font-size: 0.92rem; color: var(--text-muted); }
+        .pd-empty { font-size: 13px; color: var(--text-muted); }
 
+        /* Next step and the Nexa button share one row under the columns. */
+        .pd-foot { display: flex; align-items: center; gap: 16px; margin-top: 20px; }
+        @media (max-width: 620px) { .pd-foot { flex-direction: column; align-items: stretch; } }
         .pd-next {
-            margin-top: 36px; background: rgba(59,89,138,.06);
-            border-radius: 14px; padding: 22px 26px;
+            flex: 1 1 auto; min-width: 0; background: rgba(59,89,138,.06);
+            border-radius: 12px; padding: 12px 18px;
         }
         .path-detail.risk .pd-next { background: rgba(217,119,6,.07); }
         .pd-next-label {
-            font-size: 0.75rem; font-weight: 600; letter-spacing: .12em;
+            font-size: 11.5px; font-weight: 600; letter-spacing: .12em;
             text-transform: uppercase; color: var(--text-muted);
         }
-        .pd-next p { font-size: 1.05rem; font-weight: 600; color: var(--text-main); line-height: 1.5; margin-top: 8px; }
+        .pd-next p { font-size: 15px; font-weight: 600; color: var(--text-main); line-height: 1.45; margin-top: 4px; }
         .futures-cta {
             display: flex; align-items: center; gap: 20px;
-            background: white; border-radius: 16px; padding: 24px 28px;
+            background: white; border-radius: 14px; padding: 14px 20px;
         }
         @media (max-width: 720px) { .futures-cta { flex-wrap: wrap; } .futures-cta .submit-btn { width: 100%; justify-content: center; } }
         .futures-cta .cta-icon { flex: 0 0 auto; color: var(--primary-color); display: flex; }
-        .futures-cta .cta-icon img { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; }
+        .futures-cta .cta-icon img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; }
         .futures-cta .cta-text { flex: 1 1 260px; min-width: 0; }
-        .futures-cta h4 { font-size: 1.05rem; font-weight: 600; color: var(--text-main); }
-        .futures-cta p { font-size: 0.92rem; color: var(--text-muted); line-height: 1.55; margin-top: 4px; }
+        .futures-cta h4 { font-size: 15px; font-weight: 600; color: var(--text-main); }
+        .futures-cta p { font-size: 14px; color: var(--text-muted); line-height: 1.45; margin-top: 2px; }
         .futures-cta .submit-btn { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 8px; }
-        .pd-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
+        .pd-actions { display: flex; flex-wrap: wrap; gap: 12px; flex: 0 0 auto; }
         .pd-explore { display: inline-flex; align-items: center; gap: 8px; }
         /* Nexa's avatar marks the buttons that open a chat with Nexa. */
         .submit-btn .nexa-avatar {
@@ -531,8 +535,8 @@
         }
         .daily-birth-form .submit-row { margin-top: 14px; gap: 10px; justify-content: flex-end; }
         .daily-birth-form .submit-error { margin-right: auto; }
-        .daily-headline { font-size: 1.4rem; font-weight: 700; letter-spacing: -0.02em; line-height: 1.3; margin-bottom: 14px; }
-        .daily-guidance { color: #303c4f; line-height: 1.75; font-size: 1rem; margin-bottom: 2em}
+        .daily-headline { font-size: 15px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.3; margin-bottom: 14px; }
+        .daily-guidance { color: #303c4f; line-height: 1.75; font-size: 15px; margin-bottom: 2em}
         .daily-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 24px; }
         .daily-meta .item-card:first-child { grid-column: 1 / -1; }
         @media (max-width: 620px) { .daily-meta { grid-template-columns: 1fr; } }
@@ -540,13 +544,13 @@
         .daily-empty { text-align: center; color: var(--text-muted); line-height: 1.6; }
         .daily-empty .ghost-btn { margin-top: 14px; }
 
-        .sit-title { font-size: 1.25rem; font-weight: 700; margin-bottom: 6px; }
-        .sit-sub { color: var(--text-muted); font-size: 0.95rem; line-height: 1.6; margin-bottom: 20px; }
+        .sit-title { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+        .sit-sub { color: var(--text-muted); font-size: 14px; line-height: 1.6; margin-bottom: 20px; }
         .sit-count { font-size: 0.78rem; color: var(--text-muted); }
         .sit-examples { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 16px; }
-        .sit-examples-label { font-size: 0.85rem; color: var(--text-muted); margin-right: 2px; }
+        .sit-examples-label { font-size: 11.5px; color: var(--text-muted); margin-right: 2px; }
         .sit-example {
-            font: inherit; font-size: 0.85rem; font-weight: 500; color: var(--primary-color);
+            font: inherit; font-size: 11.5px; font-weight: 500; color: var(--primary-color);
             background: #fff; border: 1px solid var(--primary-ring); border-radius: 999px;
             padding: 6px 14px; cursor: pointer; transition: background .15s, border-color .15s;
         }
@@ -554,7 +558,7 @@
         .sit-example:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; }
         .sit-result { margin-top: 28px; padding-top: 28px; border-top: 1px solid rgba(59,89,138,.10); }
         .sit-asked {
-            font-size: 0.85rem; color: var(--text-muted); font-style: italic; line-height: 1.55;
+            font-size: 11.5px; color: var(--text-muted); font-style: italic; line-height: 1.55;
             background: rgba(40,108,217,.035); border-radius: 12px; padding: 10px 14px; margin-bottom: 14px;
         }
         .sit-timing { margin-top: 10px; font-size: 0.88rem; font-weight: 600; color: var(--primary-hover); }
@@ -611,7 +615,7 @@
         <button type="button" class="ghost-btn" id="futures-refresh">Refresh Career Paths</button>
     </div>
 
-    <div class="daily-wrap" id="daily-panel" style="display:inline;">
+    <div class="daily-wrap" id="daily-panel">
         <div class="card" id="daily-card">
             <div class="daily-empty" id="daily-loading">
                 <div class="spinner"></div>Reading today's stars…
@@ -1151,7 +1155,7 @@
         $('horo-page').classList.toggle('on-daily', daily);
         $('horo-page').classList.toggle('on-futures', futures);
         $('reading-panel').style.display = tab === 'reading' ? '' : 'none';
-        $('daily-panel').style.display = daily ? 'inline' : 'none';
+        $('daily-panel').style.display = daily ? '' : 'none';
         $('futures-panel').style.display = futures ? 'flex' : 'none';
         try { history.replaceState(null, '', daily ? location.pathname + location.search : '#' + tab); } catch (e) {}
         NexaHeader.syncSubnav();
@@ -1399,12 +1403,14 @@
                     ${list('gap', PD_ALERT, missing)}
                 </div>
             </div>
-            ${nextStep ? `<div class="pd-next">
-                <div class="pd-next-label">A practical next step</div>
-                <p>${escHtml(nextStep)}</p>
-            </div>` : ''}
-            <div class="pd-actions">
-                <button type="button" class="submit-btn pd-explore"><img class="nexa-avatar" src="/static/nexa-avatar.png" alt="">Plan this with Nexa</button>
+            <div class="pd-foot">
+                ${nextStep ? `<div class="pd-next">
+                    <div class="pd-next-label">A practical next step</div>
+                    <p>${escHtml(nextStep)}</p>
+                </div>` : ''}
+                <div class="pd-actions">
+                    <button type="button" class="submit-btn pd-explore"><img class="nexa-avatar" src="/static/nexa-avatar.png" alt="">Plan this with Nexa</button>
+                </div>
             </div>
         </div>`;
     }

@@ -111,7 +111,7 @@ _RECS_MAX_CHARS = 3_000     # recommendation prompt cap
 _RECS_MSG_SAMPLE = 40       # messages read when there are no cached themes
 _RECS_MSG_CHARS = 220       # per-message truncation in that fallback
 _MIN_RECS_MESSAGES = 5      # below this we cannot tell what to recommend
-_RECS_COUNT = 10            # resources to ask for per run
+_RECS_COUNT = 7            # resources to ask for per run
 # The list leads with short videos — the easiest thing to fit into a working day
 # — and carries at most one book, which is a commitment rather than a quick win.
 _RECS_VIDEOS = 4            # short videos asked for within that count

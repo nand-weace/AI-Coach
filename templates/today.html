@@ -36,18 +36,14 @@
         .today-page { padding: 20px 20px 90px; max-width: 1640px; }
         .today-label { font-size: 1.6rem; font-weight: 600; color: var(--heading); }
 
-        /* Left column about three times the right, so the cards keep their
-           proportions as the window widens. */
-        .today-grid {
-            display: grid;
-            grid-template-columns: minmax(0, 2.3fr) minmax(300px, 1fr);
-            grid-template-areas:
-                "ask     calendar"
-                "reading  career"
-                "resource sentiment"
-                "growth   pulse";
-            gap: 16px;
-        }
+        /* Two independent columns, the left about 2.3 times the right, so the
+           cards keep their proportions as the window widens. Each card is as
+           tall as its content; nothing lines up across the columns. */
+        .today-grid { display: flex; align-items: flex-start; gap: 16px; }
+        .today-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+        .today-col-main { flex: 2.3 1 0; }
+        .today-col-side { flex: 1 1 0; min-width: 300px; }
+        /* The grid areas only apply on one column (below). */
         #ask-card { grid-area: ask; }
         #calendar-card { grid-area: calendar; }
         #reading-card { grid-area: reading; }
@@ -84,7 +80,11 @@
         .ask-title { margin-top: 6px; font-size: 13px; font-weight: 400; color: var(--text-muted); }
 
         .ask-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-        .ask-card-title { font-size: 15px; font-weight: 600; color: var(--text-main); }
+        .ask-card-title { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; color: var(--text-main); }
+
+        /* Nexa's avatar marks everything that starts a chat with Nexa. */
+        .nexa-avatar { flex: none; width: 18px; height: 18px; border-radius: 50%; object-fit: cover; }
+        .ask-card-title .nexa-avatar { width: 28px; height: 28px; }
         .ask-card-head .day-card-link { margin-top: 0; }
 
         .ask-box {
@@ -138,6 +138,7 @@
         .nudge:hover { border-color: var(--accent); }
         /* The meeting-prep nudge leads, on the same tint as an icon tile. */
         .nudge.primary { background: var(--icon-bg); border-color: rgba(43, 92, 230, 0.25); }
+        .nudge:not(.skeleton) { display: inline-flex; align-items: center; gap: 8px; }
         .nudge.skeleton { width: 200px; height: 31px; color: transparent; pointer-events: none; }
 
         /* ── Right: Your Day ── */
@@ -160,7 +161,7 @@
             font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase;
             color: var(--text-muted);
         }
-        .day-card h3 { margin-top: 12px; font-size: 15px; font-weight: 600; line-height: 1.35; }
+        .day-card h3 { margin-top: 12px; font-size: 14px; font-weight: 600; line-height: 1.35; }
         .day-card p {
             margin-top: 4px; color: var(--text-muted); font-size: 14px; line-height: 1.4;
             display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;
@@ -203,7 +204,7 @@
         .horoscope-main { flex: 1; min-width: 0; }
         .horoscope-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
         .horoscope-top .day-card-link { flex: none; margin-top: 0; }
-        .horoscope-card h3 { margin-top: 4px; font-size: 15px; color: var(--text-main); }
+        .horoscope-card h3 { margin-top: 4px; font-size: 14px; color: var(--text-main); }
         .horoscope-card p { margin-top: 4px; -webkit-line-clamp: 2; }
         .horoscope-card .shimmer.h { margin-top: 8px; }
 
@@ -216,7 +217,7 @@
             font-size: 0.68rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
             color: var(--text-muted);
         }
-        .teaser-label { margin-top: 2px; font-size: 0.9rem; font-weight: 600; color: var(--heading); line-height: 1.35; }
+        .teaser-label { margin-top: 2px; font-size: 13px;kee color: var(--heading); line-height: 1.35; }
         .teaser-row .teaser-label { margin-top: 0; }
         .teaser-text {
             margin-top: 4px; font-size: 0.8rem; line-height: 1.5; color: var(--text-muted);
@@ -233,13 +234,27 @@
         .teaser-card .day-card-icon svg { width: 16px; height: 16px; }
         .teaser-card .shimmer.h { margin-top: 12px; }
 
-        /* Resources: three picks; the Sentiment card beside it stretches to match. */
+        /* Resources: three picks, the whole item a link. */
         #resource-body { flex: 1; display: flex; flex-direction: column; }
-        .resource-item { display: block; text-decoration: none; transition: background 0.15s; }
-        .resource-item:hover { background: var(--icon-bg); }
+        /* Each pick gets its own blue gradient, by position, so the three always
+           read as separate items whatever their type: deep indigo, bright blue
+           to sky, and periwinkle, as in the Resources mockup. */
+        .resource-item {
+            display: block; text-decoration: none;
+            background: linear-gradient(110deg, #2e2b8c 0%, #5a5fd6 100%);
+            transition: filter 0.15s;
+        }
+        .resource-item:nth-child(3n+2) { background: linear-gradient(110deg, #3b5fe0 0%, #7fbdf0 100%); }
+        .resource-item:nth-child(3n+3) { background: linear-gradient(110deg, #6c6cd8 0%, #ada0ec 100%); }
+        .resource-item .teaser-tag { color: rgba(255, 255, 255, 0.8); }
+        .resource-item .teaser-label { color: #fff; }
+        .resource-item .teaser-text { color: rgba(255, 255, 255, 0.88); }
+        .resource-item:hover { filter: brightness(1.08); }
+        /* Side by side, the three share the row equally whatever their text. */
+        .resource-list .resource-item { flex: 1 1 0; min-width: 0; }
 
-        /* ── Daily Pulse: beside Growth Mirror ── */
-        .pulse-title { font-size: 15px; font-weight: 600; color: var(--heading); }
+        /* ── Daily Pulse ── */
+        .pulse-title { font-size: 14px; font-weight: 600; color: var(--heading); }
         .pulse-loading { margin-top: 12px; }
         #pulse-section .mood-row { margin-top: 16px; }
         .pulse-question { margin-top: 20px; font-size: 0.95rem; font-weight: 500; }
@@ -297,9 +312,12 @@
 
         @media (max-width: 1024px) {
             .today-grid {
-                grid-template-columns: 1fr;
+                display: grid; gap: 16px;
+                grid-template-columns: minmax(0, 1fr);
                 grid-template-areas: "ask" "calendar" "reading" "career" "resource" "sentiment" "growth" "pulse";
             }
+            .today-col { display: contents; }
+            .today-col-side { min-width: 0; }
             .day-title { margin-top: 0; }
         }
         @media (max-width: 600px) {
@@ -324,167 +342,173 @@
         </span>
     </header>
 
-    {# Two columns laid out by row, so each left card lines up with the one beside it:
-       ask | calendar, horoscope | career path, resources | sentiment, Growth
-       Mirror | Pulse. #}
+    {# Two independent columns, each card as tall as its content. On one column
+       the column wrappers drop out (display: contents) and the cards interleave:
+       ask, calendar, horoscope, career path, resources, sentiment, Growth Mirror,
+       Pulse. #}
     <div class="today-grid" id="today-grid">
-        <section class="day-card ask-card" id="ask-card">
-            <div class="ask-card-head" id="ask-card-head">
-                <h2 class="ask-card-title" id="ask-card-title">Chat with Nexa</h2>
-                <a class="day-card-link" id="open-chat-link" href="/">Open full chat <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
-            </div>
-            <form class="ask-box" id="ask-form" autocomplete="off">
-                <input type="text" id="ask-input" placeholder="Ask Nexa anything..." aria-label="Ask Nexa anything">
-                <button type="button" class="icon-btn" id="ask-mic" aria-label="Speak your question" hidden>
-                    <svg id="ask-mic-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                        <rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="18" x2="12" y2="22"/>
-                    </svg>
-                </button>
-                <button type="submit" class="icon-btn send-btn" id="ask-send" aria-label="Send">
-                    <svg id="ask-send-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
-                    </svg>
-                </button>
-            </form>
-
-            {# The buttons inside are rendered by renderNudges() as #nudge-0, #nudge-1, … #}
-            <div class="nudges" id="nudges">
-                <span class="nudge skeleton" id="nudge-skeleton-0"></span><span class="nudge skeleton" id="nudge-skeleton-1"></span><span class="nudge skeleton" id="nudge-skeleton-2"></span>
-            </div>
-        </section>
-
-        <article class="day-card calendar-feature" id="calendar-card">
-            <div class="day-card-kicker" id="calendar-kicker">Your calendar</div>
-            {# Filled by renderMeeting(): #calendar-title, #calendar-text, #prep-btn #}
-            <div id="calendar-body">
-                <span class="shimmer h" id="calendar-skeleton-title"></span><span class="shimmer t" id="calendar-skeleton-line"></span>
-            </div>
-        </article>
-
-        {# Daily Horoscope ships with Nexa Pro — hidden outright otherwise. #}
-        <article class="day-card horoscope-card" id="reading-card"{% if not show_pulse %} hidden{% endif %}>
-            <div class="day-card-icon" id="reading-icon">
-                <svg id="reading-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-            </div>
-            <div class="horoscope-main" id="reading-main">
-                <div class="horoscope-top" id="reading-top">
-                    <div class="day-card-kicker" id="reading-kicker">Daily horoscope</div>
-                    {# Text and target set by loadReading() #}
-                    <a class="day-card-link" id="reading-link" href="/career-horoscope#daily" hidden></a>
+        <div class="today-col today-col-main" id="today-col-main">
+            <section class="day-card ask-card" id="ask-card">
+                <div class="ask-card-head" id="ask-card-head">
+                    <h2 class="ask-card-title" id="ask-card-title"><img class="nexa-avatar" id="ask-card-avatar" src="/static/nexa-avatar.png" alt="">Chat with Nexa</h2>
+                    <a class="day-card-link" id="open-chat-link" href="/">Open full chat <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
                 </div>
-                {# Filled by loadReading(): #reading-title, #reading-text #}
-                <div id="reading-body">
-                    <span class="shimmer h" id="reading-skeleton-title"></span><span class="shimmer t" id="reading-skeleton-line-1"></span>
-                </div>
-            </div>
-        </article>
-
-        {# Career Path ships with Nexa Pro, like the reading card. #}
-        <article class="day-card teaser-card" id="career-teaser"{% if not show_pulse %} hidden{% endif %}>
-            <div class="day-card-head" id="career-teaser-head">
-                <div class="day-card-icon" id="career-teaser-icon">
-                    <svg id="career-teaser-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
-                </div>
-                <div class="day-card-kicker" id="career-teaser-kicker">Career path</div>
-            </div>
-            {# Filled by loadCareerTeaser() #}
-            <div class="teaser-body" id="career-teaser-body">
-                <span class="shimmer h" id="career-teaser-skeleton-title"></span><span class="shimmer t" id="career-teaser-skeleton-line-1"></span><span class="shimmer t" id="career-teaser-skeleton-line-2"></span>
-            </div>
-        </article>
-        {# Resources under the horoscope, as wide as it, beside one random sentiment. #}
-        <article class="day-card teaser-card" id="resource-card">
-            <div class="day-card-head" id="resource-head">
-                <div class="day-card-icon" id="resource-icon">
-                    <svg id="resource-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-                </div>
-                <div class="day-card-kicker" id="resource-kicker">Recommended for you</div>
-            </div>
-            {# Filled by loadResource(): #resource-list (#resource-item-0, …), #resource-link #}
-            <div id="resource-body">
-                <span class="shimmer h" id="resource-skeleton-title"></span><span class="shimmer t" id="resource-skeleton-line"></span>
-            </div>
-        </article>
-        <article class="day-card teaser-card" id="sentiment-teaser">
-            <div class="day-card-head" id="sentiment-teaser-head">
-                <div class="day-card-icon" id="sentiment-teaser-icon">
-                    <svg id="sentiment-teaser-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-                </div>
-                <div class="day-card-kicker" id="sentiment-teaser-kicker">Sentiment analysis</div>
-            </div>
-            {# Filled by loadSentimentTeaser() #}
-            <div class="teaser-body" id="sentiment-teaser-body">
-                <span class="shimmer h" id="sentiment-teaser-skeleton-title"></span><span class="shimmer t" id="sentiment-teaser-skeleton-line-1"></span><span class="shimmer t" id="sentiment-teaser-skeleton-line-2"></span>
-            </div>
-        </article>
-
-        {# Two random Growth Mirror items — a nudge to open the full page — beside
-           the Daily Pulse check-in. #}
-        <article class="day-card teaser-card" id="growth-teaser">
-            <div class="day-card-head" id="growth-teaser-head">
-                <div class="day-card-icon" id="growth-teaser-icon">
-                    <svg id="growth-teaser-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
-                </div>
-                <div class="day-card-kicker" id="growth-teaser-kicker">Growth mirror</div>
-            </div>
-            {# Filled by loadGrowthTeaser() #}
-            <div class="teaser-body" id="growth-teaser-body">
-                <span class="shimmer h" id="growth-teaser-skeleton-title"></span><span class="shimmer t" id="growth-teaser-skeleton-line-1"></span><span class="shimmer t" id="growth-teaser-skeleton-line-2"></span>
-            </div>
-        </article>
-        {% if show_pulse_checkin %}
-        {# Daily Pulse — the same anonymous one-note-a-day check-in as /pulse,
-           posted to /api/pulse. The state shown (form or done) is decided by
-           /api/pulse/today, so it opens on the loader. #}
-        <section class="day-card pulse-card" id="pulse-section">
-            <h2 class="pulse-title" id="pulse-title">How is your day going?</h2>
-
-            <div class="pulse-loading" id="pulse-loading">
-                <span class="shimmer t" id="pulse-skeleton"></span>
-            </div>
-
-            <div id="pulse-form" hidden>
-                <div class="mood-row" id="mood-row">
-                    {% for m in moods %}
-                    <button type="button" class="mood-btn" id="mood-btn-{{ m.value }}" data-mood="{{ m.value }}"
-                            aria-pressed="false" aria-label="{{ m.label }}" title="{{ m.label }}">
-                        <svg class="mood-face" id="mood-face-{{ m.value }}" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                             stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="12" cy="12" r="9"/>
-                            <circle cx="9" cy="10" r="0.6" fill="currentColor" stroke="none"/>
-                            <circle cx="15" cy="10" r="0.6" fill="currentColor" stroke="none"/>
-                            {% if m.value == 1 %}<path d="M8.5 16.5c1-1.4 2.1-2.1 3.5-2.1s2.5.7 3.5 2.1"/>
-                            {% elif m.value == 2 %}<path d="M8.7 15.9c.9-.9 2-1.3 3.3-1.3s2.4.4 3.3 1.3"/>
-                            {% elif m.value == 3 %}<path d="M8.5 15h7"/>
-                            {% elif m.value == 4 %}<path d="M8.7 14.4c.9.9 2 1.4 3.3 1.4s2.4-.5 3.3-1.4"/>
-                            {% else %}<path d="M8.2 13.8c1 1.6 2.2 2.4 3.8 2.4s2.8-.8 3.8-2.4"/>{% endif %}
+                <form class="ask-box" id="ask-form" autocomplete="off">
+                    <input type="text" id="ask-input" placeholder="Ask Nexa anything..." aria-label="Ask Nexa anything">
+                    <button type="button" class="icon-btn" id="ask-mic" aria-label="Speak your question" hidden>
+                        <svg id="ask-mic-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="18" x2="12" y2="22"/>
                         </svg>
-                        <span class="mood-label" id="mood-label-{{ m.value }}">{{ m.label }}</span>
                     </button>
-                    {% endfor %}
+                    <button type="submit" class="icon-btn send-btn" id="ask-send" aria-label="Send">
+                        <svg id="ask-send-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                        </svg>
+                    </button>
+                </form>
+
+                {# The buttons inside are rendered by renderNudges() as #nudge-0, #nudge-1, … #}
+                <div class="nudges" id="nudges">
+                    <span class="nudge skeleton" id="nudge-skeleton-0"></span><span class="nudge skeleton" id="nudge-skeleton-1"></span><span class="nudge skeleton" id="nudge-skeleton-2"></span>
+                </div>
+            </section>
+
+            {# Daily Horoscope ships with Nexa Pro — hidden outright otherwise. #}
+            <article class="day-card horoscope-card" id="reading-card"{% if not show_pulse %} hidden{% endif %}>
+                <div class="day-card-icon" id="reading-icon">
+                    <svg id="reading-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                </div>
+                <div class="horoscope-main" id="reading-main">
+                    <div class="horoscope-top" id="reading-top">
+                        <div class="day-card-kicker" id="reading-kicker">Daily horoscope</div>
+                        {# Text and target set by loadReading() #}
+                        <a class="day-card-link" id="reading-link" href="/career-horoscope#daily" hidden></a>
+                    </div>
+                    {# Filled by loadReading(): #reading-title, #reading-text #}
+                    <div id="reading-body">
+                        <span class="shimmer h" id="reading-skeleton-title"></span><span class="shimmer t" id="reading-skeleton-line-1"></span>
+                    </div>
+                </div>
+            </article>
+
+            {# Resources: three random picks from My Insights › Resources. #}
+            <article class="day-card teaser-card" id="resource-card">
+                <div class="day-card-head" id="resource-head">
+                    <div class="day-card-icon" id="resource-icon">
+                        <svg id="resource-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                    </div>
+                    <div class="day-card-kicker" id="resource-kicker">Recommended for you</div>
+                </div>
+                {# Filled by loadResource(): #resource-list (#resource-item-0, …), #resource-link #}
+                <div id="resource-body">
+                    <span class="shimmer h" id="resource-skeleton-title"></span><span class="shimmer t" id="resource-skeleton-line"></span>
+                </div>
+            </article>
+
+            {# A random Growth Mirror item — a nudge to open the full page. #}
+            <article class="day-card teaser-card" id="growth-teaser">
+                <div class="day-card-head" id="growth-teaser-head">
+                    <div class="day-card-icon" id="growth-teaser-icon">
+                        <svg id="growth-teaser-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                    </div>
+                    <div class="day-card-kicker" id="growth-teaser-kicker">Growth mirror</div>
+                </div>
+                {# Filled by loadGrowthTeaser() #}
+                <div class="teaser-body" id="growth-teaser-body">
+                    <span class="shimmer h" id="growth-teaser-skeleton-title"></span><span class="shimmer t" id="growth-teaser-skeleton-line-1"></span><span class="shimmer t" id="growth-teaser-skeleton-line-2"></span>
+                </div>
+            </article>
+        </div>
+
+        <div class="today-col today-col-side" id="today-col-side">
+            <article class="day-card calendar-feature" id="calendar-card">
+                <div class="day-card-kicker" id="calendar-kicker">Your calendar</div>
+                {# Filled by renderMeeting(): #calendar-title, #calendar-text, #prep-btn #}
+                <div id="calendar-body">
+                    <span class="shimmer h" id="calendar-skeleton-title"></span><span class="shimmer t" id="calendar-skeleton-line"></span>
+                </div>
+            </article>
+
+            {# Career Path ships with Nexa Pro, like the reading card. #}
+            <article class="day-card teaser-card" id="career-teaser"{% if not show_pulse %} hidden{% endif %}>
+                <div class="day-card-head" id="career-teaser-head">
+                    <div class="day-card-icon" id="career-teaser-icon">
+                        <svg id="career-teaser-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
+                    </div>
+                    <div class="day-card-kicker" id="career-teaser-kicker">Career path</div>
+                </div>
+                {# Filled by loadCareerTeaser() #}
+                <div class="teaser-body" id="career-teaser-body">
+                    <span class="shimmer h" id="career-teaser-skeleton-title"></span><span class="shimmer t" id="career-teaser-skeleton-line-1"></span><span class="shimmer t" id="career-teaser-skeleton-line-2"></span>
+                </div>
+            </article>
+
+            <article class="day-card teaser-card" id="sentiment-teaser">
+                <div class="day-card-head" id="sentiment-teaser-head">
+                    <div class="day-card-icon" id="sentiment-teaser-icon">
+                        <svg id="sentiment-teaser-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                    </div>
+                    <div class="day-card-kicker" id="sentiment-teaser-kicker">Sentiment analysis</div>
+                </div>
+                {# Filled by loadSentimentTeaser() #}
+                <div class="teaser-body" id="sentiment-teaser-body">
+                    <span class="shimmer h" id="sentiment-teaser-skeleton-title"></span><span class="shimmer t" id="sentiment-teaser-skeleton-line-1"></span><span class="shimmer t" id="sentiment-teaser-skeleton-line-2"></span>
+                </div>
+            </article>
+
+            {% if show_pulse_checkin %}
+            {# Daily Pulse — the same anonymous one-note-a-day check-in as /pulse,
+               posted to /api/pulse. The state shown (form or done) is decided by
+               /api/pulse/today, so it opens on the loader. #}
+            <section class="day-card pulse-card" id="pulse-section">
+                <h2 class="pulse-title" id="pulse-title">How is your day going?</h2>
+
+                <div class="pulse-loading" id="pulse-loading">
+                    <span class="shimmer t" id="pulse-skeleton"></span>
                 </div>
 
-                <div id="pulse-note-wrap">
-                    <textarea id="pulse-note" class="note-input" maxlength="{{ note_max }}"
-                              placeholder="What's working, what isn't, what would help. Write it the way you'd say it." hidden>
-                    </textarea>
-                    <div class="note-foot" id="pulse-note-foot" hidden>
-                        <span class="note-count" id="note-count" hidden>0 / {{ note_max }}</span>
+                <div id="pulse-form" hidden>
+                    <div class="mood-row" id="mood-row">
+                        {% for m in moods %}
+                        <button type="button" class="mood-btn" id="mood-btn-{{ m.value }}" data-mood="{{ m.value }}"
+                                aria-pressed="false" aria-label="{{ m.label }}" title="{{ m.label }}">
+                            <svg class="mood-face" id="mood-face-{{ m.value }}" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                 stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="9"/>
+                                <circle cx="9" cy="10" r="0.6" fill="currentColor" stroke="none"/>
+                                <circle cx="15" cy="10" r="0.6" fill="currentColor" stroke="none"/>
+                                {% if m.value == 1 %}<path d="M8.5 16.5c1-1.4 2.1-2.1 3.5-2.1s2.5.7 3.5 2.1"/>
+                                {% elif m.value == 2 %}<path d="M8.7 15.9c.9-.9 2-1.3 3.3-1.3s2.4.4 3.3 1.3"/>
+                                {% elif m.value == 3 %}<path d="M8.5 15h7"/>
+                                {% elif m.value == 4 %}<path d="M8.7 14.4c.9.9 2 1.4 3.3 1.4s2.4-.5 3.3-1.4"/>
+                                {% else %}<path d="M8.2 13.8c1 1.6 2.2 2.4 3.8 2.4s2.8-.8 3.8-2.4"/>{% endif %}
+                            </svg>
+                            <span class="mood-label" id="mood-label-{{ m.value }}">{{ m.label }}</span>
+                        </button>
+                        {% endfor %}
                     </div>
-                    <div class="pulse-submit-row" id="pulse-submit-row">
-                        <span class="submit-error" id="pulse-error"></span>
-                        <button type="button" class="pulse-submit" id="pulse-submit" disabled>Send anonymously</button>
+
+                    <div id="pulse-note-wrap">
+                        <textarea id="pulse-note" class="note-input" maxlength="{{ note_max }}"
+                                  placeholder="What's working, what isn't, what would help. Write it the way you'd say it." hidden>
+                        </textarea>
+                        <div class="note-foot" id="pulse-note-foot" hidden>
+                            <span class="note-count" id="note-count" hidden>0 / {{ note_max }}</span>
+                        </div>
+                        <div class="pulse-submit-row" id="pulse-submit-row">
+                            <span class="submit-error" id="pulse-error"></span>
+                            <button type="button" class="pulse-submit" id="pulse-submit" disabled>Send anonymously</button>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <div class="pulse-done" id="pulse-done" hidden>
-                <svg id="pulse-done-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                <span id="pulse-done-text">Thanks. Today's note is in.</span>
-            </div>
-        </section>
-        {% endif %}
-
+                <div class="pulse-done" id="pulse-done" hidden>
+                    <svg id="pulse-done-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    <span id="pulse-done-text">Thanks. Today's note is in.</span>
+                </div>
+            </section>
+            {% endif %}
+        </div>
     </div>
 </main>
 
@@ -576,7 +600,7 @@
             b.type = 'button';
             b.id = `nudge-${i}`;
             b.className = 'nudge';
-            b.textContent = text;
+            b.innerHTML = `<img class="nexa-avatar" src="/static/nexa-avatar.png" alt="">${esc(text)}`;
             if (meeting && i === 0) {
                 b.classList.add('primary');
                 b.addEventListener('click', () => prepMeeting(meeting));
@@ -608,7 +632,7 @@
             : 'Prepare for the conversation before you go in.';
         body.innerHTML = `<h3 id="calendar-title">${esc(m.title)}</h3>
             <p id="calendar-text">${esc(who)}</p>
-            <button type="button" class="day-card-link" id="prep-btn">Prepare with Nexa ${ARROW}</button>`;
+            <button type="button" class="day-card-link" id="prep-btn"><img class="nexa-avatar" id="prep-btn-avatar" src="/static/nexa-avatar.png" alt="">Prepare with Nexa ${ARROW}</button>`;
         document.getElementById('prep-btn').addEventListener('click', () => prepMeeting(m));
     }
 
@@ -688,7 +712,6 @@
                 return `<a class="teaser-item resource-item" id="resource-item-${i}" href="${esc(r.url)}" target="_blank" rel="noopener noreferrer">
                     <div class="teaser-tag">${esc(REC_LABELS[r.type] || 'Resource')}</div>
                     <div class="teaser-label">${esc(r.title)}</div>
-                    ${text ? `<div class="teaser-text">${esc(text)}</div>` : ''}
                 </a>`;
             });
             body.innerHTML = `<div class="teaser-list resource-list" id="resource-list">${items.join('')}</div>
