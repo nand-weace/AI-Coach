@@ -1,103 +1,87 @@
 /* ─────────────────────────────────────────────────────────────────────────
-   Shared app navigation — fixed left side panel, tabs, user chip, Corporate
-   Knowledge modal. Loaded by the chat page, the dashboard, My Insights and
-   Admin, which otherwise share no stylesheet.
+   Shared app navigation — fixed top bar, tabs with drop-down sub-navs, user
+   chip, Corporate Knowledge modal. Loaded by the chat page, the dashboard,
+   My Insights and Admin, which otherwise share no stylesheet.
 
-   The panel is fixed rather than part of each page's flow, so the only thing
+   The bar is fixed rather than part of each page's flow, so the only thing
    pages have to give up is the strip of body padding reserved below. Under
-   900px it slides off-canvas behind #sidebar-toggle.
+   1024px the tabs fold into a panel that #sidebar-toggle drops down.
    ───────────────────────────────────────────────────────────────────────── */
 
 :root {
-    --sidebar-w: 248px;
+    --topbar-h: 64px;
 }
 
 body {
-    padding-left: var(--sidebar-w);
+    padding-top: var(--topbar-h);
 }
 
-.app-sidebar {
+.app-topbar {
     position: fixed;
     top: 0;
     left: 0;
-    bottom: 0;
-    width: var(--sidebar-w);
+    right: 0;
+    height: var(--topbar-h);
     z-index: 80;
     display: flex;
-    flex-direction: column;
-    padding: 18px 14px;
-    gap: 18px;
-    /* the tip block can push the panel past a short viewport */
-    overflow-y: auto;
+    align-items: center;
+    gap: 20px;
+    padding: 0 20px;
     background: #fff;
-    border-right: 1px solid var(--glass-border);
+    border-bottom: 1px solid var(--glass-border);
 }
 
-.sidebar-brand {
+.topbar-brand {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 0 8px;
     flex-shrink: 0;
 }
 
-.sidebar-brand .logo-icon {
-    height: 44px;
+.topbar-brand .logo-icon {
+    height: 40px;
     width: auto;
     display: block;
     margin: 0;
 }
 
-/* ── Privacy note ─────────────────────────────────────────────────────────
-   Sits in the empty stretch between the nav and the user chip: margin-top:auto
-   pushes it down there, and the footer below it keeps its own top border. */
-.sidebar-privacy {
-    margin-top: auto;
+.topbar-end {
+    margin-left: auto;
     display: flex;
-    align-items: flex-start;
-    gap: 9px;
+    align-items: center;
+    gap: 12px;
     flex-shrink: 0;
-    padding: 12px 12px 13px;
-    border-radius: 12px;
+}
+
+/* ── Privacy badge ────────────────────────────────────────────────────────
+   The short form of the side panel's old privacy note; the full sentence is
+   the badge's tooltip. */
+.topbar-privacy {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 11px;
+    border-radius: 999px;
     background: rgba(58, 127, 237, 0.06);
     border: 1px solid rgba(58, 127, 237, 0.14);
-}
-.sidebar-privacy svg {
-    width: 15px;
-    height: 15px;
-    flex-shrink: 0;
-    margin-top: 1px;
-    color: var(--primary-color);
-}
-.sidebar-privacy-title {
-    font-size: 0.76rem;
-    font-weight: 700;
-    color: var(--text-main);
-    margin-bottom: 3px;
-}
-.sidebar-privacy p {
-    font-size: 0.7rem;
+    font-size: 0.74rem;
     font-weight: 600;
-    line-height: 1.5;
-    color: var(--text-muted);
-    margin: 0;
+    color: var(--text-main);
+    white-space: nowrap;
+    cursor: default;
+}
+.topbar-privacy svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    color: var(--primary-color);
 }
 
 .app-tab[hidden] { display: none; }
 
-.sidebar-footer {
-    padding-top: 14px;
-    border-top: 1px solid var(--glass-border);
-    flex-shrink: 0;
-}
-
-/* ── Off-canvas trigger (mobile only) ─────────────────────────────────── */
+/* ── Drawer trigger (narrow screens only) ─────────────────────────────── */
 .sidebar-toggle {
     display: none;
-    position: fixed;
-    top: 12px;
-    left: 12px;
-    z-index: 95;
     align-items: center;
     justify-content: center;
     width: 38px;
@@ -121,25 +105,26 @@ body {
 /* ── Nav tabs ─────────────────────────────────────────────────────────── */
 .app-tabs {
     display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 2px;
-    min-height: 0;
-    overflow-y: auto;
+    align-items: center;
+    height: 100%;
+    min-width: 0;
 }
 
+/* Spacing lives on the items rather than as a flex gap: a group whose tab and
+   sub-nav are both role-hidden is an empty box, and a gap would still be
+   reserved around it. */
 .app-tab {
     display: flex;
     align-items: center;
-    gap: 10px;
-    width: 100%;
+    gap: 8px;
     flex-shrink: 0;
-    padding: 10px 12px;
+    margin: 0 2px;
+    padding: 9px 12px;
     border: none;
     border-radius: 10px;
     background: none;
     font-family: inherit;
-    font-size: 0.92rem;
+    font-size: 0.9rem;
     font-weight: 500;
     line-height: 1.2;
     color: var(--text-muted);
@@ -156,27 +141,71 @@ body {
     flex-shrink: 0;
 }
 
-/* ── Sub-nav (the reports under My Insights) ──────────────────────────── */
-.app-subnav {
+.tab-caret {
+    width: 13px;
+    height: 13px;
+    margin-left: -2px;
+    flex-shrink: 0;
+    transition: transform 0.15s;
+}
+
+/* ── Drop-down sub-navs (My Insights, Career, Admin) ──────────────────── */
+.app-tab-group {
+    position: relative;
     display: flex;
+    align-items: center;
+    height: 100%;
+}
+
+.app-subnav {
+    display: none;
+    position: absolute;
+    top: calc(100% - 6px);
+    left: 2px;
+    min-width: 200px;
     flex-direction: column;
-    /* Rule runs under the parent tab's icon, so the group reads as one branch */
-    margin: 2px 0 4px 21px;
-    padding-left: 10px;
-    border-left: 1px solid var(--glass-border);
+    padding: 6px;
+    background: #fff;
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    box-shadow: 0 8px 28px rgba(32, 62, 110, 0.12);
+    z-index: 60;
+    animation: chipDropIn 0.14s ease;
+}
+
+/* Bridges the gap between tab and menu so the pointer can cross it without
+   the hover dropping. */
+.app-subnav::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 100%;
+    height: 10px;
+}
+
+/* An inline display:none (role-hidden) still wins over these, so a hidden
+   sub-nav stays hidden on hover. */
+.app-tab-group:hover .app-subnav,
+.app-tab-group:focus-within .app-subnav {
+    display: flex;
+}
+
+.app-tab-group:hover .tab-caret,
+.app-tab-group:focus-within .tab-caret {
+    transform: rotate(180deg);
 }
 
 .app-subtab {
-    padding: 7px 10px;
+    padding: 9px 12px;
     border-radius: 8px;
-    font-size: 0.83rem;
+    font-size: 0.85rem;
     font-weight: 500;
     line-height: 1.2;
     color: var(--text-muted);
     text-decoration: none;
     white-space: nowrap;
     transition: color 0.15s, background 0.15s;
-    margin-top: 8px;
 }
 
 .app-subtab:hover {
@@ -190,7 +219,8 @@ body {
     background: var(--primary-soft, rgba(40, 108, 217, 0.09));
 }
 
-.app-tab:hover:not(:disabled) {
+.app-tab:hover:not(:disabled),
+.app-tab-group:hover > .app-tab {
     color: var(--text-main);
     background: rgba(51, 121, 234, 0.06);
 }
@@ -201,7 +231,8 @@ body {
     font-weight: 600;
 }
 
-.app-tab.active {
+.app-tab.active,
+.app-tab-group:hover > .app-tab.active {
     background: var(--primary-soft, rgba(40, 108, 217, 0.09));
 }
 
@@ -266,28 +297,91 @@ body {
     border-radius: 8px;
 }
 
-/* Under 900px the panel would eat the page, so it slides off-canvas and the
-   hamburger brings it back over a scrim. */
-@media (max-width: 900px) {
-    body {
-        padding-left: 0;
-        padding-top: 58px;   /* clears the fixed toggle */
+/* Wide enough for the tabs but not the badge and the user's name too. */
+@media (max-width: 1280px) {
+    .topbar-privacy { display: none; }
+}
+
+@media (max-width: 1180px) {
+    .app-topbar .user-display { display: none; }
+    .app-topbar .user-chip { padding-right: 8px; }
+}
+
+/* Under 1024px the tabs won't fit in one row, so they fold into a panel that
+   drops down below the bar over a scrim, with each sub-nav listed inline
+   under its tab. */
+@media (max-width: 1024px) {
+    :root {
+        --topbar-h: 58px;
     }
-    .app-sidebar {
-        transform: translateX(-100%);
-        transition: transform 0.2s ease;
-        box-shadow: 0 0 40px rgba(32, 62, 110, 0.18);
-    }
-    .app-sidebar.open {
-        transform: translateX(0);
+    .app-topbar {
+        padding: 0 12px;
     }
     .sidebar-toggle {
+        display: flex;
+    }
+    .app-tabs {
+        display: none;
+        position: fixed;
+        top: var(--topbar-h);
+        left: 0;
+        right: 0;
+        height: auto;
+        max-height: calc(100vh - var(--topbar-h));
+        overflow-y: auto;
+        flex-direction: column;
+        align-items: stretch;
+        padding: 10px 12px 14px;
+        background: #fff;
+        border-bottom: 1px solid var(--glass-border);
+        box-shadow: 0 20px 40px rgba(32, 62, 110, 0.14);
+        animation: chipDropIn 0.16s ease;
+    }
+    .app-topbar.open .app-tabs {
         display: flex;
     }
     .sidebar-scrim.open {
         display: block;
     }
-    /* Flyouts have no room to the side once the panel fills most of the screen */
+    .app-tab {
+        margin: 1px 0;
+        padding: 10px 12px;
+    }
+    .app-tab-group {
+        flex-direction: column;
+        align-items: stretch;
+        height: auto;
+    }
+    .tab-caret {
+        display: none;
+    }
+    .app-tab-group:hover > .app-tab:not(.active) {
+        color: var(--text-muted);
+        background: none;
+    }
+    /* Inline under the tab, as a branch off its icon */
+    .app-subnav,
+    .app-tab-group:hover .app-subnav,
+    .app-tab-group:focus-within .app-subnav {
+        display: flex;
+        position: static;
+        min-width: 0;
+        margin: 2px 0 4px 21px;
+        padding: 0 0 0 10px;
+        border: none;
+        border-left: 1px solid var(--glass-border);
+        border-radius: 0;
+        box-shadow: none;
+        animation: none;
+    }
+    .app-subnav::before {
+        display: none;
+    }
+    .app-subtab {
+        margin-top: 4px;
+        padding: 7px 10px;
+    }
+    /* Flyouts have no room to the side once the panel fills the screen */
     .tab-popover {
         left: 0;
         top: calc(100% + 6px);
@@ -347,30 +441,24 @@ body {
     transform: rotate(180deg);
 }
 
-/* Opens upward — the chip sits at the bottom of the panel */
+/* Opens downward, right-aligned — the chip sits at the right end of the bar */
 .chip-dropdown {
     display: none;
     position: absolute;
-    bottom: calc(100% + 8px);
-    left: 0;
+    top: calc(100% + 8px);
     right: 0;
-    min-width: 190px;
+    min-width: 220px;
     background: #fff;
     border: 1px solid var(--glass-border);
     border-radius: 12px;
     box-shadow: 0 8px 28px rgba(32, 62, 110, 0.12);
     overflow: hidden;
     z-index: 50;
-    animation: chipDropUp 0.14s ease;
+    animation: chipDropIn 0.14s ease;
 }
 
 @keyframes chipDropIn {
     from { opacity: 0; transform: translateY(-6px); }
-    to   { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes chipDropUp {
-    from { opacity: 0; transform: translateY(6px); }
     to   { opacity: 1; transform: translateY(0); }
 }
 

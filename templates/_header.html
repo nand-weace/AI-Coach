@@ -1,6 +1,6 @@
 {#
   Shared app navigation — used by the chat page, the dashboard, My Insights and
-  Admin so all four show the same left side panel with the current tab marked.
+  Admin so all four show the same top bar with the current tab marked.
 
   Params:
     active_tab     'today' | 'talk' | 'sentiment' | 'my-insights' | 'admin'
@@ -27,19 +27,22 @@
   left out — the chat page only learns the user's roles after /session, and
   header.js's applyRoles() toggles them from there.
 
-  The panel is fixed to the left edge; header.css reserves the space with a
-  padding-left on <body>, so pages need no layout of their own. Under 900px it
-  slides off-canvas and #sidebar-toggle brings it back.
+  The bar is fixed to the top edge; header.css reserves the space with a
+  padding-top on <body>, so pages need no layout of their own. A tab with a
+  sub-nav sits in an .app-tab-group, and the sub-nav drops down under it on
+  hover or keyboard focus. Under 1024px the tabs fold into a panel below the
+  bar and #sidebar-toggle opens it. (The ids keep their "sidebar" names so
+  header.js and the pages that call setDrawer() need no changes.)
 #}
-<button type="button" class="sidebar-toggle" id="sidebar-toggle" aria-label="Open navigation" aria-expanded="false" aria-controls="app-sidebar">
-    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-        <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
-    </svg>
-</button>
 <div class="sidebar-scrim" id="sidebar-scrim"></div>
 
-<aside class="app-sidebar" id="app-sidebar">
-    <div class="sidebar-brand">
+<header class="app-topbar" id="app-sidebar">
+    <div class="topbar-brand">
+        <button type="button" class="sidebar-toggle" id="sidebar-toggle" aria-label="Open navigation" aria-expanded="false" aria-controls="app-tabs">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+            </svg>
+        </button>
         <a href="/" class="logo-home"><img src="{{ branding.logo_url }}" alt="{{ branding.name }}" class="logo-icon brand-logo" /></a>
         <span class="dot pulse" title="Online"></span>
     </div>
@@ -66,25 +69,28 @@
         {# Language lives beside the chat composer (index.html) — it only ever
            affected the conversation, so it belongs next to it. #}
 
-        <a id="my-insights-link" href="/my-insights"
-           class="app-tab{% if active_tab == 'my-insights' %} active{% endif %}"
-           {% if active_tab == 'my-insights' %}aria-current="page"{% endif %}
-           {% if show_admin or show_org_tabs %}style="display:none;"{% endif %}>
-            <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
-            </svg>
-            My Insights
-        </a>
+        <div class="app-tab-group">
+            <a id="my-insights-link" href="/my-insights"
+               class="app-tab{% if active_tab == 'my-insights' %} active{% endif %}"
+               {% if active_tab == 'my-insights' %}aria-current="page"{% endif %}
+               {% if show_admin or show_org_tabs %}style="display:none;"{% endif %}>
+                <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+                </svg>
+                My Insights
+                <svg class="tab-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+            </a>
 
-        {# The reports on /my-insights. Its showTab() already keys off the
-           URL hash, so these are plain links: from another page the hash lands
-           with the navigation, and on the page itself it switches tab without a
-           reload. header.js keeps the current one marked. #}
-        <div class="app-subnav" id="my-insights-subnav"
-             {% if show_admin or show_org_tabs %}style="display:none;"{% endif %}>
-             <a class="app-subtab" href="/my-insights#sentiment" data-subtab="sentiment">Sentiment Analysis</a>
-            <a class="app-subtab" href="/my-insights#growth" data-subtab="growth">Growth Mirror</a>
-            <a class="app-subtab" href="/my-insights#recs" data-subtab="recs">Resources</a>
+            {# The reports on /my-insights. Its showTab() already keys off the
+               URL hash, so these are plain links: from another page the hash lands
+               with the navigation, and on the page itself it switches tab without a
+               reload. header.js keeps the current one marked. #}
+            <div class="app-subnav" id="my-insights-subnav"
+                 {% if show_admin or show_org_tabs %}style="display:none;"{% endif %}>
+                 <a class="app-subtab" href="/my-insights#sentiment" data-subtab="sentiment">Sentiment Analysis</a>
+                <a class="app-subtab" href="/my-insights#growth" data-subtab="growth">Growth Mirror</a>
+                <a class="app-subtab" href="/my-insights#recs" data-subtab="recs">Resources</a>
+            </div>
         </div>
 
         {# Career — the career horoscope from the user's birth details, with
@@ -92,24 +98,27 @@
            alongside the other personal tabs and is hidden for a WeAce super
            admin and a corporate super admin (as is My Insights). Ships with Nexa Pro, same as Daily Pulse — `show_pulse` gates
            both. #}
-        <a id="career-horoscope-link" href="/career-horoscope"
-           class="app-tab{% if active_tab == 'career-horoscope' %} active{% endif %}"
-           {% if active_tab == 'career-horoscope' %}aria-current="page"{% endif %}
-           {% if show_admin or show_org_tabs or not show_pulse %}style="display:none;"{% endif %}>
-            <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 2l2.4 6.9H22l-6 4.4 2.3 7-6.3-4.6L5.7 20l2.3-7-6-4.4h7.6z"/>
-            </svg>
-            Career
-        </a>
+        <div class="app-tab-group">
+            <a id="career-horoscope-link" href="/career-horoscope"
+               class="app-tab{% if active_tab == 'career-horoscope' %} active{% endif %}"
+               {% if active_tab == 'career-horoscope' %}aria-current="page"{% endif %}
+               {% if show_admin or show_org_tabs or not show_pulse %}style="display:none;"{% endif %}>
+                <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2l2.4 6.9H22l-6 4.4 2.3 7-6.3-4.6L5.7 20l2.3-7-6-4.4h7.6z"/>
+                </svg>
+                Career
+                <svg class="tab-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+            </a>
 
-        {# The views on /career-horoscope, addressed by URL hash like the
-           My Insights reports; Daily Horoscope is the page's default (no hash). #}
-        <div class="app-subnav" id="career-subnav"
-             {% if show_admin or show_org_tabs or not show_pulse %}style="display:none;"{% endif %}>
-            <a class="app-subtab" href="/career-horoscope#daily" data-subtab="daily">Daily Horoscope</a>
-            {# Career Reading is hidden from the sub-nav; the view still opens via
-               the "Go to Career Reading" prompts that collect birth details. #}
-            <a class="app-subtab" href="/career-horoscope#futures" data-subtab="futures">Career Path</a>
+            {# The views on /career-horoscope, addressed by URL hash like the
+               My Insights reports; Daily Horoscope is the page's default (no hash). #}
+            <div class="app-subnav" id="career-subnav"
+                 {% if show_admin or show_org_tabs or not show_pulse %}style="display:none;"{% endif %}>
+                <a class="app-subtab" href="/career-horoscope#daily" data-subtab="daily">Daily Horoscope</a>
+                {# Career Reading is hidden from the sub-nav; the view still opens via
+                   the "Go to Career Reading" prompts that collect birth details. #}
+                <a class="app-subtab" href="/career-horoscope#futures" data-subtab="futures">Career Path</a>
+            </div>
         </div>
 
         <a id="dashboard-link" href="/dashboard"
@@ -145,26 +154,29 @@
             Knowledge Base
         </button>
 
-        <a id="tab-admin" href="/admin"
-           class="app-tab{% if active_tab == 'admin' %} active{% endif %}"
-           {% if active_tab == 'admin' %}aria-current="page"{% endif %}
-           {% if not show_admin %}style="display:none;"{% endif %}>
-            <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 2l8 4v6c0 5-3.4 9.4-8 10-4.6-.6-8-5-8-10V6l8-4z"/>
-            </svg>
-            Admin
-        </a>
+        <div class="app-tab-group">
+            <a id="tab-admin" href="/admin"
+               class="app-tab{% if active_tab == 'admin' %} active{% endif %}"
+               {% if active_tab == 'admin' %}aria-current="page"{% endif %}
+               {% if not show_admin %}style="display:none;"{% endif %}>
+                <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2l8 4v6c0 5-3.4 9.4-8 10-4.6-.6-8-5-8-10V6l8-4z"/>
+                </svg>
+                Admin
+                <svg class="tab-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+            </a>
 
-        {# Admin's own sections. Server-rendered pages, so the current one is
-           marked from `active_subtab` rather than by header.js. #}
-        <div class="app-subnav" id="admin-subnav"
-             {% if not show_admin %}style="display:none;"{% endif %}>
-            <a class="app-subtab{% if active_subtab == 'corporates' %} active{% endif %}"
-                    href="/admin/corporates">Corporates</a>
-            <a class="app-subtab{% if active_subtab == 'platform' %} active{% endif %}"
-               href="/admin">Dashboard</a>
-            <a class="app-subtab{% if active_subtab == 'cost' %} active{% endif %}"
-               href="/admin/cost">Cost Analysis</a>
+            {# Admin's own sections. Server-rendered pages, so the current one is
+               marked from `active_subtab` rather than by header.js. #}
+            <div class="app-subnav" id="admin-subnav"
+                 {% if not show_admin %}style="display:none;"{% endif %}>
+                <a class="app-subtab{% if active_subtab == 'corporates' %} active{% endif %}"
+                        href="/admin/corporates">Corporates</a>
+                <a class="app-subtab{% if active_subtab == 'platform' %} active{% endif %}"
+                   href="/admin">Dashboard</a>
+                <a class="app-subtab{% if active_subtab == 'cost' %} active{% endif %}"
+                   href="/admin/cost">Cost Analysis</a>
+            </div>
         </div>
 
         {# Hidden for a white-labelled tenant — their users see their brand,
@@ -179,20 +191,18 @@
         </button>
     </nav>
 
-    {# Fills the gap between the nav and the user chip. The claim is deliberately
-       exact: org admins can see activity counts on the dashboard, never message
-       content or anyone's personal insights. #}
-    <div class="sidebar-privacy">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-        </svg>
-        <div>
-            <div class="sidebar-privacy-title">Private to you</div>
-            <p>Your chats and insights are visible only to you, never your organisation.</p>
+    <div class="topbar-end">
+        {# The claim is deliberately exact: org admins can see activity counts on
+           the dashboard, never message content or anyone's personal insights.
+           Shortened to a badge in the bar; the full sentence is its tooltip. #}
+        <div class="topbar-privacy" tabindex="0"
+             title="Your chats and insights are visible only to you, never your organisation.">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+            Private to you
         </div>
-    </div>
 
-    <div class="sidebar-footer">
         <div class="user-chip-wrap" id="user-chip-wrap">
             <div class="user-chip" id="user-chip">
                 <div class="user-chip-avatar" id="header-avatar">
@@ -237,7 +247,7 @@
             </div>
         </div>
     </div>
-</aside>
+</header>
 
 <!-- Corporate Knowledge modal (corporate super admins only) -->
 <div id="corp-content-overlay" class="corp-modal-overlay" style="display:none;">

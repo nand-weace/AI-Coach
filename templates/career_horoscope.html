@@ -401,7 +401,7 @@
 
         .book-teaser { text-align: center; padding: 40px 30px; }
 
-        /* ── Views (picked from the Career sub-nav in the sidebar) ─────── */
+        /* ── Views (picked from the Career sub-nav in the top bar) ─────── */
         .page.on-daily #regenerate-btn,
         .page.on-futures #regenerate-btn { display: none !important; }
         .futures-wrap { display: flex; flex-direction: column; gap: 24px; }
@@ -1555,7 +1555,7 @@
 
     document.querySelectorAll('[data-goto-reading]').forEach(b =>
         b.addEventListener('click', () => showTab('reading')));
-    // The views are picked from the Career sub-nav in the sidebar, which only
+    // The views are picked from the Career sub-nav in the top bar, which only
     // moves the hash while already on this page.
     const tabFromHash = () => ({ '#reading': 'reading', '#futures': 'futures' }[location.hash] || 'daily');
     window.addEventListener('hashchange', () => showTab(tabFromHash()));

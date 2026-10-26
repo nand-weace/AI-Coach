@@ -2329,7 +2329,9 @@ def _today_meeting(summary: dict | None) -> dict | None:
         'title': ev['title'],
         'start': ev['start'].isoformat(),
         'day': day,
-        'time': '' if ev['all_day'] else ev['start'].strftime('%-I:%M %p'),
+        'time': '' if ev['all_day'] else ev['start'].strftime('%-I:%M %p %Z').strip(),
+        'date': ev['start'].strftime('%A %-d %b'),
+        'short_date': ev['start'].strftime('%-d %b'),
         'all_day': ev['all_day'],
         'attendee_count': ev['attendee_count'],
         'attendees': ev['attendees'][:4],
@@ -2354,7 +2356,7 @@ def api_today():
 
     nudges = []
     if meeting:
-        nudges.append(f'Prepare for "{meeting["title"]}"')
+        nudges.append(f'Prepare for {meeting["title"]}, {meeting["short_date"]}')
     nudges += _TODAY_DEFAULT_NUDGES
     return jsonify({'meeting': meeting, 'nudges': nudges[:4]})
 

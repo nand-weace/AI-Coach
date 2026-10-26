@@ -1,6 +1,7 @@
-// Shared side-panel behaviour — chat page and dashboard both load this.
+// Shared top-bar behaviour — chat page and dashboard both load this.
 // Wires the tabs, language picker, Corporate Knowledge modal, user-chip
-// dropdown and the mobile off-canvas drawer. Pages hook back in via
+// dropdown and the narrow-screen nav drawer. The sub-nav drop-downs are
+// pure CSS (hover / focus-within). Pages hook back in via
 // window.NexaHeader.
 
 // Language picker — keep in sync with SUPPORTED_LANGUAGES in app.py
@@ -133,7 +134,7 @@ const NexaHeader = (() => {
         });
     }
 
-    // ── Off-canvas panel (under 900px) ──────────────────────────────────────
+    // ── Nav drawer (under 1024px) ───────────────────────────────────────────
     function setDrawer(open) {
         const panel = $('app-sidebar');
         const scrim = $('sidebar-scrim');
@@ -347,7 +348,12 @@ const NexaHeader = (() => {
             closeMenus();
         });
         document.addEventListener('keydown', e => {
-            if (e.key === 'Escape') { closeMenus(); setDrawer(false); }
+            if (e.key !== 'Escape') return;
+            closeMenus();
+            setDrawer(false);
+            // A keyboard-opened sub-nav stays open while focus is inside it.
+            const nav = $('app-tabs');
+            if (nav && nav.contains(document.activeElement)) document.activeElement.blur();
         });
 
         // Tabs that navigate: mark them active straight away so the header
@@ -363,9 +369,9 @@ const NexaHeader = (() => {
             });
         });
 
-        // Any nav choice dismisses the drawer on mobile. Language is the one
-        // exception — its flyout lives inside the panel, so closing it there
-        // would hide the options being picked from.
+        // Any nav choice dismisses the drawer on narrow screens. Language is
+        // the one exception — its flyout lives inside the panel, so closing it
+        // there would hide the options being picked from.
         document.querySelectorAll('.app-tab, .app-subtab').forEach(tab => {
             if (tab.id === 'btn-language') return;
             tab.addEventListener('click', () => setDrawer(false));
@@ -374,10 +380,12 @@ const NexaHeader = (() => {
         // A sub-nav link either navigates to /my-insights (carry the running
         // conversation over, as the tabs do) or, when already there, only moves
         // the hash — no reload, so the highlight is updated here as well as on
-        // hashchange.
+        // hashchange. Dropping focus lets the drop-down close in that case
+        // instead of staying held open by :focus-within.
         document.querySelectorAll('.app-subtab').forEach(link => {
             link.addEventListener('click', () => {
                 markTabNav();
+                link.blur();
                 requestAnimationFrame(syncSubnav);
             });
         });

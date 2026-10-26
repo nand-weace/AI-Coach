@@ -55,7 +55,7 @@ body {
     overflow: hidden;
 }
 
-/* Shell = the chat card, centred in whatever the side panel leaves over.
+/* Shell = the chat card, centred in whatever the top bar leaves over.
    Height tracks the body box so the mobile top-bar offset doesn't push the
    card past the fold. */
 .app-shell {
@@ -69,7 +69,7 @@ body {
 .app-card {
     flex: 1;
     min-height: 0;
-    /* Fills the space the side panel leaves; the cap only stops the card from
+    /* Fills the space the top bar leaves; the cap only stops the card from
        stretching into an unreadable line length on very wide screens. */
     width: calc(100% - 20px);
     max-width: 1280px;
