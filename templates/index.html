@@ -14,11 +14,25 @@
     {# Arriving from Today with a message to send and a signed-in browser: show
        a quiet hand-off loader instead of the login card, before first paint.
        script.js drops the class again if it has to fall back to the login form. #}
+    {# Arriving from inside the app — a tab hop with a chat session to resume,
+       or a hand-off from Growth Mirror / Career / Today with a message to send:
+       paint the chat shell straight away, with a spinner in the chat area,
+       rather than a loader. script.js drops the class once the conversation
+       is in, or if it has to fall back to the login form. #}
     <script>
         try {
             if (sessionStorage.getItem('we_ace_focus_session') &&
                     localStorage.getItem('we_ace_access_token')) {
-                document.documentElement.classList.add('nexa-handoff');
+                document.documentElement.classList.add('nexa-handoff', 'nexa-shell');
+            }
+            var navStamp = Number(sessionStorage.getItem('we_ace_tab_nav'));
+            var navEntry = performance.getEntriesByType('navigation')[0];
+            if (navStamp && Date.now() - navStamp < 5 * 60 * 1000 &&
+                    !(navEntry && navEntry.type === 'reload') &&
+                    !/[?&](refresh|access)_token=/.test(location.search) &&
+                    localStorage.getItem('we_ace_access_token') &&
+                    localStorage.getItem('we_ace_session_uuid')) {
+                document.documentElement.classList.add('nexa-shell');
             }
         } catch (_) {}
     </script>

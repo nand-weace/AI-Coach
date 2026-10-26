@@ -8,6 +8,10 @@
    1024px the tabs fold into a panel that #sidebar-toggle drops down.
    ───────────────────────────────────────────────────────────────────────── */
 
+/* Tab switches are full page loads. Every page loads this sheet, so opting in
+   here cross-fades between them (where supported) instead of flashing white. */
+@view-transition { navigation: auto; }
+
 :root {
     --topbar-h: 64px;
 }

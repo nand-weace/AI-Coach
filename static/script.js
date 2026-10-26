@@ -396,12 +396,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!_urlRefreshToken && !_extToken && consumeTabNavIntent()) {
         const _resumeStatus = document.getElementById('login-status');
         if (_resumeStatus) _resumeStatus.textContent = 'Picking up where you left off';
+        const _resumeName = document.getElementById('user-display');
+        if (_resumeName && !_resumeName.textContent.trim())
+            _resumeName.textContent = localStorage.getItem('we_ace_user_name') || '';
         const _rd = await resumeSession();
         if (_rd) {
             showApp(_rd);
             _authed = true;
         }
     }
+    // Nothing resumed: take the optimistic chat shell down again (see the
+    // head of index.html) so the login chain's loader can show — unless a
+    // hand-off message is waiting, which keeps the shell up through /session.
+    let _hasFocusIntent = false;
+    try { _hasFocusIntent = !!sessionStorage.getItem('we_ace_focus_session'); } catch (_) {}
+    if (!_authed && !_hasFocusIntent) document.documentElement.classList.remove('nexa-shell');
 
     // Any stored/incoming credential means we're about to run the slow auth
     // chain — show the stepper instead of a bare spinner.
@@ -1083,11 +1092,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         loginProgress.stop();
         document.getElementById('login-overlay').style.display = 'none';
         const appEl = document.getElementById('app-container');
-        appEl.style.opacity = '0';
+        // A tab hop already has the shell on screen — fading it out and back
+        // in would only flicker.
+        const shellShown = document.documentElement.classList.contains('nexa-shell');
+        if (!shellShown) appEl.style.opacity = '0';
         appEl.style.display = 'flex';
-        appEl.offsetHeight; // force reflow
-        appEl.style.transition = 'opacity 0.22s ease';
-        appEl.style.opacity = '1';
+        if (!shellShown) {
+            appEl.offsetHeight; // force reflow
+            appEl.style.transition = 'opacity 0.22s ease';
+            appEl.style.opacity = '1';
+        }
         document.getElementById('user-display').textContent = userName;
         NexaHeader.renderLanguageMenu();   // reflect the preference restored by /session
         renderMode(currentMode());         // ditto for the coaching/mentoring toggle
@@ -1126,6 +1140,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         } else {
             welcomeEl.textContent = `Welcome to your Executive Leadership Coaching Session, ${userName}. I'm Nexa, here to help you navigate complex professional challenges, enhance your leadership skills, and drive strategic impact. What would you like to focus on today?`;
         }
+        // The greeting (or nothing, on a resume) is in place — drop the spinner.
+        document.documentElement.classList.remove('nexa-shell');
 
         // The opener gets the same play button as any other reply, and is read
         // aloud straight away when auto-speak is on. Browsers that require a
@@ -1215,7 +1231,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function showLoginForm() {
-        document.documentElement.classList.remove('nexa-handoff');
+        document.documentElement.classList.remove('nexa-handoff', 'nexa-shell');
         loginProgress.stop();
         document.getElementById('login-loader').style.display = 'none';
         document.getElementById('login-form').style.display = 'block';
