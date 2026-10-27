@@ -243,8 +243,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // ── Resume — fast path back from another tab (dashboard, admin) ─────────
     // Carries on with the chat session this browser already had: no token
-    // refresh, no profile fetch, no new greeting. Returns null when there's
-    // nothing to resume, and the normal login chain takes over.
+    // refresh, no profile fetch, no new greeting — unless nothing has been said
+    // in the session yet, when the server sends its welcome back (resumed=false).
+    // Returns null when there's nothing to resume, and the normal login chain
+    // takes over.
     async function resumeSession() {
         const accessToken = localStorage.getItem('we_ace_access_token') || '';
         const sessionUuid = localStorage.getItem('we_ace_session_uuid') || '';
@@ -401,6 +403,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             _resumeName.textContent = localStorage.getItem('we_ace_user_name') || '';
         const _rd = await resumeSession();
         if (_rd) {
+            // A tab hop, even when /session/resume reports resumed=false for a
+            // still-empty session — never bounce it on to Today.
+            window._nexaTabHop = true;
             showApp(_rd);
             _authed = true;
         }
@@ -1084,7 +1089,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         // the user is already headed into a conversation — a tab hop back
         // (resumed), a hand-off from Today or My Insights (focus intent) — and
         // not without Nexa access, whose notice lives here on the chat page.
-        if (!resumed && nexaAccess && shouldLandOnToday()) {
+        if (!resumed && !window._nexaTabHop && nexaAccess && shouldLandOnToday()) {
             window.location.replace('/today');
             return;
         }

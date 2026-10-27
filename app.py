@@ -23,6 +23,7 @@ from database import (
     save_message,
     has_previous_sessions,
     is_resumable_session,
+    session_has_messages,
     get_session_highlights,
     get_user_history,
     get_user_history_before,
@@ -450,6 +451,11 @@ MAX_CONTEXT_MESSAGES = 400
 
 # In-memory user state keyed by weace access_token
 auth_tokens: dict[str, dict] = {}
+
+# The opening greeting each new session was given, keyed by session_uuid, so a
+# tab hop back to a session nobody has spoken in yet can show it again rather
+# than paying for a fresh one. (message, suggestions); lost on restart.
+welcome_cache: dict[str, tuple] = {}
 
 
 def _get_bearer_token() -> str | None:
@@ -1458,6 +1464,7 @@ def create_session():
                 calendar)
             logger.info("[create_session] welcome generated in %s: chars=%s suggestions=%s",
                         _elapsed(t0), len(welcome_message or ''), len(welcome_suggestions or []))
+            welcome_cache[session_uuid] = (welcome_message, welcome_suggestions)
 
         # Evict any stale auth_tokens entry for this user (token rotation)
         stale = [t for t, d in auth_tokens.items() if d.get('user_id') == user_id]
@@ -1573,7 +1580,7 @@ def resume_session():
     Analysis, Admin, …). Given the chat session the client already had, it
     re-establishes server state and replays the conversation without the full
     /session work — no profile/personal-info API round trips, no new session
-    row, no fresh welcome message.
+    row, and no fresh welcome message unless the session is still empty.
 
     Returns 409 when there is nothing to resume, so the client can fall back to
     the normal login chain.
@@ -1676,14 +1683,36 @@ def resume_session():
 
         initials = ''.join(w[0].upper() for w in user_name.split()[:2])
         recent_messages = _serialize_messages(user_id, get_user_history(user_id, 15))
-        logger.info("[resume_session] resumed session_uuid=%s user_id=%s messages=%s in %s",
-                    session_uuid, user_id, len(recent_messages), _elapsed(started))
+
+        # Nothing said in this session yet (signed in, then went straight to
+        # another tab): open it with the welcome, as a new session would, rather
+        # than a bare history replay. resumed=False tells the page to lay it out
+        # that way — greeting below a "Previous conversation" divider.
+        welcome_message, welcome_suggestions = '', []
+        returning = True
+        fresh = not session_has_messages(session_uuid)
+        if fresh:
+            returning = bool(recent_messages) or has_previous_sessions(user_id)
+            if session_uuid in welcome_cache:
+                welcome_message, welcome_suggestions = welcome_cache[session_uuid]
+            else:
+                t0 = time.perf_counter()
+                highlights = get_session_highlights(user_id) if returning else []
+                welcome_message, welcome_suggestions = _generate_welcome(
+                    user_name, highlights, profile_context, returning, language, user_id, mode,
+                    _get_calendar_cached(user_id, g.access_token))
+                welcome_cache[session_uuid] = (welcome_message, welcome_suggestions)
+                logger.info("[resume_session] welcome generated in %s for empty session_uuid=%s",
+                            _elapsed(t0), session_uuid)
+
+        logger.info("[resume_session] resumed session_uuid=%s user_id=%s messages=%s fresh=%s in %s",
+                    session_uuid, user_id, len(recent_messages), fresh, _elapsed(started))
         return jsonify({
             'user_id': user_id,
             'user_name': user_name,
             'session_uuid': session_uuid,
-            'returning': True,
-            'resumed': True,
+            'returning': returning,
+            'resumed': not fresh,
             'initials': initials,
             'profile_image': profile_image,
             'role': role,
@@ -1694,8 +1723,8 @@ def resume_session():
             'branding': branding,
             'access_last_date': access_last_date,
             'recent_messages': recent_messages,
-            'welcome_message': '',
-            'welcome_suggestions': [],
+            'welcome_message': welcome_message,
+            'welcome_suggestions': welcome_suggestions,
             'language': language,
             'mode': mode,
             'profile_context': profile_context,
@@ -1745,6 +1774,7 @@ def new_session():
         welcome_message, welcome_suggestions = _generate_welcome(
             user_name, highlights, profile_context, returning, language, user_id, mode,
             calendar)
+        welcome_cache[session_uuid] = (welcome_message, welcome_suggestions)
 
         role = g.user.get('role', [])
         if _has_role(role, 'weace_super_admin', 'corporate_super_admin'):
@@ -3202,7 +3232,10 @@ def my_analytics():
     if not g.user:
         return jsonify({'error': 'Session not initialised — call /session first'}), 401
     try:
-        return jsonify(get_user_stats(g.user['user_id']))
+        from sentiment_job import MIN_PERSONAL_MESSAGES
+        stats = get_user_stats(g.user['user_id'])
+        stats['min_messages'] = MIN_PERSONAL_MESSAGES
+        return jsonify(stats)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -3305,9 +3338,20 @@ def my_themes():
     user_id = g.user['user_id']
     try:
         report = get_user_insight_report(user_id, 'recurring_themes')
+        from sentiment_job import detect_recurring_themes, THEMES_MSG_LIMIT
         if report is None:
-            from sentiment_job import detect_recurring_themes
             report = detect_recurring_themes(user_id)
+        elif not report.get('themes'):
+            # An early run can come back with no themes (too little said yet to
+            # recur). Don't keep serving that — try again once there's more to
+            # read, keeping the empty report if the retry fails.
+            analyzed = report.get('messages_analyzed') or 0
+            if analyzed < THEMES_MSG_LIMIT and get_user_stats(user_id)['total_messages'] > analyzed:
+                try:
+                    report = detect_recurring_themes(user_id) or report
+                except Exception:
+                    logger.warning('[my-themes] retry of empty report failed for user_id=%s',
+                                   user_id, exc_info=True)
         return jsonify(report or {'themes': []})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -3446,6 +3490,11 @@ def _recs_job_state(user_id: str) -> dict:
     return {'status': status, 'error': job.get('error')}
 
 
+def _start_recs_job(user_id: str):
+    _recs_job_set(user_id, 'running')
+    threading.Thread(target=_run_recs_job, args=(user_id,), daemon=True).start()
+
+
 def _run_recs_job(user_id: str):
     from sentiment_job import generate_recommendations, ReportUnavailable
     try:
@@ -3513,16 +3562,23 @@ def my_tip_refresh():
 def my_recommendations():
     """Articles, books, videos, and lectures picked from the user's own topics.
 
-    Cache-only, unlike the other insight endpoints: this report runs web searches,
-    so generating it on a page load would leave the section spinning for as long
-    as the searches take. The user asks for it with the button instead.
+    This report runs web searches, too slow to generate inside a page load, so it
+    is a background job the page polls (status 'running'). The first visit past
+    the message threshold starts that job itself, like the other insight
+    endpoints generate on first request; after that the button asks for reruns.
     """
     if not g.user:
         return jsonify({'error': 'Session not initialised — call /session first'}), 401
     user_id = g.user['user_id']
     try:
-        report = get_user_insight_report(user_id, 'recommendations') or {'recommendations': []}
+        cached = get_user_insight_report(user_id, 'recommendations')
+        report = cached or {'recommendations': []}
         job = _recs_job_state(user_id)
+        if cached is None and job['status'] == 'idle':
+            from sentiment_job import MIN_PERSONAL_MESSAGES
+            if get_user_stats(user_id)['total_messages'] >= MIN_PERSONAL_MESSAGES:
+                _start_recs_job(user_id)
+                job = {'status': 'running', 'error': None}
         report['status'] = job['status']
         if job['error']:
             report['error'] = job['error']
@@ -3542,8 +3598,7 @@ def my_recommendations_refresh():
     # than starting a competing one.
     if _recs_job_state(user_id)['status'] == 'running':
         return jsonify({'ok': True, 'status': 'running'})
-    _recs_job_set(user_id, 'running')
-    threading.Thread(target=_run_recs_job, args=(user_id,), daemon=True).start()
+    _start_recs_job(user_id)
     return jsonify({'ok': True, 'status': 'running'})
 
 
@@ -3554,8 +3609,8 @@ def my_recommendations_refresh():
 # pulse_job builds from the pool.
 
 _PULSE_MOODS = {
-    1: 'Struggling',
-    2: 'Low',
+    1: 'Terrible',
+    2: 'Poor',
     3: 'Okay',
     4: 'Good',
     5: 'Great',

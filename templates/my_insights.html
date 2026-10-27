@@ -191,6 +191,23 @@
             border-radius: 12px;
             padding: 12px 14px;
         }
+        /* The side detail card shows each paragraph as one line, so the gauge,
+           chart and every section fit at a glance; Show more opens just that one. */
+        #hover-detail-body .hd-clamp:not(.is-open) {
+            display: -webkit-box;
+            -webkit-line-clamp: 1;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .hd-more {
+            background: none; border: 0; padding: 0;
+            margin: 4px 0 8px;
+            font-family: inherit; font-size: 0.76rem; font-weight: 600;
+            color: var(--primary-color);
+            cursor: pointer;
+        }
+        .hd-more:hover { text-decoration: underline; }
+        .hd-more:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; border-radius: 4px; }
 
         /* ── Scoring legend ──
            Sits above the analysis, because the bands and the 0-10 scale have to
@@ -686,7 +703,24 @@
         /* ── Sentiment tab: tighter vertical rhythm ──
            The scores, legend and themes stack on one panel, so the generous
            gaps each block brought on its own added up to a lot of empty page. */
-        #panel-sentiment > .section-row { margin: 10px 0 10px; }
+        #panel-sentiment #combo-card { display: flex; flex-direction: column; }
+        #panel-sentiment #combo-body { margin-bottom: 16px; }
+        .combo-footer {
+            margin-top: auto;
+            padding-top: 14px;
+            border-top: 1px solid var(--glass-border);
+            display: flex; align-items: center; justify-content: flex-end;
+            flex-wrap: wrap; gap: 8px 12px;
+        }
+        .combo-footer-hint {
+            display: inline-flex; align-items: center; gap: 6px;
+            margin-right: auto;
+            font-size: 0.8rem; color: var(--primary-color);
+        }
+        .combo-footer-hint svg { flex-shrink: 0; }
+        @media (max-width: 640px) {
+            .combo-footer-hint { margin-right: 0; width: 100%; }
+        }
         #panel-sentiment .score-legend { padding: 12px 20px; margin-bottom: 12px; }
         #panel-sentiment .heat-card { padding: 18px 22px 14px; }
         #panel-sentiment .heat-card-header { margin-bottom: 12px; }
@@ -814,7 +848,7 @@
             --tint: #f6f7fd;
             --day-shadow: 0 12px 32px -18px rgba(32, 62, 110, 0.30);
         }
-        #panel-recs > .section-row h3 { font-size: 1.5rem; color: var(--heading); letter-spacing: -0.01em; }
+        #panel-recs > .section-row h3 { font-size: 1rem; color: var(--heading); letter-spacing: -0.01em; }
         #panel-recs .refresh-btn {
             background: var(--accent); border: 0; border-radius: 10px;
             padding: 9px 18px; font-weight: 600; color: #fff;
@@ -916,7 +950,7 @@
             font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
             color: var(--accent);
         }
-        .rec-book-title { font-size: 1.3rem; font-weight: 600; color: var(--heading); line-height: 1.3; letter-spacing: -0.01em; }
+        .rec-book-title { font-size: 1rem; font-weight: 600; color: var(--heading); line-height: 1.3; letter-spacing: -0.01em; }
         .rec-book .rec-byline { font-size: 0.84rem; margin-top: 6px; }
         .rec-book-desc { margin-top: 14px; font-size: 0.9rem; line-height: 1.65; color: var(--text-main); }
         .rec-book-foot {
@@ -1069,6 +1103,22 @@
             font-size: 0.85rem;
             color: var(--primary-color);
             font-weight: 500;
+            text-decoration: none;
+            cursor: pointer;
+            transition: background 0.16s ease, border-color 0.16s ease, transform 0.16s ease;
+        }
+        .no-data-tip img {
+            width: 26px; height: 26px; border-radius: 50%;
+            display: block; object-fit: cover;
+        }
+        .no-data-tip:hover {
+            background: rgba(58, 127, 237,0.12);
+            border-color: rgba(58, 127, 237,0.3);
+            transform: translateY(-1px);
+        }
+        .no-data-tip:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 3px; }
+        @media (prefers-reduced-motion: reduce) {
+            .no-data-tip, .no-data-tip:hover { transition: none; transform: none; }
         }
     </style>
 </head>
@@ -1090,7 +1140,7 @@
         <div class="no-data-title">Not enough data… yet!</div>
         <div class="no-data-sub">
             Your personal insights need at least
-            <strong>2 sessions</strong> and <strong>10 messages</strong> before they can say
+            <strong>3 messages</strong> before they can say
             anything meaningful about your coaching conversations.
             <br><br>
             The more you talk to Nexa, the sharper your insights get.
@@ -1099,12 +1149,11 @@
             <div class="no-data-progress-fill" id="no-data-progress-fill" style="width:0%"></div>
         </div>
         <div class="no-data-progress-label" id="no-data-progress-label">Gathering data…</div>
-        <div class="no-data-tip">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-            </svg>
+        <a href="/" class="no-data-tip" id="no-data-chat">
+            <img src="/static/nexa-avatar.png" alt="" />
             Head back to Chat and keep the conversation going
-        </div>
+            <span aria-hidden="true">→</span>
+        </a>
     </div>
 
     <div id="main-dashboard-content">
@@ -1140,16 +1189,6 @@
 
     <!-- ── Sentiment Intelligence ── -->
     <div class="insight-panel" id="panel-sentiment" role="tabpanel">
-    <div class="section-row">
-        <div class="section-title-inline">
-            <h3>My Sentiment Intelligence</h3>
-            <p>Language pattern analysis across your coaching sessions</p>
-        </div>
-        <div style="display:flex; align-items:center; gap:10px; flex-shrink:0;">
-            <span class="section-meta" id="sentiment-updated"></span>
-            <button class="refresh-btn" id="sentiment-refresh-btn">Recalculate</button>
-        </div>
-    </div>
     <!-- How to read everything below it. Built from the API's own dimension
          list (see renderLegend) so a dimension never has a definition here that
          disagrees with the one the hover panel shows. -->
@@ -1157,6 +1196,9 @@
          bands are a scale you look at, not a paragraph you read, and the rules
          that used to be prose are three short facts. Anything specific to one
          dimension lives on that dimension's detail card instead. -->
+    <!-- Shown while /api/my-sentiment answers. On a first visit that call
+         runs the whole analysis, so the row below stays hidden until it's back. -->
+    <div id="sentiment-wait" style="margin-bottom:16px;"></div>
     <div class="insight-row" id="insight-row" style="display:none;">
         <div class="heat-card combo-merged" id="combo-card">
             <div class="heat-card-header">
@@ -1170,6 +1212,16 @@
                 </div>
             </div>
             <div id="combo-body"></div>
+            <!-- Scores are a snapshot from the last run, not live — say so here,
+                 next to them, along with how to bring them up to date. -->
+            <div class="combo-footer">
+                <span class="combo-footer-hint">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                    Had new conversations? Recalculate to include them.
+                </span>
+                <span class="section-meta" id="sentiment-updated"></span>
+                <button class="refresh-btn" id="sentiment-refresh-btn">Recalculate</button>
+            </div>
         </div>
 
         <!-- Hover any dimension on the left — a heat row, or a trend line's
@@ -1227,7 +1279,7 @@
     <div class="section-row" style="justify-content:flex-end;">
         <div style="display:flex; align-items:center; gap:10px; flex-shrink:0;">
             <span class="section-meta" id="growth-updated"></span>
-            <button class="refresh-btn" id="growth-refresh-btn">Rebuild snapshot</button>
+            <button class="refresh-btn" id="growth-refresh-btn">Rebuild Growth Mirror</button>
         </div>
     </div>
     <div id="growth-wrap">
@@ -1241,9 +1293,11 @@
 <script src="{{ asset('header.js') }}"></script>
 <script>
     // Personal thresholds — a single person needs far less than a whole org
-    // before their own language patterns say anything.
-    const MIN_SESSIONS = 2;
-    const MIN_MESSAGES = 10;
+    // before their own language patterns say anything. The message count comes
+    // from /api/my-analytics (min_messages), the same number the server uses to
+    // generate the first Sentiment Analysis and Recurring Themes reports.
+    const MIN_SESSIONS = 1;
+    let MIN_MESSAGES = 3;
 
     function getAuthHeaders(extra) {
         const token = localStorage.getItem('we_ace_access_token') || '';
@@ -1269,6 +1323,7 @@
 
             const sessions = data.total_sessions || 0;
             const messages = data.total_messages || 0;
+            if (data.min_messages) MIN_MESSAGES = data.min_messages;
             document.getElementById('stat-sessions').textContent = sessions;
             document.getElementById('stat-messages').textContent = messages;
             document.getElementById('stat-since').textContent = formatDate(data.first_session_date);
@@ -1288,7 +1343,7 @@
                 document.getElementById('no-data-progress-fill').style.width =
                     Math.min(sessionPct, messagePct) + '%';
                 document.getElementById('no-data-progress-label').textContent =
-                    `${sessions} session${sessions !== 1 ? 's' : ''} · ${messages} message${messages !== 1 ? 's' : ''} so far — need ${MIN_SESSIONS} sessions & ${MIN_MESSAGES} messages`;
+                    `${messages} message${messages !== 1 ? 's' : ''} so far — need ${MIN_MESSAGES} messages`;
             }
         } catch (_) {}
     }
@@ -1506,11 +1561,33 @@
                 ${renderGauge(d.score, d.color)}
                 ${renderDimScale(d.dim)}
             </div>
-            <div class="trend-chart-wrap">${d.chartHtml}</div>
+            ${d.chartHtml ? `<div class="trend-chart-wrap">${d.chartHtml}</div>` : ''}
             <div class="trend-modal-divider"></div>
             <div class="trend-modal-insight">${escHtml(d.dim.insight || '')}</div>
             ${renderDimQualitative(d.dim, d.cls)}`;
+        clampDetailText(document.getElementById('hover-detail-body'));
         animateGaugeNeedle(d.score);
+    }
+
+    // One line per paragraph by default, with a Show more toggle on each one
+    // that actually runs past it — short text gets no link.
+    function clampDetailText(root) {
+        root.querySelectorAll('.trend-modal-insight, .hd-rationale, .hd-quote, .hd-anecdote').forEach(el => {
+            if (!el.textContent.trim()) return;
+            el.classList.add('hd-clamp');
+            if (el.scrollHeight <= el.clientHeight + 1) return;
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'hd-more';
+            btn.textContent = 'Show more';
+            btn.setAttribute('aria-expanded', 'false');
+            btn.addEventListener('click', () => {
+                const open = el.classList.toggle('is-open');
+                btn.textContent = open ? 'Show less' : 'Show more';
+                btn.setAttribute('aria-expanded', String(open));
+            });
+            el.after(btn);
+        });
     }
 
     function clearHoverDetail() {
@@ -1549,7 +1626,7 @@
 
     function renderTrendChart(trendData, color) {
         if (!trendData || trendData.length < 2) {
-            return '<div style="text-align:center;color:#7887a0;padding:32px 0;font-size:0.85rem;">Not enough history to show a trend yet.</div>';
+            return '';   // nothing to plot — the detail card leaves the chart out
         }
         const values = trendData.map(t => t.score);
         const dates  = trendData.map(t => t.date);
@@ -1959,14 +2036,28 @@
     }
 
     async function loadSentiment() {
-        try {
-            const res = await fetch('/api/my-sentiment', { headers: getAuthHeaders(), credentials: 'omit' });
-            if (res.status === 401 || res.status === 403) { window.location.href = '/'; return; }
-            if (!res.ok) return;
-            renderSentiment(await res.json());
-        } catch (_) {
+        // A cached report comes back before the delay; a first visit generates
+        // one, and needs the waiting copy.
+        startWaiting('sentiment', 'sentiment-wait', { delay: 400 });
+        const done = () => {
+            stopWaiting('sentiment');
+            document.getElementById('sentiment-wait').innerHTML = '';
+        };
+        const fail = () => {
+            document.getElementById('insight-row').style.display = '';
+            document.getElementById('hover-detail-card').style.display = 'none';
             document.getElementById('combo-body').innerHTML =
                 '<div class="sentiment-no-data">Failed to load your insights. Please refresh.</div>';
+        };
+        try {
+            const res = await fetch('/api/my-sentiment', { headers: getAuthHeaders(), credentials: 'omit' });
+            done();
+            if (res.status === 401 || res.status === 403) { window.location.href = '/'; return; }
+            if (!res.ok) { fail(); return; }
+            renderSentiment(await res.json());
+        } catch (_) {
+            done();
+            fail();
         }
     }
 
@@ -1976,6 +2067,16 @@
     // seconds says the work is real and still going.
 
     const WAIT_COPY = {
+        sentiment: {
+            sub: 'Your first analysis reads every conversation so far — this can take a minute.',
+            lines: [
+                'Reading back through your conversations…',
+                'Scoring how you have been feeling about work…',
+                'Weighing recent sessions above older ones…',
+                'Picking out the moments that explain each score…',
+                'Almost there — checking every quote is really yours…',
+            ],
+        },
         themes: {
             sub: 'Patterns only show up across a few sessions — worth the wait.',
             lines: [
@@ -2202,6 +2303,12 @@
     // session on this focus rather than resuming the previous conversation.
     const FOCUS_KEY = 'we_ace_focus_session';
 
+    // Back to the conversation the user left, not a new one: the chat page
+    // only resumes after an in-app hop, which this link isn't otherwise.
+    document.getElementById('no-data-chat')?.addEventListener('click', () => {
+        window.NexaHeader?.markTabNav();
+    });
+
     function startFocusSession(focus) {
         const bits = [`I'd like to use this session to work on ${focus.label}.`];
         if (focus.summary)  bits.push(`My Growth Snapshot put it like this: "${focus.summary}"`);
@@ -2364,7 +2471,7 @@
     function recHeadHtml(icon, kicker, title, count) {
         return `<div class="rec-head">
             <div class="rec-icon">${recIcon(icon)}</div>
-            <div><div class="rec-kicker">${escHtml(kicker)}</div><h3>${escHtml(title)}</h3></div>
+            <div><div class="rec-kicker">${escHtml(kicker)}</div></div>
             ${count ? `<span class="rec-count">${escHtml(count)}</span>` : ''}
         </div>`;
     }
@@ -2385,7 +2492,6 @@
             ${media}
             <div>
                 <a class="rec-video-title" href="${escHtml(r.url)}" target="_blank" rel="noopener noreferrer">${escHtml(r.title)}</a>
-                ${by ? `<div class="rec-byline">${escHtml(by)}</div>` : ''}
             </div>
         </div>`;
     }

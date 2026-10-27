@@ -42,7 +42,13 @@ _DIM_LABELS = {
 _MAX_CHARS = 40_000   # org-level prompt cap (~10k tokens)
 _USER_MAX_CHARS = 6_000  # per-user cap (keeps per-user calls cheap)
 _SELF_MAX_CHARS = 24_000  # personal insights prompt cap (one user, richer output)
-_MIN_SELF_MESSAGES = 5    # below this there is nothing meaningful to read
+# My Insights opens its dashboard at this many of the user's own messages, and
+# the Sentiment Analysis, Recurring Themes, Growth Mirror and Recommended for
+# you reports are generated from the same point, so the first visit past it is
+# never an empty page. The page reads this through /api/my-analytics rather than keeping its
+# own copy.
+MIN_PERSONAL_MESSAGES = 3
+_MIN_SELF_MESSAGES = MIN_PERSONAL_MESSAGES
 # 8 dimensions × (insight, rationale, evidence, signals, anecdote) runs ~4-5k
 # output tokens; the 1024 default cuts the JSON off mid-object.
 _SELF_MAX_TOKENS = 8_000
@@ -85,10 +91,10 @@ _ORG_HORIZONS = ('quick win', 'this quarter', 'ongoing')
 # Both reports read recent history, not all of it: a theme that only shows up in
 # messages older than this cap has stopped being current anyway.
 _THEMES_MAX_CHARS = 9_000   # recurring-theme prompt cap
-_THEMES_MSG_LIMIT = 150     # messages read per run
+THEMES_MSG_LIMIT = 150      # messages read per run
 _THEMES_MSG_CHARS = 240     # per-message truncation
 _THEMES_COUNT = 2           # themes returned per run
-_MIN_THEME_MESSAGES = 8     # a theme needs a few mentions before it recurs
+_MIN_THEME_MESSAGES = MIN_PERSONAL_MESSAGES
 _DIGEST_MAX_CHARS = 8_000   # weekly digest prompt cap
 _DIGEST_MSG_CHARS = 240     # per-message truncation
 _DIGEST_DAYS = 7            # window the weekly digest reads
@@ -100,7 +106,7 @@ _MIN_DIGEST_MESSAGES = 3    # below this the week has nothing to reflect on
 _GROWTH_MAX_CHARS = 13_000  # growth snapshot prompt cap
 _GROWTH_MSG_LIMIT = 180     # messages read per run
 _GROWTH_MSG_CHARS = 320     # per-message truncation
-_MIN_GROWTH_MESSAGES = 8    # below this there is no trajectory to read
+_MIN_GROWTH_MESSAGES = MIN_PERSONAL_MESSAGES   # generated from the page's own threshold
 _GROWTH_ITEMS = 2           # items asked for per quadrant
 _GROWTH_TRAJECTORIES = ('improving', 'steady', 'newly surfaced', 'needs attention')
 
@@ -110,7 +116,7 @@ _GROWTH_TRAJECTORIES = ('improving', 'steady', 'newly surfaced', 'needs attentio
 _RECS_MAX_CHARS = 3_000     # recommendation prompt cap
 _RECS_MSG_SAMPLE = 40       # messages read when there are no cached themes
 _RECS_MSG_CHARS = 220       # per-message truncation in that fallback
-_MIN_RECS_MESSAGES = 5      # below this we cannot tell what to recommend
+_MIN_RECS_MESSAGES = MIN_PERSONAL_MESSAGES   # generated from the page's own threshold
 _RECS_COUNT = 7            # resources to ask for per run
 # The list leads with short videos — the easiest thing to fit into a working day
 # — and carries at most one book, which is a commitment rather than a quick win.
@@ -1001,7 +1007,7 @@ def detect_recurring_themes(user_id: str) -> dict | None:
         return None
     client, ai_provider, ai_model = cfg
 
-    messages = get_user_dated_messages(user_id, limit=_THEMES_MSG_LIMIT)
+    messages = get_user_dated_messages(user_id, limit=THEMES_MSG_LIMIT)
     if len(messages) < _MIN_THEME_MESSAGES:
         return None
 

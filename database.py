@@ -662,6 +662,20 @@ def is_resumable_session(session_id: str, user_id: str, max_age_hours: int = 12)
         conn.close()
 
 
+def session_has_messages(session_id: str) -> bool:
+    """True once anything has been said in this chat session."""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur,
+                "SELECT EXISTS (SELECT 1 FROM ai_coach_messages WHERE session_id = %s) AS has",
+                (session_id,),
+            )
+            return bool(cur.fetchone()['has'])
+    finally:
+        conn.close()
+
+
 def has_previous_sessions(user_id: str) -> bool:
     conn = get_connection()
     try:
