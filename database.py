@@ -340,8 +340,8 @@ def init_db():
             #                      no org, so it cannot be joined back.
             #
             # Never add a column to either table that narrows this. If a future
-            # filter needs a demographic, put it behind the same k-anonymity
-            # floor the aggregate API uses (_PULSE_MIN_RESPONSES in app.py).
+            # filter needs a demographic, put it behind a minimum-group-size
+            # floor first — the aggregate API itself no longer has one.
             _execute(cur,"""
                 CREATE TABLE IF NOT EXISTS pulse_notes (
                     id INT AUTO_INCREMENT PRIMARY KEY,

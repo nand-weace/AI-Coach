@@ -1196,8 +1196,9 @@
          bands are a scale you look at, not a paragraph you read, and the rules
          that used to be prose are three short facts. Anything specific to one
          dimension lives on that dimension's detail card instead. -->
-    <!-- Shown while /api/my-sentiment answers. On a first visit that call
-         runs the whole analysis, so the row below stays hidden until it's back. -->
+    <!-- Shown while /api/my-sentiment answers. On a first visit (or when the
+         report is 10+ days old) that call runs the whole analysis, so the row
+         below stays hidden until it's back. -->
     <div id="sentiment-wait" style="margin-bottom:16px;"></div>
     <div class="insight-row" id="insight-row" style="display:none;">
         <div class="heat-card combo-merged" id="combo-card">
@@ -2068,7 +2069,7 @@
 
     const WAIT_COPY = {
         sentiment: {
-            sub: 'Your first analysis reads every conversation so far — this can take a minute.',
+            sub: 'Your analysis reads every conversation so far — this can take a minute.',
             lines: [
                 'Reading back through your conversations…',
                 'Scoring how you have been feeling about work…',

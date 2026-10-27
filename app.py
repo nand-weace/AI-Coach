@@ -69,7 +69,6 @@ from database import (
     has_pulsed_today,
     record_pulse,
     get_pulse_summary,
-    get_pulse_note_texts,
     get_pulse_insight,
 )
 import linkedin
@@ -3280,13 +3279,29 @@ def last_message():
         return jsonify({'error': str(e)}), 500
 
 
+_MY_SENTIMENT_STALE_DAYS = 10
+
+
+def _my_sentiment_is_stale(report: dict) -> bool:
+    """True when the stored report was calculated _MY_SENTIMENT_STALE_DAYS or more ago."""
+    from datetime import datetime, timedelta
+    try:
+        calculated_at = datetime.fromisoformat(str(report.get('calculated_at')))
+    except (TypeError, ValueError):
+        return False
+    if calculated_at.tzinfo is not None:
+        calculated_at = calculated_at.replace(tzinfo=None)
+    return datetime.now() - calculated_at >= timedelta(days=_MY_SENTIMENT_STALE_DAYS)
+
+
 @app.route('/api/my-sentiment')
 @require_weace_token
 def my_sentiment():
     """The signed-in user's own sentiment scores, trend, and insights.
 
     Generates the first report on demand so a user who has chatted enough sees
-    something on their first visit rather than an empty dashboard.
+    something on their first visit rather than an empty dashboard, and
+    recalculates it on landing once it is _MY_SENTIMENT_STALE_DAYS old.
     """
     if not g.user:
         return jsonify({'error': 'Session not initialised — call /session first'}), 401
@@ -3296,9 +3311,12 @@ def my_sentiment():
     try:
         # A report generated just now is on the primary only, so read it back
         # from there; otherwise the replica serves the dashboard.
-        generated = get_user_sentiment(user_id) is None
+        existing = get_user_sentiment(user_id)
+        generated = existing is None or _my_sentiment_is_stale(existing)
         if generated:
             from sentiment_job import analyze_user_sentiment
+            # Returns None when there isn't enough conversation; a stale
+            # report is then still served as-is.
             analyze_user_sentiment(user_id)
         data = get_user_sentiment_data(user_id, date_from=date_from, date_to=date_to,
                                        reader=not generated)
@@ -3728,8 +3746,8 @@ def pulse_submit():
 @app.route('/api/pulse/aggregate')
 @require_weace_token
 def pulse_aggregate():
-    """Anonymised org-level pulse for admins: counts, mood mix, trend, word
-    cloud and the written summary. No note text, ever, at any response size."""
+    """Anonymised org-level pulse for admins: counts, mood mix and daily
+    trend. No note text, ever, at any response size."""
     if not g.user:
         return jsonify({'error': 'Session not initialised — call /session first'}), 401
     if not _has_role(g.user.get('role'), 'corporate_super_admin', 'weace_super_admin'):
@@ -3757,27 +3775,10 @@ def pulse_aggregate():
         days = 30
 
     try:
-        from pulse_job import PULSE_MIN_RESPONSES, build_word_cloud
-        summary = get_pulse_summary(org_slug, days=days)
-        summary['min_responses'] = PULSE_MIN_RESPONSES
-
-        # The k-anonymity floor. Under it the response carries the count and
-        # nothing else — no mood mix, no trend, no words. A three-person pulse
-        # is a three-person pulse however you chart it.
-        if summary['responses'] < PULSE_MIN_RESPONSES:
-            return jsonify({
-                'locked': True,
-                'days': days,
-                'responses': summary['responses'],
-                'min_responses': PULSE_MIN_RESPONSES,
-            })
-
-        summary['locked'] = False
-        summary['word_cloud'] = build_word_cloud(get_pulse_note_texts(org_slug, days=days))
-        cached = get_pulse_insight(org_slug, days)
-        summary['insight'] = (cached or {}).get('insight')
-        summary['insight_calculated_at'] = (cached or {}).get('calculated_at')
-        return jsonify(summary)
+        # Shown from the first response — there is no response-count floor.
+        # Counts, mood mix and the daily trend only: the dashboard no longer
+        # shows a word cloud or written themes, so no note text is read here.
+        return jsonify(get_pulse_summary(org_slug, days=days))
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -3812,12 +3813,7 @@ def pulse_insights_refresh():
         days = 30
 
     try:
-        from pulse_job import PULSE_MIN_RESPONSES, analyze_org_pulse
-        summary = get_pulse_summary(org_slug, days=days)
-        if summary['responses'] < PULSE_MIN_RESPONSES:
-            return jsonify({'ok': False,
-                            'error': f'Needs at least {PULSE_MIN_RESPONSES} responses '
-                                     f'in this window before anything can be summarised.'}), 400
+        from pulse_job import analyze_org_pulse
         insight = analyze_org_pulse(org_slug, days=days)
         if not insight:
             return jsonify({'ok': False,

@@ -7,8 +7,8 @@ app.py's aggregate endpoint.
 
 Two safeguards do the anonymising work:
 
-  * the k-anonymity floor (`PULSE_MIN_RESPONSES`) — below it the caller shows
-    nothing at all, not a smaller word cloud;
+  * the summary floor (`_MIN_INSIGHT_NOTES`) — fewer notes than that and no
+    written summary is produced;
   * the document-frequency floor (`_MIN_WORD_DOCS`) — a word only reaches the
     cloud if it appears in several different notes, so a phrase unique to one
     person cannot surface as a tag.
@@ -21,18 +21,14 @@ from collections import Counter
 
 from database import get_pulse_note_texts, upsert_pulse_insight
 
-# Below this many responses in the window, an org's pulse stays sealed. Shared
-# with app.py, which gates the whole aggregate response on it.
-PULSE_MIN_RESPONSES = int(os.environ.get('PULSE_MIN_RESPONSES', '5'))
-
 # A word must appear in at least this many *different* notes to be a theme
 # rather than one person's turn of phrase.
 _MIN_WORD_DOCS = 3
 _MAX_CLOUD_WORDS = 60
 _MIN_WORD_LEN = 3
 
-# Enough notes to write a summary from. Lower than PULSE_MIN_RESPONSES would be
-# pointless — the caller has already refused below that.
+# Enough notes to write a summary from — fewer and a "summary" would just be
+# a paraphrase of one or two people's notes.
 _MIN_INSIGHT_NOTES = 5
 _INSIGHT_MAX_CHARS = 60000
 

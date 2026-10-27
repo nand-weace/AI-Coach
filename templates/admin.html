@@ -157,16 +157,20 @@
         .section-row p { font-size: 0.8rem; color: var(--text-muted); }
         .section-meta { font-size: 0.78rem; color: var(--text-muted); white-space: nowrap; }
 
-        /* Loading / empty / error line for the Sentiment Intelligence section */
+        /* Loading / empty / error state for the Sentiment Intelligence section,
+           on a surface of its own so it reads as part of the card. */
         .sentiment-no-data {
             text-align: center;
             color: var(--text-muted);
             font-size: 0.88rem;
-            padding: 32px 0;
+            padding: 32px 20px;
+            background: rgba(255, 255, 255, 0.45);
+            border: 1px dashed var(--primary-ring);
+            border-radius: 14px;
         }
         /* Score ramp for the trend legend, applied via JS. Heat bars carry their
            own per-dimension colour inline, so there are no fill-* helpers. */
-        .score-green  { color: #072b64; }
+        .score-green  { color: #1d4b95; }
         .score-amber  { color: #286cd9; }
         .score-red    { color: #3379ea; }
 
@@ -334,126 +338,127 @@
         .hd-horizon-ongoing { color: #1d4b95; background: rgba(40, 108, 217, 0.1); }
         .hd-action-detail { font-size: 0.76rem; color: var(--text-muted); line-height: 1.5; }
 
-        /* What this dimension's own 0 and 100 mean. The two numbers on
-           their own read as scores rather than the ends of a scale, so they are
-           pinned to a rail carrying the same red-amber-green as the scores
-           above, with this dimension's own score marked on it. */
+        /* The side detail card shows each paragraph as one line, so the gauge,
+           chart and every section fit at a glance; Show more opens just that one. */
+        #hover-detail-body .hd-clamp:not(.is-open) {
+            display: -webkit-box;
+            -webkit-line-clamp: 1;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .hd-more {
+            background: none; border: 0; padding: 0;
+            margin: 4px 0 8px;
+            font-family: inherit; font-size: 0.76rem; font-weight: 600;
+            color: var(--primary-color);
+            cursor: pointer;
+        }
+        .hd-more:hover { text-decoration: underline; }
+        .hd-more:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; border-radius: 4px; }
+
+        /* ── Score gauge — a literal red/amber/green meter, distinct from the
+           app's blue chrome on purpose: this is the one place a viewer should
+           read "danger / caution / good" at a glance, the way a real gauge does. */
+        .gauge-wrap { display: flex; flex-direction: column; align-items: center; margin: 2px 0 18px; }
+        .gauge-svg { width: 100px; max-width: 100%; height: auto; overflow: visible; }
+        .gauge-zone-red   { stroke: #ef4444; }
+        .gauge-zone-amber { stroke: #e1a34e; }
+        .gauge-zone-green { stroke: #22c55e; }
+        .gauge-needle-group {
+            transform-origin: 100px 100px;
+            transition: transform 0.9s cubic-bezier(.22, 1.4, .36, 1);
+        }
+        .gauge-needle { stroke: var(--text-main); stroke-width: 3.5; stroke-linecap: round; }
+        .gauge-hub { fill: var(--text-main); stroke: var(--surface, #fff); stroke-width: 2; }
+        .gauge-value { font-size: 1.9rem; font-weight: 700; letter-spacing: -0.04em; margin-top: -12px; }
+        .gauge-sub { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
+        @media (prefers-reduced-motion: reduce) {
+            .gauge-needle-group { transition: none; }
+        }
+
+        /* Gauge on the left, what its 0 and 10 mean on the right — the two
+           read together, so they share one row instead of stacking. */
+        .hd-gauge-row {
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr);
+            gap: 20px;
+            align-items: stretch;
+            margin: 2px 0 18px;
+        }
+        .hd-gauge-row .gauge-wrap { margin: 0; justify-content: center; }
+
+        /* What this dimension's own 0 and 10 mean, as a vertical rail beside the
+           gauge: the same red-amber-green running bottom to top, 10 at the top
+           end and 0 at the bottom, with a dot where this score sits. The gauge
+           already shows the number, so the rail only needs the position. */
         .hd-scale {
-            margin: -4px 0 20px;
-            padding-top: 14px;
-            border-top: 1px solid rgba(32, 54, 90, 0.08);
-        }
-        .hd-scale .hd-block-label { margin-bottom: 26px; }
-        .hd-scale-rail { position: relative; }
-        .hd-scale-track {
-            height: 6px;
-            border-radius: 3px;
-            background: linear-gradient(to right, #ef4444 0%, #e1a34e 50%, #22c55e 100%);
-            opacity: 0.75;
-        }
-        .hd-scale-marker {
-            position: absolute;
-            bottom: 0;
-            transform: translateX(-50%);
             display: flex;
             flex-direction: column;
-            align-items: center;
+            min-width: 0;
+            padding-left: 18px;
+            border-left: 1px solid rgba(32, 54, 90, 0.08);
         }
-        .hd-scale-marker-value {
-            font-size: 0.72rem;
-            font-weight: 700;
-            color: var(--text-main);
-            background: var(--surface, #fff);
-            border: 1px solid rgba(32, 54, 90, 0.14);
-            border-radius: 999px;
-            padding: 1px 7px;
-            white-space: nowrap;
+        .hd-scale .hd-block-label { margin-bottom: 10px; }
+        .hd-scale-body {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 6px minmax(0, 1fr);
+            gap: 12px;
         }
-        .hd-scale-marker-stem { width: 1px; height: 5px; background: rgba(32, 54, 90, 0.3); }
+        .hd-scale-rail { position: relative; }
+        .hd-scale-track {
+            position: absolute;
+            inset: 0;
+            border-radius: 3px;
+            background: linear-gradient(to top, #ef4444 0%, #e1a34e 50%, #22c55e 100%);
+            opacity: 0.75;
+        }
         .hd-scale-marker-dot {
-            width: 11px;
-            height: 11px;
-            margin-bottom: -2.5px;
+            position: absolute;
+            left: 50%;
+            transform: translate(-50%, 50%);
+            width: 13px;
+            height: 13px;
             border-radius: 50%;
             background: var(--text-main);
             border: 2.5px solid var(--surface, #fff);
+            box-shadow: 0 0 0 1px rgba(32, 54, 90, 0.14);
         }
         .hd-scale-ends {
             display: flex;
+            flex-direction: column;
             justify-content: space-between;
-            align-items: flex-start;
-            gap: 16px;
-            margin-top: 9px;
+            gap: 10px;
         }
-        .hd-scale-end { flex: 1; min-width: 0; }
-        .hd-scale-high { text-align: right; }
+        .hd-scale-end {
+            display: grid;
+            grid-template-columns: 18px minmax(0, 1fr);
+            gap: 6px;
+            align-items: baseline;
+        }
         .hd-scale-num {
-            display: block;
             font-size: 0.8rem;
             font-weight: 700;
             color: var(--text-main);
             line-height: 1.2;
         }
         .hd-scale-text {
-            display: block;
             font-size: 0.72rem;
             color: var(--text-muted);
             line-height: 1.4;
-            margin-top: 1px;
+        }
+        /* Too narrow to sit side by side — the scale drops under the gauge. */
+        @media (max-width: 480px) {
+            .hd-gauge-row { grid-template-columns: 1fr; gap: 14px; }
+            .hd-scale { padding: 14px 0 0; border-left: none; border-top: 1px solid rgba(32, 54, 90, 0.08); }
+            .hd-scale-body { min-height: 110px; }
         }
 
-        /* ── Scoring legend ──
-           Sits above the analysis: the bands and the scale have to be understood
-           before any row below means anything. Near-wordless on purpose — the
-           three bands are a scale you look at, not a paragraph you read. */
-        .score-legend {
-            background: var(--glass-bg);
-            border: 1px solid var(--glass-border);
-            border-radius: 18px;
-            padding: 18px 22px;
-            margin-bottom: 20px;
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-        }
-        .legend-head {
-            font-size: 0.82rem;
-            font-weight: 600;
-            color: var(--text-muted);
-            letter-spacing: 0.02em;
-            margin-bottom: 14px;
-        }
-        /* One continuous track split into its three bands, sized in proportion
-           to the ranges they cover, so the widths say where the thresholds are. */
-        .legend-track { display: flex; gap: 3px; margin-bottom: 8px; }
-        .legend-seg { height: 8px; border-radius: 4px; }
-        .legend-seg:nth-child(1) { flex: 34; }
-        .legend-seg:nth-child(2) { flex: 30; }
-        .legend-seg:nth-child(3) { flex: 36; }
-        .legend-marks { display: flex; gap: 3px; }
-        .legend-mark { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-        .legend-mark-name { font-size: 0.76rem; font-weight: 600; }
-        .legend-mark-range { font-size: 0.7rem; color: var(--text-muted); }
-        .legend-facts {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px 18px;
-            margin-top: 16px;
-            padding-top: 14px;
-            border-top: 1px solid rgba(32, 54, 90, 0.08);
-        }
-        .legend-fact {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 0.75rem;
-            color: var(--text-muted);
-        }
-        .legend-fact svg { width: 13px; height: 13px; flex-shrink: 0; opacity: 0.75; }
-        @media (max-width: 640px) {
-            /* The ranges stop fitting under their segments long before the track
-               itself does, so only the labels stack — the scale stays a scale. */
-            .legend-marks { flex-direction: column; gap: 4px; }
-            .legend-mark { flex-direction: row; gap: 8px; align-items: baseline; }
+        /* Pinned via a click on the row — stays highlighted, and survives a
+           hover elsewhere the way the plain :hover tint doesn't. */
+        .insight-row .heat-row.is-selected {
+            background: rgba(40, 108, 217, 0.09);
+            border-radius: 8px;
         }
         /* ── Additional details (per-user notes fed into Nexa's prompt) ── */
         .details-btn {
@@ -516,9 +521,6 @@
         .li-url:focus { border-color: var(--primary-ring); box-shadow: 0 0 0 2px var(--primary-soft); }
         #li-status { margin-top: 8px; }
 
-        /* ── LinkedIn Enriched stat card ── */
-        .lij-count-label { font-size: 0.7rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); }
-        .lij-count-value { font-size: 1.25rem; font-weight: 600; color: var(--text-main); margin-top: 2px; }
 
 
         /* ── Employee Distribution bar ── */
@@ -589,21 +591,29 @@
             flex-shrink: 0;
         }
         .heat-title-wrap h3 { font-size: 0.95rem; font-weight: 600; }
-        .heat-rows { display: flex; flex-direction: column; gap: 4px; }
+        .heat-rows { display: flex; flex-direction: column; gap: 10px; }
         .heat-row {
+            /* Two lines: icon + label on top, the bar and its score below,
+               the bar starting at the icon's left edge, so a long dimension
+               name never squeezes the bar. */
             display: grid;
-            grid-template-columns: 18px minmax(160px, 1.2fr) 3fr 32px;
+            grid-template-columns: 18px 1fr 32px;
+            grid-template-areas:
+                "icon  label label"
+                "track track score";
             align-items: center;
-            gap: 14px;
+            column-gap: 10px;
+            row-gap: 12px;
             padding: 6px 0;
             border-bottom: 1px solid rgba(0,0,0,0.04);
+            background-color: rgb(174 212 235 / 12%);
         }
         .heat-rows .heat-row:last-child { border-bottom: none; }
-        .heat-row-icon { display: flex; align-items: center; color: var(--text-muted); }
-        .heat-row-label { font-size: 0.85rem; font-weight: 500; color: var(--text-main); }
-        .heat-row-track { height: 10px; border-radius: 99px; background: rgba(32, 54, 90, 0.10); overflow: hidden; }
+        .heat-row-icon { grid-area: icon; display: flex; align-items: center; color: var(--text-muted); }
+        .heat-row-label { grid-area: label; font-size: 0.85rem; color: var(--text-main); }
+        .heat-row-track { grid-area: track; height: 10px; border-radius: 99px; background: rgba(32, 54, 90, 0.10); overflow: hidden; }
         .heat-row-fill { height: 100%; border-radius: 99px; transition: width 0.7s ease; }
-        .heat-row-score { font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-align: center; font-variant-numeric: tabular-nums; }
+        .heat-row-score { grid-area: score; font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-align: center; font-variant-numeric: tabular-nums; }
 
         /* ── Combined Trend Chart ── */
         .combo-focus-hint { font-size: 0.72rem; color: var(--text-muted); white-space: nowrap; margin-bottom: 10px; text-align: right; }
@@ -612,7 +622,7 @@
            far enough to read as background without disappearing entirely. */
         .combo-series { transition: opacity 0.18s ease; }
         .combo-series.faded { opacity: 0.13; }
-        .combo-series.focused polyline { stroke-width: 3; opacity: 1; }
+        .combo-series.focused polyline { stroke-width: 6; opacity: 1; }
         .combo-legend-item { transition: opacity 0.18s ease; }
         .combo-legend-item.faded { opacity: 0.35; }
         .combo-chart-body { margin-bottom: 14px; position: relative; }
@@ -631,7 +641,7 @@
         }
         .combo-tooltip-date { font-size: 0.72rem; font-weight: 600; color: var(--text-muted); margin-bottom: 7px; }
         .combo-tooltip-row { display: flex; align-items: center; gap: 6px; font-size: 0.75rem; padding: 1px 0; }
-        .combo-tooltip-swatch { width: 10px; height: 3px; border-radius: 99px; flex-shrink: 0; }
+        .combo-tooltip-swatch { width: 14px; height: 5px; border-radius: 99px; flex-shrink: 0; }
         .combo-tooltip-label { color: #333e50; flex: 1; }
         .combo-tooltip-val { font-weight: 600; color: var(--text-main); font-variant-numeric: tabular-nums; }
         .combo-legend {
@@ -642,7 +652,7 @@
             padding-top: 12px;
         }
         .combo-legend-item { display: flex; align-items: center; gap: 7px; font-size: 0.78rem; cursor: pointer; }
-        .combo-legend-line { width: 16px; height: 3px; border-radius: 99px; flex-shrink: 0; }
+        .combo-legend-line { width: 22px; height: 5px; border-radius: 99px; flex-shrink: 0; }
         .combo-legend-name { color: var(--text-main); }
         .combo-legend-score { font-weight: 600; font-variant-numeric: tabular-nums; }
 
@@ -683,11 +693,15 @@
         }
         .combo-switch-btn:hover:not(.active) { color: var(--text-main); }
         .combo-switch-btn.active { background: var(--primary-color); color: #fff; }
+        @media (max-width: 560px) {
+            .combo-merged .heat-card-header { flex-wrap: wrap; }
+        }
 
-        /* ── Score bands (Strong / Developing / Needs Attention) ──
-           Background tint comes from BAND_BG (a low-opacity match of
-           BAND_COLORS) set inline per band. */
-        .heat-band { border-radius: 12px; padding: 10px 12px; }
+        /* ── Score bands (Strong / Developing / Needs Attention) ── */
+        .heat-band {
+            border-radius: 12px;
+            padding: 5px 12px;
+        }
         .heat-band + .heat-band { margin-top: 12px; }
         .heat-band-label {
             display: flex; align-items: center; gap: 8px;
@@ -695,7 +709,9 @@
             text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px;
         }
         .heat-band-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-        .heat-band .heat-row { border-bottom: none; padding: 5px 0; }
+        /* Rows already carry a hairline divider for the flat-list look; inside
+           a tinted band that reads as clutter, so it's dropped here. */
+        .heat-band .heat-row { border-bottom: none; padding: 15px 0; }
 
         /* ── Insight row layout ──
            Shared with .usage-row above it (two plain chart wraps), so the base
@@ -713,25 +729,71 @@
         .insight-row > div:not(.heat-card) { min-width: 0; }
         .insight-row > .heat-card { margin-bottom: 0; width: 100%; min-width: 0; }
         .insight-row .heat-row {
-            grid-template-columns: 18px minmax(96px, 1.1fr) 2.4fr 28px;
-            gap: 10px;
-            margin-top: 15px;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: background 0.15s ease;
         }
+        .insight-row .heat-row:hover { background: rgba(40, 108, 217, 0.06); }
         .hover-detail-card { display: flex; flex-direction: column; }
         .hover-detail-placeholder {
             margin: auto; font-size: 0.85rem; color: var(--text-muted); text-align: center;
             line-height: 1.6; padding: 20px;
         }
         .hover-detail-card #hover-detail-body { width: 100%; }
-        .hover-detail-card .trend-modal-meta { margin-bottom: 18px; }
+        /* Title on the left, its meta line on the right of the same row;
+           wraps under the title when the card is too narrow for both. */
+        .trend-modal-head {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: baseline;
+            justify-content: space-between;
+            column-gap: 16px;
+            row-gap: 2px;
+            margin-bottom: 18px;
+        }
+        .trend-modal-head .trend-modal-title,
+        .trend-modal-head .trend-modal-meta { margin-bottom: 0; }
+        .trend-modal-head .trend-modal-meta { text-align: right; }
         @media (max-width: 1000px) {
             .insight-row { grid-template-columns: 1fr; gap: 0; margin-bottom: 0; }
             .insight-row > .heat-card { margin-bottom: 24px; }
-            .insight-row .heat-row {
-                grid-template-columns: 18px minmax(160px, 1.2fr) 3fr 32px;
-                gap: 14px;
-            }
-            .hover-detail-card { display: none; }
+            /* Kept on narrow screens rather than hidden: the reasoning and
+               actions behind a score only live in this card, and a tap on a
+               row pins one the same way a hover does on desktop. */
+            .hover-detail-placeholder { font-size: 0.82rem; padding: 12px; }
+        }
+
+        /* ── Sentiment section: laid out like My Insights' Sentiment Analysis ── */
+        #sentiment-section { margin-top: 24px; margin-bottom: 24px; }
+        #sentiment-section #combo-card { display: flex; flex-direction: column; }
+        #sentiment-section #combo-body { margin-bottom: 16px; }
+        .combo-footer {
+            margin-top: auto;
+            padding-top: 14px;
+            border-top: 1px solid var(--glass-border);
+            display: flex; align-items: center; justify-content: flex-end;
+            flex-wrap: wrap; gap: 8px 12px;
+        }
+        .combo-footer-hint {
+            display: inline-flex; align-items: center; gap: 6px;
+            margin-right: auto;
+            font-size: 0.8rem; color: var(--primary-color);
+        }
+        .combo-footer-hint svg { flex-shrink: 0; }
+        /* Filled like My Insights' Recalculate. Scoped here because the table's
+           Export CSV shares .refresh-btn and keeps its outline look. */
+        .combo-footer .refresh-btn { background: #1461F9; color: whitesmoke; }
+        .combo-footer .refresh-btn:disabled { opacity: 0.6; cursor: default; }
+        @media (max-width: 640px) {
+            .combo-footer-hint { margin-right: 0; width: 100%; }
+        }
+        #sentiment-section .heat-card { padding: 18px 22px 14px; }
+        #sentiment-section .heat-card-header { margin-bottom: 12px; }
+        #sentiment-section .heat-band .heat-row { padding: 15px 10px 15px 20px; }
+        #sentiment-section .heat-band + .heat-band { margin-top: 8px; }
+        #sentiment-section .insight-row { gap: 16px; margin-bottom: 0; }
+        @media (max-width: 1000px) {
+            #sentiment-section .insight-row > .heat-card { margin-bottom: 16px; }
         }
 
         /* ── Page transitions ── */
@@ -768,10 +830,6 @@
             <div class="stat-label">Total Chats</div>
             <div class="stat-value loading" id="stat-chats">—</div>
         </div>
-        <div class="stat-card nexa-stat">
-            <div class="lij-count-label">LinkedIn Enriched</div>
-            <div class="lij-count-value" id="lij-enriched">—</div>
-        </div>
         <!-- <div class="stat-card nexa-stat">
             <div class="stat-label">Total Next Count</div>
             <div class="stat-value loading" id="stat-next-count">—</div>
@@ -801,70 +859,17 @@
         <div id="usage-actives-wrap"></div>
     </div>
 
-    <!-- ── Sentiment Intelligence ── -->
-    <div class="section-row">
-        <div>
-            <h3>Sentiment Intelligence</h3>
-            <p>Language pattern analysis across coaching sessions</p>
-        </div>
-        <div style="display:flex; align-items:center; gap:10px; flex-shrink:0; flex-wrap:wrap;">
-            <span class="section-meta" id="sentiment-updated"></span>
-            <button class="refresh-btn" id="sentiment-refresh-btn">Recalculate</button>
-        </div>
-    </div>
-    <!-- How to read everything below it. Deliberately near-wordless: the
-         three bands are a scale you look at, not a paragraph you read.
-         Anything specific to one dimension lives on that dimension's
-         detail card instead. -->
-    <div class="score-legend" id="score-legend" style="display:none;">
-        <div class="legend-head">How to read these scores</div>
-        <div class="legend-scale">
-            <div class="legend-track">
-                <span class="legend-seg" style="background: red;"></span>
-                <span class="legend-seg" style="background: #e1a34e;"></span>
-                <span class="legend-seg" style="background: green;"></span>
-            </div>
-            <div class="legend-marks">
-                <div class="legend-mark" style="flex: 34;">
-                    <span class="legend-mark-name" style="color: red;">Needs attention</span>
-                    <span class="legend-mark-range">0 – 34</span>
-                </div>
-                <div class="legend-mark" style="flex: 30;">
-                    <span class="legend-mark-name" style="color: #e1a34e;">Developing</span>
-                    <span class="legend-mark-range">35 – 64</span>
-                </div>
-                <div class="legend-mark" style="flex: 36;">
-                    <span class="legend-mark-name" style="color: green;">Strong</span>
-                    <span class="legend-mark-range">65 – 100</span>
-                </div>
-            </div>
-        </div>
-        <div class="legend-facts">
-            <span class="legend-fact">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                Group patterns only, never an individual
-            </span>
-            <span class="legend-fact">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
-                Higher is always better
-            </span>
-            <span class="legend-fact">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/></svg>
-                How clearly it reads, not how often
-            </span>
-            <span class="legend-fact">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-                Click any dimension for the why and what to do
-            </span>
-        </div>
-    </div>
-
+    <!-- ── Sentiment Intelligence ──
+         Laid out to match the Sentiment Analysis panel on My Insights
+         (my_insights.html): one scores/trend card with its own Recalculate
+         footer, and the detail card beside it. -->
+    <div id="sentiment-section">
     <div class="insight-row" id="insight-row" style="display:none;">
         <div class="heat-card combo-merged" id="combo-card">
             <div class="heat-card-header">
                 <div class="heat-title-wrap">
                     <span class="heat-num"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="18" y="3" width="4" height="18"/><rect x="10" y="8" width="4" height="13"/><rect x="2" y="13" width="4" height="8"/></svg></span>
-                    <h3>Sentiment Analysis</h3>
+                    <h3>Team Sentiment Analysis</h3>
                 </div>
                 <div class="combo-switch" id="combo-view-switch" role="tablist" aria-label="Scores or trend view">
                     <button type="button" class="combo-switch-btn active" data-view="scores" role="tab" aria-selected="true">Scores</button>
@@ -872,6 +877,16 @@
                 </div>
             </div>
             <div id="combo-body"></div>
+            <!-- Scores are a snapshot from the last run, not live — say so here,
+                 next to them, along with how to bring them up to date. -->
+            <div class="combo-footer">
+                <span class="combo-footer-hint">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                    New conversations since? Recalculate to include them.
+                </span>
+                <span class="section-meta" id="sentiment-updated"></span>
+                <button class="refresh-btn" id="sentiment-refresh-btn">Recalculate</button>
+            </div>
         </div>
 
         <!-- Hover any dimension on the left — a heat row, or a trend line's
@@ -884,6 +899,7 @@
             <div id="hover-detail-body"></div>
         </div>
     </div>
+    </div><!-- /#sentiment-section -->
 
     <div class="table-card">
         <div class="table-header">
@@ -1343,11 +1359,17 @@
 
     const BAND_COLORS = { 'score-green': 'green', 'score-amber': '#e1a34e', 'score-red': 'red' };
 
+    // Scores are stored 0-100 so a reading stays comparable with every earlier
+    // run, but the page speaks in tenths — the same scale My Insights uses.
+    // Everything shown to the admin goes through these two.
+    const toTen     = score => (Math.round(score) / 10).toFixed(1);
+    const toTenAxis = v => String(v / 10);
+
     let currentSentimentData = null;
 
     function renderTrendChart(trendData, color) {
         if (!trendData || trendData.length < 2) {
-            return '<div style="text-align:center;color:#7887a0;padding:32px 0;font-size:0.85rem;">Not enough history to show a trend yet.</div>';
+            return '';   // nothing to plot — the detail card leaves the chart out
         }
         const values = trendData.map(t => t.score);
         const dates  = trendData.map(t => t.date);
@@ -1361,7 +1383,7 @@
         const gridLines = [0, 25, 50, 75, 100].map(v => {
             const y = toY(v).toFixed(1);
             return `<line x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}" stroke="rgba(32, 54, 90, 0.10)" stroke-width="1"/>
-                    <text x="${padL - 6}" y="${y}" text-anchor="end" dominant-baseline="middle" font-size="10" fill="#7887a0">${v}</text>`;
+                    <text x="${padL - 6}" y="${y}" text-anchor="end" dominant-baseline="middle" font-size="10" fill="#7887a0">${toTenAxis(v)}</text>`;
         }).join('');
 
         const step = Math.max(1, Math.ceil(dates.length / 6));
@@ -1380,7 +1402,7 @@
             const isLast = i === values.length - 1;
             const cx = toX(i).toFixed(1), cy = toY(v).toFixed(1);
             const tip = isLast
-                ? `<text x="${cx}" y="${(+cy - 9).toFixed(1)}" text-anchor="middle" font-size="11" font-weight="600" fill="${color}">${v}</text>`
+                ? `<text x="${cx}" y="${(+cy - 9).toFixed(1)}" text-anchor="middle" font-size="11" font-weight="600" fill="${color}">${toTen(v)}</text>`
                 : '';
             return `<circle cx="${cx}" cy="${cy}" r="${isLast ? 5 : 3.5}" fill="${color}" ${!isLast ? 'opacity="0.6"' : ''}/>` + tip;
         }).join('');
@@ -1420,39 +1442,84 @@
 
     // ── Hover detail (right column) ─────────────────────────────────────────
     // Hovering a dimension on the left — a score row, or a trend line's legend
-    // entry — shows its full detail here: title, score, distribution, trend
-    // chart, insight.
+    // entry — shows its full detail here: title, gauge, distribution, trend
+    // chart, insight. Clicking a heat-row pins it (see pinnedDim below), so
+    // it's what a mouseleave falls back to instead of always resetting to the
+    // first dimension.
+    let pinnedDim = null;
+
     // Plain-language name for each band, shared by the score caption and the
     // legend so a score reads the same wherever it appears.
     const BAND_NAMES = { 'score-green': 'Strong', 'score-amber': 'Developing', 'score-red': 'Needs attention' };
 
-    // What this dimension's own two ends mean. It sits with the score rather
-    // than in the legend: the anchors are per-dimension, so they only make
-    // sense next to the number they explain.
+    // ── Score gauge — a semicircular red/amber/green meter with an animated
+    // needle, matched to the same 0-25/25-60/60-100 bands as the heat rows.
+    function gaugeAngle(score) {
+        return Math.max(0, Math.min(100, score)) * 1.8 - 90;
+    }
+
+    function _gaugeArc(cx, cy, r, aStart, aEnd) {
+        const toRad = a => a * Math.PI / 180;
+        const p = a => [cx + r * Math.cos(toRad(a)), cy - r * Math.sin(toRad(a))];
+        const [x1, y1] = p(aStart);
+        const [x2, y2] = p(aEnd);
+        return `M ${x1.toFixed(2)} ${y1.toFixed(2)} A ${r} ${r} 0 0 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`;
+    }
+
+    function renderGauge(score, color) {
+        const cx = 100, cy = 100, r = 78, gap = 3;
+        return `<div class="gauge-wrap">
+            <svg class="gauge-svg" viewBox="0 0 200 112" aria-hidden="true">
+                <path d="${_gaugeArc(cx, cy, r, 180, 126 + gap)}" class="gauge-zone gauge-zone-red" stroke-width="14" fill="none" stroke-linecap="round"/>
+                <path d="${_gaugeArc(cx, cy, r, 125 - gap, 73 + gap)}" class="gauge-zone gauge-zone-amber" stroke-width="14" fill="none" stroke-linecap="round"/>
+                <path d="${_gaugeArc(cx, cy, r, 72 - gap, 0)}" class="gauge-zone gauge-zone-green" stroke-width="14" fill="none" stroke-linecap="round"/>
+                <g class="gauge-needle-group" id="hd-needle" style="transform: rotate(-90deg);">
+                    <line x1="100" y1="100" x2="100" y2="30" class="gauge-needle"/>
+                    <circle cx="100" cy="100" r="7" class="gauge-hub"/>
+                </g>
+            </svg>
+            <div class="gauge-value" style="color:${color}">${toTen(score)}</div>
+            <div class="gauge-sub">out of 10</div>
+        </div>`;
+    }
+
+    // The needle is inserted already pointing at the zero position (rotate in
+    // the markup above), then nudged to its real angle a frame later so the
+    // transition actually animates instead of snapping straight to target.
+    function animateGaugeNeedle(score) {
+        const needle = document.getElementById('hd-needle');
+        if (!needle) return;
+        const deg = gaugeAngle(score);
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+            needle.style.transform = `rotate(${deg}deg)`;
+        }));
+    }
+
+    // What the two ends of this dimension's scale actually mean. It sits with
+    // the gauge: the anchors are per-dimension, so they only make sense next
+    // to the needle they explain.
     function renderDimScale(dim) {
         if (!dim.scale_low || !dim.scale_high) return '';
         const score = Math.max(0, Math.min(100, dim.score || 0));
-        // The marker is centred on its own position, so at the extremes it would
-        // hang off the track. Clamped to keep the whole pill on the rail.
-        const pos = Math.max(9, Math.min(91, score));
+        // The dot is centred on its own position, so at the extremes it would
+        // hang off the rail. Clamped to keep it on the track.
+        const pos = Math.max(4, Math.min(96, score));
         return `<div class="hd-scale">
-            <div class="hd-block-label">What 0 and 100 mean here</div>
-            <div class="hd-scale-rail">
-                <div class="hd-scale-track"></div>
-                <div class="hd-scale-marker" style="left:${pos}%">
-                    <span class="hd-scale-marker-value">${escHtml(String(score))}</span>
-                    <span class="hd-scale-marker-stem"></span>
-                    <span class="hd-scale-marker-dot"></span>
+            <div class="hd-block-label">What 0 and 10 mean here</div>
+            <div class="hd-scale-body">
+                <div class="hd-scale-rail">
+                    <div class="hd-scale-track"></div>
+                    <span class="hd-scale-marker-dot" style="bottom:${pos}%" title="${escHtml(toTen(score))}"></span>
                 </div>
-            </div>
-            <div class="hd-scale-ends">
-                <div class="hd-scale-end">
-                    <span class="hd-scale-num">0</span>
-                    <span class="hd-scale-text">${escHtml(dim.scale_low)}</span>
-                </div>
-                <div class="hd-scale-end hd-scale-high">
-                    <span class="hd-scale-num">100</span>
-                    <span class="hd-scale-text">${escHtml(dim.scale_high)}</span>
+                <div class="hd-scale-ends">
+                    <div class="hd-scale-end">
+                        <span class="hd-scale-num">10</span>
+                        <span class="hd-scale-text">${escHtml(dim.scale_high)}</span>
+                    </div>
+                    <div class="hd-scale-end">
+                        <span class="hd-scale-num">0</span>
+                        <span class="hd-scale-text">${escHtml(dim.scale_low)}</span>
+                    </div>
                 </div>
             </div>
         </div>`;
@@ -1489,7 +1556,7 @@
 
         if (dim.rationale) {
             out.push(`<div class="hd-block">
-                <div class="hd-block-label">Why this scores ${escHtml(String(dim.score || 0))}${band ? ' \u00b7 ' + escHtml(band) : ''}</div>
+                <div class="hd-block-label">Why this scores ${escHtml(toTen(dim.score || 0))}${band ? ' \u00b7 ' + escHtml(band) : ''}</div>
                 <div class="hd-rationale">${escHtml(dim.rationale)}</div>
                 ${renderEvidenceBase(dim)}
             </div>`);
@@ -1576,33 +1643,46 @@
         </div>`;
     }
 
-    // The legend covers only what is true of every dimension: the scale and the
-    // three bands. What an individual dimension measures, and what its own two
-    // ends mean, belongs on the detail card beside that dimension's score.
-    function renderLegend(data) {
-        const legend = document.getElementById('score-legend');
-        if (!legend) return;
-        const dims = (data && data.sentiments) || [];
-        legend.style.display = dims.length ? '' : 'none';
-    }
-
     function showHoverDetail(dimKey) {
         const d = buildDimDetail(dimKey);
         if (!d) return;
         document.getElementById('hover-detail-placeholder').style.display = 'none';
         document.getElementById('hover-detail-body').innerHTML = `
-            <div class="trend-modal-title">${escHtml(d.dim.title)}</div>
-            <div class="trend-modal-meta">${escHtml(d.meta)}</div>
-            <div class="trend-modal-score-row">
-                <span class="trend-modal-score-num" style="color:${d.color}">${d.score}</span>
-                <span class="trend-modal-score-sub">overall score</span>
+            <div class="trend-modal-head">
+                <div class="trend-modal-title">${escHtml(d.dim.title)}</div>
             </div>
-            ${renderDimScale(d.dim)}
-            <div class="trend-chart-wrap">${d.chartHtml}</div>
+            <div class="hd-gauge-row">
+                ${renderGauge(d.score, d.color)}
+                ${renderDimScale(d.dim)}
+            </div>
+            ${d.chartHtml ? `<div class="trend-chart-wrap">${d.chartHtml}</div>` : ''}
             ${d.distHtml ? `<div class="trend-modal-divider"></div>${d.distHtml}` : ''}
             <div class="trend-modal-divider"></div>
             <div class="trend-modal-insight">${escHtml(d.dim.insight || '')}</div>
             ${renderDimQualitative(d.dim, d.cls)}`;
+        clampDetailText(document.getElementById('hover-detail-body'));
+        animateGaugeNeedle(d.score);
+    }
+
+    // One line per paragraph by default, with a Show more toggle on each one
+    // that actually runs past it — short text gets no link.
+    function clampDetailText(root) {
+        root.querySelectorAll('.trend-modal-insight, .hd-rationale, .hd-pattern, .hd-anecdote').forEach(el => {
+            if (!el.textContent.trim()) return;
+            el.classList.add('hd-clamp');
+            if (el.scrollHeight <= el.clientHeight + 1) return;
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'hd-more';
+            btn.textContent = 'Show more';
+            btn.setAttribute('aria-expanded', 'false');
+            btn.addEventListener('click', () => {
+                const open = el.classList.toggle('is-open');
+                btn.textContent = open ? 'Show less' : 'Show more';
+                btn.setAttribute('aria-expanded', String(open));
+            });
+            el.after(btn);
+        });
     }
 
     function clearHoverDetail() {
@@ -1612,13 +1692,31 @@
         if (body) body.innerHTML = '';
     }
 
-    // What the panel falls back to whenever nothing is actively hovered — the
-    // first dimension with data, so the panel never sits on the placeholder
-    // while there's something real to show.
+    // Highlights whichever row is pinned — the click sticks visually, not just
+    // in which detail is showing.
+    function markSelectedRow(dimKey) {
+        document.querySelectorAll('.insight-row .heat-row[data-dim-key]').forEach(row => {
+            row.classList.toggle('is-selected', row.dataset.dimKey === dimKey);
+        });
+    }
+
+    // Click a row to pin it — see selectDim. Absent a pin, this is what the
+    // panel falls back to whenever nothing is actively hovered: the first
+    // dimension with data, so the panel never sits on the placeholder while
+    // there's something real to show.
     function resetHoverDetail() {
-        const dim = currentSentimentData && (currentSentimentData.sentiments || [])[0];
-        if (dim) showHoverDetail(dim.key);
+        const dims = (currentSentimentData && currentSentimentData.sentiments) || [];
+        if (pinnedDim && !dims.some(dm => dm.key === pinnedDim)) pinnedDim = null;
+        const key = pinnedDim || (dims[0] && dims[0].key);
+        if (key) showHoverDetail(key);
         else clearHoverDetail();
+        markSelectedRow(key);
+    }
+
+    function selectDim(dimKey) {
+        pinnedDim = dimKey;
+        showHoverDetail(dimKey);
+        markSelectedRow(dimKey);
     }
 
     function buildEmpDist(bands) {
@@ -1656,8 +1754,8 @@
     // Every visible dimension now scores 0-100 in the same direction — higher
     // is always the stronger reading — so the band is a plain threshold.
     function scoreClasses(score) {
-        if (score >= 65) return { num: 'score-green' };
-        if (score >= 35) return { num: 'score-amber' };
+        if (score >= 60) return { num: 'score-green' };
+        if (score >= 25) return { num: 'score-amber' };
         return { num: 'score-red' };
     }
 
@@ -1672,28 +1770,25 @@
         empathy:                   { signal: { high: 'Strong',   mid: 'Moderate',   low: 'Low'      }, icon: '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>' },
     };
 
+    // Trend-line palette, kept in step with my_insights.html: one fixed,
+    // clearly separate hue per dimension so a line keeps its colour no matter
+    // which others are on screen.
     const DIM_COLORS = {
-        growth_mindset:            '#6b21a8',  // violet
-        job_satisfaction:          '#818cf8',  // indigo
-        self_confidence:           '#075985',  // blue
-        work_life_balance:         '#0d9488',  // teal
-        emotional_resilience:      '#22c55e',  // green
-        frustration_disengagement: '#a16207',  // yellow
-        psychological_safety:      '#fb923c',  // orange
-        empathy:                   '#be123c',  // red
+        growth_mindset:            '#7e22ff',  // purple
+        job_satisfaction:          '#0047ff',  // blue
+        self_confidence:           '#00b4d8',  // cyan
+        work_life_balance:         '#00a53c',  // green
+        emotional_resilience:      '#f2b600',  // yellow
+        frustration_disengagement: '#ff5f00',  // orange
+        psychological_safety:      '#f0058c',  // magenta
+        empathy:                   '#111111',  // black
     };
 
     // Which band a dimension sits in decides the section it's grouped under in
     // the Scores view — strong first, then developing, then what needs
     // attention.
     const BAND_ORDER  = ['score-green', 'score-amber', 'score-red'];
-    const BAND_LABELS = { 'score-green': 'Strong', 'score-amber': 'Developing', 'score-red': 'Needs Attention' };
-    // A low-opacity wash of the same BAND_COLORS, for the section background.
-    const BAND_BG = {
-        'score-green': 'rgba(16, 185, 129, 0.08)',
-        'score-amber': 'rgba(225, 163, 78, 0.12)',
-        'score-red':   'rgba(239, 68, 68, 0.08)',
-    };
+    const BAND_LABELS = { 'score-green': 'Strengths & Positive Signals', 'score-amber': 'Areas for Improvement', 'score-red': 'Challenges & Areas to Watch' };
 
     let _comboMeta = null;
 
@@ -1728,7 +1823,7 @@
         const gridLines = [0, 25, 50, 75, 100].map(v => {
             const y = toY(v).toFixed(1);
             return `<line x1="${padL}" y1="${y}" x2="${padL + iW}" y2="${y}" stroke="rgba(32, 54, 90, 0.08)" stroke-width="1"/>
-                    <text x="${padL - 6}" y="${y}" text-anchor="end" dominant-baseline="middle" font-size="10" fill="#7887a0">${v}</text>`;
+                    <text x="${padL - 6}" y="${y}" text-anchor="end" dominant-baseline="middle" font-size="10" fill="#7887a0">${toTenAxis(v)}</text>`;
         }).join('');
 
         const step = Math.max(1, Math.ceil(n / 6));
@@ -1747,9 +1842,9 @@
             if (!pts) return '';
             const last = dim.trend[dim.trend.length - 1];
             const lxi  = dateIdx.get(last.date);
-            const dot  = lxi !== undefined ? `<circle cx="${toX(lxi).toFixed(1)}" cy="${toY(last.score).toFixed(1)}" r="4" fill="${color}"/>` : '';
+            const dot  = lxi !== undefined ? `<circle cx="${toX(lxi).toFixed(1)}" cy="${toY(last.score).toFixed(1)}" r="6" fill="${color}"/>` : '';
             return `<g class="combo-series" data-dim-key="${dim.key}">
-                <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" opacity="0.85"/>${dot}
+                <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>${dot}
             </g>`;
         }).join('');
 
@@ -1766,7 +1861,7 @@
             return `<div class="combo-legend-item" data-dim-key="${dim.key}">
                 <span class="combo-legend-line" style="background:${color}"></span>
                 <span class="combo-legend-name">${dim.title}</span>
-                <span class="combo-legend-score ${cls.num}">${score}</span>
+                <span class="combo-legend-score ${cls.num}">${toTen(score)}</span>
             </div>`;
         }).join('');
 
@@ -1823,7 +1918,7 @@
                 return `<div class="combo-tooltip-row">
                     <span class="combo-tooltip-swatch" style="background:${d.color}"></span>
                     <span class="combo-tooltip-label">${d.label}</span>
-                    <span class="combo-tooltip-val">${s}</span>
+                    <span class="combo-tooltip-val">${toTen(s)}</span>
                 </div>`;
             }).filter(Boolean).join('');
 
@@ -1928,10 +2023,10 @@
                     <div class="heat-row-icon">${svg}</div>
                     <div class="heat-row-label">${dim.title}</div>
                     <div class="heat-row-track"><div class="heat-row-fill" style="width:${score}%; background:${BAND_COLORS[cls.num] || '#7887a0'}"></div></div>
-                    <div class="heat-row-score" style="color:${BAND_COLORS[cls.num] || 'var(--text-muted)'}">${score}</div>
+                    <div class="heat-row-score" style="color:${BAND_COLORS[cls.num] || 'var(--text-muted)'}">${toTen(score)}</div>
                 </div>`;
             }).join('');
-            return `<div class="heat-band" data-band="${bandKey}" style="background:${BAND_BG[bandKey]}">
+            return `<div class="heat-band" data-band="${bandKey}">
                 <div class="heat-band-label" style="color:${BAND_COLORS[bandKey]}">
                     <span class="heat-band-dot" style="background:${BAND_COLORS[bandKey]}"></span>
                     <span>${BAND_LABELS[bandKey]}</span>
@@ -1945,7 +2040,9 @@
         wrap.querySelectorAll('.heat-row[data-dim-key]').forEach(row => {
             row.addEventListener('mouseenter', () => showHoverDetail(row.dataset.dimKey));
             row.addEventListener('mouseleave', resetHoverDetail);
+            row.addEventListener('click', () => selectDim(row.dataset.dimKey));
         });
+        markSelectedRow(pinnedDim);
     }
 
     // Which reading of the merged card is showing — the current snapshot as
@@ -1978,8 +2075,8 @@
 
     function renderSentiment(data) {
         currentSentimentData = data;
+        pinnedDim = null;
         const hasDims = data && data.sentiments && data.sentiments.length > 0;
-        renderLegend(data);
         if (!hasDims) {
             document.getElementById('insight-row').style.display = '';
             document.getElementById('hover-detail-card').style.display = 'none';
@@ -2157,21 +2254,6 @@
         }
     });
 
-    // ── LinkedIn Enriched stat ───────────────────────────────────────────────
-    // The enrichment job runs itself every 4 hours; the manual controls and the
-    // backlog panel are gone, but the stat card still reports how many profiles
-    // it has collected. Read-only — nothing here can start a run.
-    async function loadLinkedInEnriched() {
-        try {
-            const res = await fetch('/api/admin/linkedin-backfill', { headers: getAuthHeaders() });
-            const data = await res.json();
-            if (!res.ok) return;
-            document.getElementById('lij-enriched').textContent = data.enriched ?? '—';
-        } catch (_) {
-            // Leave the placeholder — a missing count is not worth an error line.
-        }
-    }
-
     loadOrgs();
     // When there's no deep-linked ?org_slug=, these run immediately alongside
     // loadOrgs() rather than waiting on it (loadOrgs only (re)runs them itself
@@ -2181,7 +2263,6 @@
         loadUsageTrend();
         loadSentiment();
     }
-    loadLinkedInEnriched();
 
 </script>
 </body>
