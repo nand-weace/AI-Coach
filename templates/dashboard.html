@@ -210,6 +210,52 @@
         .badge-active { background: rgba(16, 185, 129, 0.1); color: #059669; }
         .badge-inactive { background: rgba(100, 112, 132, 0.1); color: var(--text-muted); }
         .empty-row td { text-align: center; color: var(--text-muted); padding: 40px; }
+        /* ── Nexa Access table ── */
+        .nexa-card { margin-top: 24px; }
+        .nexa-card .table-header { gap: 12px; flex-wrap: wrap; }
+        .nexa-title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .nexa-seats {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 3px 10px; border-radius: 999px;
+            font-size: 0.75rem; font-weight: 500; white-space: nowrap;
+            background: rgba(92, 151, 246, 0.12); color: var(--primary-color);
+        }
+        .nexa-seats:empty { display: none; }
+        .nexa-seats strong { font-weight: 700; }
+        /* every licence taken — turning someone else on will be refused */
+        .nexa-seats.full { background: rgba(245, 158, 11, 0.14); color: #b45309; }
+        .nexa-pager {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 12px 24px; border-top: 1px solid var(--glass-border);
+            font-size: 0.8rem; color: var(--text-muted);
+        }
+        .nexa-pager-btns { display: flex; gap: 8px; }
+        .nexa-pager button:disabled { opacity: 0.45; cursor: default; pointer-events: none; }
+        .nexa-table-wrap { overflow-x: auto; }
+        .nexa-card .sync-cell { white-space: nowrap; }
+        .nexa-switch { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.8rem; color: var(--text-muted); }
+        .nexa-switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+        .nexa-switch .track {
+            position: relative; width: 34px; height: 20px; flex-shrink: 0;
+            border-radius: 999px; background: rgba(100, 112, 132, 0.25);
+            transition: background 0.2s;
+        }
+        .nexa-switch .track::after {
+            content: ''; position: absolute; top: 2px; left: 2px;
+            width: 16px; height: 16px; border-radius: 50%; background: #fff;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2); transition: transform 0.2s;
+        }
+        .nexa-switch input:checked + .track { background: #10b981; }
+        .nexa-switch input:checked + .track::after { transform: translateX(14px); }
+        .nexa-switch input:checked ~ .state { color: #059669; }
+        .nexa-switch input:focus-visible + .track { box-shadow: 0 0 0 2px rgba(92, 151, 246, 0.4); }
+        .nexa-switch input:disabled + .track { opacity: 0.5; }
+        .nexa-switch:has(input:disabled) { cursor: progress; }
+        .nexa-error { display: none; padding: 10px 24px; font-size: 0.8rem; color: #b91c1c; background: rgba(239, 68, 68, 0.08); border-bottom: 1px solid var(--glass-border); }
+        .nexa-error.visible { display: block; }
+        @media (max-width: 640px) {
+            .nexa-card .table-search { width: 140px; }
+        }
         /* Hidden User Activity section/columns — remove the col-hidden class to show again */
         .col-hidden { display: none; }
         .skeleton { background: linear-gradient(90deg, #f0f3f8 25%, #dfe4ec 50%, #f0f3f8 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 4px; height: 14px; }
@@ -964,6 +1010,50 @@
                 <tr><td colspan="7"><div class="skeleton" style="width:60%; margin: 0 auto;"></div></td></tr>
             </tbody>
         </table>
+    </div>
+
+    <!-- Nexa Access: every user in the org and whether Nexa is switched on for
+         them. Paged and filtered server-side by the WeAce users API (via
+         /api/nexa-users), so it ignores the date/cohort filters above. -->
+    <div class="table-card nexa-card">
+        <div class="table-header">
+            <div class="nexa-title">
+                <h3>User Management</h3>
+                <span class="nexa-seats" id="nexa-seats"></span>
+            </div>
+            <div class="table-controls">
+                <input type="text" class="table-search" id="nexa-search" placeholder="Search users…">
+                <select class="table-filter" id="nexa-filter" aria-label="Filter by Nexa access">
+                    <option value="">All users</option>
+                    <option value="true">Nexa on</option>
+                    <option value="false">Nexa off</option>
+                </select>
+            </div>
+        </div>
+        <div class="nexa-error" id="nexa-error" role="alert"></div>
+        <div class="nexa-table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>LinkedIn</th>
+                    <th>Calendar</th>
+                    <th>Nexa</th>
+                </tr>
+            </thead>
+            <tbody id="nexa-table-body">
+                <tr><td colspan="5"><div class="skeleton" style="width:60%; margin: 0 auto;"></div></td></tr>
+            </tbody>
+        </table>
+        </div>
+        <div class="nexa-pager">
+            <span id="nexa-page-info"></span>
+            <div class="nexa-pager-btns">
+                <button class="clear-dates-btn visible" id="nexa-prev" disabled>Previous</button>
+                <button class="clear-dates-btn visible" id="nexa-next" disabled>Next</button>
+            </div>
+        </div>
     </div>
     </div><!-- /#main-dashboard-content -->
 </div>
@@ -1976,6 +2066,135 @@
         updateClearBtn();
         reloadAll();
     });
+
+    // ── Nexa Access table ──
+    const NEXA_PAGE_SIZE = 10;
+    let nexaPage = 1;
+    let nexaLastPage = 1;
+    let nexaReq = 0;  // drops responses that a newer request has overtaken
+    let nexaSeats = { used: null, total: null };
+
+    async function loadNexaUsers() {
+        const req = ++nexaReq;
+        showNexaError('');
+        const tbody = document.getElementById('nexa-table-body');
+        tbody.innerHTML = '<tr><td colspan="5"><div class="skeleton" style="width:60%; margin: 0 auto;"></div></td></tr>';
+        const params = new URLSearchParams({ page: nexaPage, limit: NEXA_PAGE_SIZE });
+        const nexa   = document.getElementById('nexa-filter').value;
+        const search = document.getElementById('nexa-search').value.trim();
+        if (nexa)   params.set('nexa', nexa);
+        if (search) params.set('search', search);
+        try {
+            const res = await fetch('/api/nexa-users?' + params, { headers: getAuthHeaders(), credentials: 'omit' });
+            const data = await res.json();
+            if (req !== nexaReq) return;
+            if (!res.ok) throw new Error(data.error || 'Request failed');
+            renderNexaUsers(data);
+        } catch (_) {
+            if (req !== nexaReq) return;
+            tbody.innerHTML = '<tr class="empty-row"><td colspan="5">Failed to load users. Please refresh.</td></tr>';
+            document.getElementById('nexa-page-info').textContent = '';
+            document.getElementById('nexa-prev').disabled = true;
+            document.getElementById('nexa-next').disabled = true;
+        }
+    }
+
+    const NEXA_CALENDARS = { google: 'Google', outlook: 'Outlook' };
+
+    function syncBadge(synced, label) {
+        return synced
+            ? `<span class="badge badge-active">${escHtml(String(label || 'Synced'))}</span>`
+            : '<span class="badge badge-inactive">Not synced</span>';
+    }
+
+    function renderNexaUsers(data) {
+        const tbody = document.getElementById('nexa-table-body');
+        const users = data.users || [];
+        nexaLastPage = Math.max(1, data.last_page || 1);
+        tbody.innerHTML = users.length ? users.map(u => `<tr>
+                <td class="user-name-cell">${escHtml(u.name || '—')}</td>
+                <td class="email-cell">${escHtml(u.email || '—')}</td>
+                <td class="sync-cell">${syncBadge(u.linkedin_synced, 'Synced')}</td>
+                <td class="sync-cell">${syncBadge(!!u.calendar, NEXA_CALENDARS[u.calendar] || u.calendar)}</td>
+                <td>${u.id ? `<label class="nexa-switch">
+                    <input type="checkbox" data-user-id="${escHtml(u.id)}" ${u.nexa ? 'checked' : ''}
+                           aria-label="Nexa access for ${escHtml(u.name || u.email || 'user')}">
+                    <span class="track"></span><span class="state">${u.nexa ? 'On' : 'Off'}</span>
+                </label>` : `<span class="badge ${u.nexa ? 'badge-active' : 'badge-inactive'}">${u.nexa ? 'On' : 'Off'}</span>`}</td>
+            </tr>`).join('')
+            : '<tr class="empty-row"><td colspan="5">No users found.</td></tr>';
+        nexaSeats = { used: data.used_count, total: data.nexa_count };
+
+        const total = data.total || 0;
+        const first = total ? (nexaPage - 1) * NEXA_PAGE_SIZE + 1 : 0;
+        const last  = Math.min(total, (nexaPage - 1) * NEXA_PAGE_SIZE + users.length);
+        document.getElementById('nexa-page-info').textContent =
+            total ? `${first}–${last} of ${total}` : '';
+        document.getElementById('nexa-prev').disabled = nexaPage <= 1;
+        document.getElementById('nexa-next').disabled = nexaPage >= nexaLastPage;
+
+        renderNexaSeats();
+    }
+
+    // Seat usage only comes back for an org; leave the line blank otherwise.
+    function renderNexaSeats() {
+        const el = document.getElementById('nexa-seats');
+        const known = nexaSeats.used != null && nexaSeats.total != null;
+        el.innerHTML = known
+            ? `<strong>${nexaSeats.used}</strong> / ${nexaSeats.total} Nexa seats in use` : '';
+        el.classList.toggle('full', known && nexaSeats.total > 0 && nexaSeats.used >= nexaSeats.total);
+    }
+
+    function showNexaError(msg) {
+        const el = document.getElementById('nexa-error');
+        el.textContent = msg || '';
+        el.classList.toggle('visible', !!msg);
+    }
+
+    // Flip the switch straight away, then put it back if the API refuses —
+    // most often because the org has used up its Nexa licences.
+    async function setNexaAccess(input) {
+        const on = input.checked;
+        const state = input.parentElement.querySelector('.state');
+        state.textContent = on ? 'On' : 'Off';
+        input.disabled = true;
+        showNexaError('');
+        try {
+            const res = await fetch(`/api/nexa-users/${encodeURIComponent(input.dataset.userId)}/nexa-access`, {
+                method: 'PATCH',
+                headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+                credentials: 'omit',
+                body: JSON.stringify({ nexaAccess: on }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || 'Failed to update Nexa access');
+            if (nexaSeats.used != null) { nexaSeats.used += on ? 1 : -1; renderNexaSeats(); }
+        } catch (e) {
+            input.checked = !on;
+            state.textContent = !on ? 'On' : 'Off';
+            showNexaError(e.message);
+        } finally {
+            input.disabled = false;
+        }
+    }
+
+    document.getElementById('nexa-table-body').addEventListener('change', e => {
+        if (e.target.matches('input[data-user-id]')) setNexaAccess(e.target);
+    });
+
+    let nexaSearchTimer;
+    document.getElementById('nexa-search').addEventListener('input', () => {
+        clearTimeout(nexaSearchTimer);
+        nexaSearchTimer = setTimeout(() => { nexaPage = 1; loadNexaUsers(); }, 300);
+    });
+    document.getElementById('nexa-filter').addEventListener('change', () => { nexaPage = 1; loadNexaUsers(); });
+    document.getElementById('nexa-prev').addEventListener('click', () => {
+        if (nexaPage > 1) { nexaPage--; loadNexaUsers(); }
+    });
+    document.getElementById('nexa-next').addEventListener('click', () => {
+        if (nexaPage < nexaLastPage) { nexaPage++; loadNexaUsers(); }
+    });
+    loadNexaUsers();
 
     document.getElementById('sentiment-refresh-btn').addEventListener('click', async () => {
         const btn = document.getElementById('sentiment-refresh-btn');

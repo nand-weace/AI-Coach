@@ -2219,6 +2219,128 @@ def dashboard_filters():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/nexa-users')
+@require_weace_token
+def nexa_users():
+    """One page of the org's users with their Nexa access, from the WeAce users API.
+
+    Query: page, limit, search, nexa ('true' | 'false' | omitted for everyone).
+    """
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    if not _has_role(g.user.get('role'), 'corporate_super_admin', 'weace_super_admin'):
+        return jsonify({'error': 'Forbidden'}), 403
+    org_id = g.user.get('org_id', '').strip() or None
+    if not org_id:
+        return jsonify({'error': 'No organisation associated with this account'}), 400
+
+    try:
+        page = max(1, int(request.args.get('page', 1)))
+        limit = min(100, max(1, int(request.args.get('limit', 10))))
+    except ValueError:
+        return jsonify({'error': 'page and limit must be numbers'}), 400
+    params = {'organizationId': org_id, 'page': page, 'limit': limit}
+    nexa = request.args.get('nexa', '').strip().lower()
+    if nexa in ('true', 'false'):
+        params['nexa'] = nexa
+    search = request.args.get('search', '').strip()
+    if search:
+        params['search'] = search
+
+    try:
+        resp = http_requests.get(
+            f'{WEACE_API_URL}/api/v1/users',
+            params=params,
+            headers={'Authorization': f'Bearer {g.access_token}'},
+            timeout=20,
+        )
+        if not resp.ok:
+            return jsonify({'error': 'Failed to fetch users', 'status': resp.status_code}), resp.status_code
+        rows, container = _nexa_rows(resp.json())
+        users = []
+        for r in rows:
+            if not isinstance(r, dict):
+                continue
+            name = ' '.join(p for p in (r.get('firstName'), r.get('lastName')) if p).strip()
+            profile = r.get('candidateProfile') if isinstance(r.get('candidateProfile'), dict) else {}
+            # primaryCalendar is 'google' | 'outlook' | null — null means nothing is connected.
+            calendar = str(r.get('primaryCalendar') or '').strip().lower() or None
+            users.append({
+                'id': str(r.get('_id') or r.get('id') or ''),
+                'name': name,
+                'email': r.get('email') or '',
+                'linkedin_synced': profile.get('isLinkedinSynced') is True,
+                'calendar': calendar,
+                'nexa': r.get('nexaAccess') is True,
+            })
+        total = _first_num(container, 'total', 'totalCount') or len(users)
+        return jsonify({
+            'users': users,
+            'total': total,
+            'page': _first_num(container, 'page') or page,
+            'limit': limit,
+            'last_page': _first_num(container, 'lastPage') or max(1, -(-total // limit)),
+            'nexa_count': _first_num(container, 'nexaCount'),
+            'used_count': _first_num(container, 'usedCount'),
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/nexa-users/<user_id>/nexa-access', methods=['PATCH'])
+@require_weace_token
+def set_nexa_access(user_id):
+    """Turns Nexa on or off for one user. Body: {"nexaAccess": true|false}.
+
+    The WeAce endpoint only checks the caller's users:edit permission, not which
+    org the target belongs to, so a corporate admin is held to their own org here.
+    """
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    if not _has_role(g.user.get('role'), 'corporate_super_admin', 'weace_super_admin'):
+        return jsonify({'error': 'Forbidden'}), 403
+    if not re.fullmatch(r'[0-9a-fA-F]{24}', user_id):
+        return jsonify({'error': 'Invalid user id'}), 400
+    body = request.get_json(silent=True) or {}
+    nexa_access = body.get('nexaAccess')
+    if not isinstance(nexa_access, bool):
+        return jsonify({'error': 'nexaAccess must be true or false'}), 400
+
+    headers = {'Authorization': f'Bearer {g.access_token}'}
+    try:
+        if not _has_role(g.user.get('role'), 'weace_super_admin'):
+            org_id = g.user.get('org_id', '').strip()
+            resp = http_requests.get(f'{WEACE_API_URL}/api/v1/users/user/{user_id}',
+                                     headers=headers, timeout=10)
+            target = (resp.json() or {}).get('data') if resp.ok else None
+            if not isinstance(target, dict):
+                return jsonify({'error': 'User not found'}), 404
+            target_orgs = {str(target.get('organizationId') or ''), str(target.get('parentId') or '')}
+            if not org_id or org_id not in target_orgs:
+                return jsonify({'error': 'Forbidden'}), 403
+
+        resp = http_requests.patch(
+            f'{WEACE_API_URL}/api/v1/users/{user_id}/nexa-access',
+            json={'nexaAccess': nexa_access},
+            headers=headers,
+            timeout=15,
+        )
+        try:
+            payload = resp.json()
+        except ValueError:
+            payload = {}
+        if not resp.ok:
+            # e.g. 400 "Nexa access limit exceeded. Only 50 licenses available…"
+            msg = payload.get('message') if isinstance(payload, dict) else None
+            if isinstance(msg, list):
+                msg = '; '.join(map(str, msg))
+            return jsonify({'error': msg or 'Failed to update Nexa access'}), resp.status_code
+        return jsonify({'ok': True, 'id': user_id, 'nexa': nexa_access,
+                        'message': payload.get('message', '')})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/sentiment')
 @require_weace_token
 def sentiment():
