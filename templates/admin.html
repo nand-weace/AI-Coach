@@ -8,6 +8,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('header.css') }}">
+    <link rel="stylesheet" href="{{ asset('word-cloud.css') }}">
+    <link rel="stylesheet" href="{{ asset('pulse-dashboard.css') }}">
     <link rel="icon" id="app-favicon" href="{{ branding.favicon_url }}">
     <style>
         :root {
@@ -60,16 +62,16 @@
 
         /* ── Stat cards ── */
         .stats-grid {
-            display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 16px; margin: 24px 0 32px;
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px; margin: 16px 0 20px;
         }
         .stat-card {
             background: var(--glass-bg); border: 1px solid var(--glass-border);
-            border-radius: 16px; padding: 20px 24px;
+            border-radius: 12px; padding: 12px 16px;
             backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
         }
-        .stat-label { font-size: 0.78rem; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 8px; }
-        .stat-value { font-size: 2rem; font-weight: 600; letter-spacing: -0.03em; color: var(--text-main); }
+        .stat-label { font-size: 0.7rem; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
+        .stat-value { font-size: 1.4rem; font-weight: 600; letter-spacing: -0.03em; color: var(--text-main); }
         .stat-value.loading { color: var(--glass-border); }
 
         /* ── Table ── */
@@ -681,6 +683,22 @@
         /* ── Scores / Trend switch ──
            One card, one dataset, two readings of it: the current snapshot as
            bars grouped into bands, or the same dimensions over time as lines. */
+        /* ── Page tabs (Users & Usage / Trends Analysis) ── */
+        .admin-tabs {
+            display: flex; gap: 4px; margin: 0 0 20px;
+            border-bottom: 1px solid var(--glass-border);
+        }
+        .admin-tab {
+            font-family: inherit; font-size: 0.88rem; font-weight: 600;
+            color: var(--text-muted); background: none; border: none;
+            border-bottom: 2px solid transparent; margin-bottom: -1px;
+            padding: 10px 16px; cursor: pointer; transition: color 0.15s, border-color 0.15s;
+        }
+        .admin-tab:hover:not(.active) { color: var(--text-main); }
+        .admin-tab.active { color: var(--primary-color); border-bottom-color: var(--primary-color); }
+        .admin-tab:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--primary-ring); border-radius: 8px 8px 0 0; }
+        .admin-panel[hidden] { display: none; }
+        #admin-panel-usage .table-card { margin-top: 24px; }
         .combo-switch {
             display: inline-flex; background: rgba(32, 54, 90, 0.06);
             border-radius: 999px; padding: 3px; flex-shrink: 0;
@@ -840,6 +858,18 @@
         </div> -->
     </div>
 
+    <!-- Page tabs. #usage / #trends in the URL picks one, so a link or a
+         reload lands on the same tab. -->
+    <div class="admin-tabs" role="tablist" aria-label="Dashboard sections">
+        <button type="button" class="admin-tab active" role="tab" id="admin-tab-usage"
+                aria-controls="admin-panel-usage" aria-selected="true" data-tab="usage">Users &amp; Usage</button>
+        <button type="button" class="admin-tab" role="tab" id="admin-tab-trends"
+                aria-controls="admin-panel-trends" aria-selected="false" data-tab="trends">Trends Analysis</button>
+    </div>
+
+    <!-- ── Users & Usage ── -->
+    <div class="admin-panel" id="admin-panel-usage" role="tabpanel" aria-labelledby="admin-tab-usage">
+
     <!-- ── Usage Trend ── -->
     <div class="section-row">
         <div>
@@ -858,6 +888,38 @@
         <div id="usage-messages-wrap"></div>
         <div id="usage-actives-wrap"></div>
     </div>
+
+    <div class="table-card">
+        <div class="table-header">
+            <h3>All Users</h3>
+            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                <input type="text" class="table-search" id="search-input" placeholder="Search name, email, org…">
+                <button class="refresh-btn" id="export-btn">Export CSV</button>
+            </div>
+        </div>
+        <table>
+            <thead>
+                <tr id="user-table-head">
+                    <th class="sortable" data-sort-key="user_name">Name<span class="sort-arrow"></span></th>
+                    <th class="sortable" data-sort-key="email">Email<span class="sort-arrow"></span></th>
+                    <th class="sortable" data-sort-key="first_login">Active Since<span class="sort-arrow"></span></th>
+                    <th class="sortable" data-sort-key="last_login">Last Login<span class="sort-arrow"></span></th>
+                    <th class="sortable" data-sort-key="session_count">Sessions<span class="sort-arrow"></span></th>
+                    <th class="sortable" data-sort-key="chat_count">Chats<span class="sort-arrow"></span></th>
+                    <th class="sortable" data-sort-key="nexa_access">Nexa Access<span class="sort-arrow"></span></th>
+                    <th class="sortable" data-sort-key="details">Details<span class="sort-arrow"></span></th>
+                </tr>
+            </thead>
+            <tbody id="user-table-body">
+                <tr><td colspan="8"><div class="skeleton" style="width:60%; margin:0 auto;"></div></td></tr>
+            </tbody>
+        </table>
+    </div>
+    </div><!-- /#admin-panel-usage -->
+
+    <!-- ── Trends Analysis ── loaded the first time the tab opens (see
+         showAdminTab), since opening the word cloud builds the day's cloud. -->
+    <div class="admin-panel" id="admin-panel-trends" role="tabpanel" aria-labelledby="admin-tab-trends" hidden>
 
     <!-- ── Sentiment Intelligence ──
          Laid out to match the Sentiment Analysis panel on My Insights
@@ -901,32 +963,21 @@
     </div>
     </div><!-- /#sentiment-section -->
 
-    <div class="table-card">
-        <div class="table-header">
-            <h3>All Users</h3>
-            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-                <input type="text" class="table-search" id="search-input" placeholder="Search name, email, org…">
-                <button class="refresh-btn" id="export-btn">Export CSV</button>
-            </div>
+    <!-- Org word cloud (static/word-cloud.js) for the organisation picked
+         above; "All organisations" shows a prompt to pick one. -->
+    <div id="word-cloud"></div>
+
+    <!-- Pulse Dashboard (static/pulse-dashboard.js) — the same view a corporate
+         super admin gets on /pulse, for the organisation picked above. -->
+    <div class="section-row" style="margin-top:28px;">
+        <div>
+            <h3>Pulse Dashboard</h3>
+            <p>Anonymous daily check-ins — how the organisation is feeling, never individual notes</p>
         </div>
-        <table>
-            <thead>
-                <tr id="user-table-head">
-                    <th class="sortable" data-sort-key="user_name">Name<span class="sort-arrow"></span></th>
-                    <th class="sortable" data-sort-key="email">Email<span class="sort-arrow"></span></th>
-                    <th class="sortable" data-sort-key="first_login">Active Since<span class="sort-arrow"></span></th>
-                    <th class="sortable" data-sort-key="last_login">Last Login<span class="sort-arrow"></span></th>
-                    <th class="sortable" data-sort-key="session_count">Sessions<span class="sort-arrow"></span></th>
-                    <th class="sortable" data-sort-key="chat_count">Chats<span class="sort-arrow"></span></th>
-                    <th class="sortable" data-sort-key="nexa_access">Nexa Access<span class="sort-arrow"></span></th>
-                    <th class="sortable" data-sort-key="details">Details<span class="sort-arrow"></span></th>
-                </tr>
-            </thead>
-            <tbody id="user-table-body">
-                <tr><td colspan="8"><div class="skeleton" style="width:60%; margin:0 auto;"></div></td></tr>
-            </tbody>
-        </table>
     </div>
+    <div id="pulse-dashboard" style="margin-bottom:28px;"></div>
+    </div><!-- /#admin-panel-trends -->
+
 </div>
 
 <!-- Additional details modal -->
@@ -956,6 +1007,8 @@
 
 <script src="{{ asset('header.js') }}"></script>
 <script src="{{ asset('usage-chart.js') }}"></script>
+<script src="{{ asset('word-cloud.js') }}"></script>
+<script src="{{ asset('pulse-dashboard.js') }}"></script>
 <script>
     let allUsers = [];
     // Rows currently rendered in the All Users table (after org filter + search).
@@ -2194,7 +2247,7 @@
                 loadUsers();
                 loadNexaCounts();
                 loadUsageTrend();
-                loadSentiment();
+                loadTrends();
             }
         } catch (_) {}
     }
@@ -2225,7 +2278,7 @@
         loadUsers();
         loadNexaCounts();
         loadUsageTrend();
-        loadSentiment();
+        loadTrends();
     });
 
     document.getElementById('sentiment-refresh-btn').addEventListener('click', async () => {
@@ -2254,6 +2307,55 @@
         }
     });
 
+    const wordCloud = NexaWordCloud.create({
+        mount: document.getElementById('word-cloud'),
+        headers: getAuthHeaders,
+        orgSlug: () => (currentOrgSlug === ALL_ORGS ? null : currentOrgSlug),
+    });
+    const pulseDashboard = NexaPulseDashboard.create({
+        mount: document.getElementById('pulse-dashboard'),
+        headers: getAuthHeaders,
+        orgSlug: () => (currentOrgSlug === ALL_ORGS ? null : currentOrgSlug),
+        noOrgText: 'Select an organisation to see its pulse.',
+        lockedText: "This organisation isn't on Nexa Pro, so it has no Daily Pulse.",
+    });
+
+    // ── Page tabs ──
+    // Trends Analysis is only fetched while it's the open tab; an org change
+    // made on the other tab marks it stale and it reloads when opened.
+    let activeAdminTab = location.hash === '#trends' ? 'trends' : 'usage';
+    let trendsStale = true;
+
+    function loadTrends() {
+        if (activeAdminTab !== 'trends') { trendsStale = true; return; }
+        trendsStale = false;
+        loadSentiment();
+        wordCloud.load();
+        pulseDashboard.load();
+    }
+
+    // `load: false` on the first call: page start-up (below, or loadOrgs for a
+    // deep-linked org) does the first load itself.
+    function showAdminTab(tab, { load = true } = {}) {
+        activeAdminTab = tab;
+        document.querySelectorAll('.admin-tab').forEach(btn => {
+            const on = btn.dataset.tab === tab;
+            btn.classList.toggle('active', on);
+            btn.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+        document.getElementById('admin-panel-usage').hidden = tab !== 'usage';
+        document.getElementById('admin-panel-trends').hidden = tab !== 'trends';
+        if (load && tab === 'trends' && trendsStale) loadTrends();
+    }
+
+    document.querySelectorAll('.admin-tab').forEach(btn => {
+        btn.addEventListener('click', () => {
+            history.replaceState(null, '', '#' + btn.dataset.tab);
+            showAdminTab(btn.dataset.tab);
+        });
+    });
+    showAdminTab(activeAdminTab, { load: false });
+
     loadOrgs();
     // When there's no deep-linked ?org_slug=, these run immediately alongside
     // loadOrgs() rather than waiting on it (loadOrgs only (re)runs them itself
@@ -2261,7 +2363,7 @@
     if (!requestedOrgSlug) {
         updateRecalcState();
         loadUsageTrend();
-        loadSentiment();
+        loadTrends();
     }
 
 </script>

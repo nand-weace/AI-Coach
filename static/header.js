@@ -478,6 +478,7 @@ const NexaHeader = (() => {
         show('admin-subnav', isWeaceAdmin);
         show('btn-corp-content', isOrgAdmin && !isWeaceAdmin);
         show('dashboard-link', isOrgAdmin);
+        show('users-link', isOrgAdmin);
         show('tab-admin', isWeaceAdmin);
     }
 
