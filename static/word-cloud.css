@@ -1,0 +1,81 @@
+/* Org word + theme cloud card (static/word-cloud.js) — on the corporate dashboard and
+   Platform Admin. The card shell (.heat-card, .combo-footer, .refresh-btn,
+   .sentiment-no-data) comes from each page; only the cloud itself is here. */
+.word-cloud-card { margin-top: 24px; display: flex; flex-direction: column; }
+.word-cloud-card .heat-card-header { gap: 12px; flex-wrap: wrap; }
+
+.wc-date {
+    padding: 6px 14px; border: 1px solid var(--glass-border); border-radius: 999px;
+    background: rgba(240, 243, 254, 0.9); font-family: inherit; font-size: 0.8rem;
+    color: var(--text-main); outline: none; cursor: pointer;
+}
+.wc-date:focus-visible { box-shadow: 0 0 0 2px rgba(92, 151, 246, 0.35); }
+
+.wc-body { margin-bottom: 16px; }
+/* Words and Themes side by side; stacked on narrow screens. */
+.wc-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.wc-panel {
+    min-width: 0; display: flex; flex-direction: column;
+    border: 1px solid var(--glass-border); border-radius: 14px;
+    background: rgba(255, 255, 255, 0.45); padding: 12px 14px;
+}
+.wc-panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.wc-panel-head h4 { font-size: 0.85rem; font-weight: 600; color: var(--text-main); }
+.wc-empty {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    min-height: 180px; padding: 12px; text-align: center;
+    font-size: 0.85rem; color: var(--text-muted);
+}
+.wc-cloud {
+    flex: 1; display: flex; flex-wrap: wrap; justify-content: center; align-items: center;
+    gap: 6px 16px; padding: 14px 4px; min-height: 180px;
+    transition: opacity 0.2s;
+}
+/* An older cloud stays on screen while a refresh runs, dimmed. */
+.wc-cloud.is-stale { opacity: 0.45; }
+.wc-word {
+    position: relative;
+    line-height: 1.15; font-weight: 600; letter-spacing: -0.01em;
+    cursor: default; max-width: 100%; text-align: center;
+    border-radius: 6px; outline: none; transition: opacity 0.15s;
+}
+/* Fade the rest of the cloud so the hovered word stands out. */
+.wc-cloud:hover .wc-word:not(:hover):not(:focus-visible) { opacity: 0.45; }
+.wc-word:focus-visible { box-shadow: 0 0 0 2px rgba(92, 151, 246, 0.4); }
+
+/* Hover tooltip: people count first, mentions underneath. */
+.wc-word::before, .wc-word::after {
+    position: absolute; left: 50%; bottom: calc(100% + 6px); z-index: 5;
+    transform: translate(-50%, 4px); opacity: 0; pointer-events: none;
+    transition: opacity 0.12s, transform 0.12s;
+    white-space: nowrap; letter-spacing: 0; text-align: center;
+    background: #1b2433; color: #fff;
+}
+.wc-word::before {
+    content: attr(data-tip);
+    padding: 6px 10px 20px; border-radius: 8px;
+    font-size: 0.75rem; font-weight: 600; line-height: 1.2;
+    box-shadow: 0 6px 18px -6px rgba(20, 30, 50, 0.45);
+}
+.wc-word::after {
+    content: attr(data-sub);
+    bottom: calc(100% + 12px); background: none;
+    font-size: 0.68rem; font-weight: 400; line-height: 1; color: rgba(255, 255, 255, 0.7);
+}
+.wc-word:hover::before, .wc-word:hover::after,
+.wc-word:focus-visible::before, .wc-word:focus-visible::after {
+    opacity: 1; transform: translate(-50%, 0);
+}
+.wc-tier-1 { color: #1461F9; font-weight: 700; }
+.wc-tier-2 { color: #3870ca; }
+.wc-tier-3 { color: #6a5acd; font-weight: 500; }
+.wc-tier-4 { color: var(--text-muted); font-weight: 500; }
+.wc-note { margin-top: 10px; text-align: center; font-size: 0.8rem; color: var(--text-muted); }
+.wc-note.is-error { color: #b91c1c; }
+
+@media (max-width: 900px) {
+    .wc-pair { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+    .wc-cloud { gap: 4px 12px; padding: 12px 0; }
+}

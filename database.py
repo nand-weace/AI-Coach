@@ -370,6 +370,33 @@ def init_db():
                     PRIMARY KEY (org_slug, period_days)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """)
+            # One word cloud per org per day (word_cloud_job.py). Only counted
+            # words are stored, never message text. `status` doubles as the run
+            # state any gunicorn worker can read: 'running' rows keep the last
+            # good `words` so a refresh never blanks the cloud on screen.
+            _execute(cur,"""
+                CREATE TABLE IF NOT EXISTS org_word_clouds (
+                    org_slug VARCHAR(255) NOT NULL,
+                    cloud_date DATE NOT NULL,
+                    status VARCHAR(16) NOT NULL DEFAULT 'running',
+                    words JSON DEFAULT NULL,
+                    themes JSON DEFAULT NULL,
+                    message_count INT NOT NULL DEFAULT 0,
+                    user_count INT NOT NULL DEFAULT 0,
+                    error VARCHAR(500) DEFAULT NULL,
+                    started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    calculated_at DATETIME DEFAULT NULL,
+                    PRIMARY KEY (org_slug, cloud_date)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """)
+            # The theme cloud came after the table did.
+            _execute(cur,
+                "SELECT COUNT(*) AS cnt FROM information_schema.COLUMNS "
+                "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'org_word_clouds' "
+                "AND COLUMN_NAME = 'themes'",
+            )
+            if cur.fetchone()['cnt'] == 0:
+                _execute(cur, "ALTER TABLE org_word_clouds ADD COLUMN themes JSON DEFAULT NULL AFTER words")
             _execute(cur,"""
                 CREATE TABLE IF NOT EXISTS sentiment_analysis_cursor (
                     org_slug VARCHAR(255) PRIMARY KEY,
@@ -998,6 +1025,153 @@ def get_org_user_messages(org_slug: str, limit: int = 1000) -> list:
                 (org_slug, limit),
             )
             return [row['content'] for row in cur.fetchall()]
+    finally:
+        conn.close()
+
+
+def get_org_chat_texts(org_slug: str, limit: int = 20000) -> list:
+    """(user_id, content) for the org's user-side messages, newest first —
+    the word cloud's input. Server-side only; nothing returned here may reach
+    an admin's browser."""
+    conn = get_reader_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur,
+                """
+                SELECT m.user_id, m.content
+                FROM ai_coach_messages m
+                JOIN ai_coach_sessions s ON m.session_id = s.session_id
+                WHERE s.org_slug = %s AND m.role = 'user'
+                ORDER BY m.id DESC
+                LIMIT %s
+                """,
+                (org_slug, limit),
+            )
+            return [(row['user_id'], row['content']) for row in cur.fetchall()]
+    finally:
+        conn.close()
+
+
+# A 'running' word cloud older than this is assumed dead (worker restart, crash)
+# and may be claimed again.
+WORD_CLOUD_STALE_SECS = 600
+
+
+def claim_word_cloud_run(org_slug: str, cloud_date) -> bool:
+    """Mark the day's cloud as running, unless a live run already holds it.
+
+    Locked row-wise so two workers asked at the same moment can't both start
+    one. Returns True when the caller now owns the run.
+    """
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur,
+                "INSERT IGNORE INTO org_word_clouds (org_slug, cloud_date, status, started_at) "
+                "VALUES (%s, %s, 'idle', NOW())",
+                (org_slug, cloud_date),
+            )
+            _execute(cur,
+                "SELECT status, TIMESTAMPDIFF(SECOND, started_at, NOW()) AS age "
+                "FROM org_word_clouds WHERE org_slug = %s AND cloud_date = %s FOR UPDATE",
+                (org_slug, cloud_date),
+            )
+            row = cur.fetchone()
+            if row['status'] == 'running' and (row['age'] or 0) < WORD_CLOUD_STALE_SECS:
+                conn.rollback()
+                return False
+            _execute(cur,
+                "UPDATE org_word_clouds SET status = 'running', error = NULL, started_at = NOW() "
+                "WHERE org_slug = %s AND cloud_date = %s",
+                (org_slug, cloud_date),
+            )
+        conn.commit()
+        return True
+    finally:
+        conn.close()
+
+
+def finish_word_cloud_run(org_slug: str, cloud_date, cloud: dict):
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur,
+                """
+                UPDATE org_word_clouds
+                SET status = 'done', words = %s, themes = COALESCE(%s, themes),
+                    message_count = %s, user_count = %s, error = NULL, calculated_at = NOW()
+                WHERE org_slug = %s AND cloud_date = %s
+                """,
+                # A theme pass that couldn't run (None) keeps the day's earlier themes.
+                (json.dumps(cloud['words']),
+                 json.dumps(cloud['themes']) if cloud.get('themes') is not None else None,
+                 cloud['message_count'], cloud['user_count'], org_slug, cloud_date),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def fail_word_cloud_run(org_slug: str, cloud_date, error: str):
+    """Ends the run as an error; any words from an earlier run stay put."""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur,
+                "UPDATE org_word_clouds SET status = 'error', error = %s "
+                "WHERE org_slug = %s AND cloud_date = %s",
+                ((error or '')[:500], org_slug, cloud_date),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_word_cloud(org_slug: str, cloud_date) -> dict | None:
+    """The day's cloud as any worker sees it. A run past the stale window is
+    reported as an error — nothing will ever finish it."""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur,
+                "SELECT status, words, themes, message_count, user_count, error, calculated_at, "
+                "TIMESTAMPDIFF(SECOND, started_at, NOW()) AS age "
+                "FROM org_word_clouds WHERE org_slug = %s AND cloud_date = %s",
+                (org_slug, cloud_date),
+            )
+            row = cur.fetchone()
+    finally:
+        conn.close()
+    if not row:
+        return None
+    words, themes = (json.loads(v) if isinstance(v, str) else v
+                     for v in (row['words'], row['themes']))
+    status, error = row['status'], row['error']
+    if status == 'running' and (row['age'] or 0) >= WORD_CLOUD_STALE_SECS:
+        status, error = 'error', 'That run stopped before it finished. Please try again.'
+    return {
+        'status': status,
+        'words': words,
+        'themes': themes,
+        'message_count': int(row['message_count'] or 0),
+        'user_count': int(row['user_count'] or 0),
+        'error': error,
+        'calculated_at': row['calculated_at'].isoformat() if row['calculated_at'] else None,
+    }
+
+
+def get_word_cloud_dates(org_slug: str, limit: int = 30) -> list:
+    """ISO dates that have a finished cloud, newest first — the daily view's picker."""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur,
+                "SELECT cloud_date FROM org_word_clouds "
+                "WHERE org_slug = %s AND words IS NOT NULL "
+                "ORDER BY cloud_date DESC LIMIT %s",
+                (org_slug, limit),
+            )
+            return [row['cloud_date'].isoformat() for row in cur.fetchall()]
     finally:
         conn.close()
 

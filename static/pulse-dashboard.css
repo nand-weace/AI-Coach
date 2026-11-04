@@ -1,0 +1,81 @@
+/* Pulse Dashboard (static/pulse-dashboard.js) — on the corporate /pulse page
+   and Platform Admin's Dashboard. Pages supply .skeleton and the colour
+   tokens (--primary-color, --glass-bg, --accent-gradient, --text-*). */
+.pulse-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 16px; }
+.pulse-window {
+    display: inline-flex; background: rgba(255,255,255,0.7);
+    border: 1px solid rgba(59, 89, 138, 0.14); border-radius: 999px; padding: 3px;
+}
+.pulse-window button {
+    font-family: inherit; font-size: 0.76rem; font-weight: 600;
+    color: var(--text-muted); background: none; border: none;
+    border-radius: 999px; padding: 5px 13px; cursor: pointer;
+}
+.pulse-window button.active { background: var(--primary-color); color: #fff; }
+.pulse-tiles {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px; margin-bottom: 16px;
+}
+.pulse-tile {
+    background: var(--glass-bg); border: 1px solid rgba(59, 89, 138, 0.12);
+    border-radius: 14px; padding: 14px 16px;
+}
+.pulse-tile-label {
+    font-size: 0.72rem; font-weight: 600; letter-spacing: 0.04em;
+    text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px;
+}
+.pulse-tile-value {
+    font-size: 1.5rem; font-weight: 700; letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+}
+.pulse-tile-sub { font-size: 0.74rem; color: var(--text-muted); margin-top: 3px; }
+
+.pulse-card {
+    background: var(--glass-bg); border: 1px solid rgba(59, 89, 138, 0.12);
+    border-radius: 16px; padding: 18px 20px;
+}
+.pulse-card h4 { font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; }
+.pulse-card .pulse-card-sub { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 14px; }
+
+.pulse-mood-bars { display: grid; gap: 8px; }
+.pulse-mood-row { display: grid; grid-template-columns: 74px 1fr 34px; align-items: center; gap: 10px; }
+.pulse-mood-name { font-size: 0.76rem; color: var(--text-muted); font-weight: 500; }
+.pulse-mood-track { height: 8px; border-radius: 999px; background: rgba(32, 54, 90, 0.08); overflow: hidden; }
+.pulse-mood-fill { height: 100%; border-radius: 999px; background: var(--accent-gradient); }
+.pulse-mood-pct {
+    font-size: 0.74rem; font-weight: 600; color: var(--text-muted);
+    text-align: right; font-variant-numeric: tabular-nums;
+}
+
+.pulse-privacy {
+    display: flex; align-items: flex-start; gap: 9px;
+    margin-top: 14px; font-size: 0.75rem; color: var(--text-muted); line-height: 1.55;
+}
+.pulse-privacy svg { flex-shrink: 0; margin-top: 2px; color: var(--primary-color); }
+.pulse-empty { font-size: 0.82rem; color: var(--text-muted); text-align: center; padding: 22px 0; }
+
+/* ── Over-time charts ──
+   Two charts side by side rather than one with two y-axes: a count and a
+   1-5 rating don't share a scale, so each gets its own. */
+.pulse-time-grid {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px; margin-bottom: 14px;
+}
+@media (max-width: 900px) { .pulse-time-grid { grid-template-columns: 1fr; } }
+.pulse-chart { position: relative; }
+.pulse-chart svg { width: 100%; height: auto; display: block; overflow: visible; }
+.pulse-chart .axis-text { font-size: 10px; fill: #7887a0; font-family: inherit; }
+.pulse-chart .grid-line { stroke: rgba(32, 54, 90, 0.08); stroke-width: 1; }
+.pulse-chart .hit { fill: transparent; cursor: default; }
+.pulse-chart .bar { fill: var(--primary-color); }
+.pulse-chart .hit:hover + .bar,
+.pulse-chart .bar.is-hover { fill: #0f4fd0; }
+.pulse-chart .hover-line { stroke: rgba(32, 54, 90, 0.25); stroke-width: 1; stroke-dasharray: 3 3; }
+.pulse-tip {
+    position: absolute; pointer-events: none; display: none;
+    background: #fff; border: 1px solid rgba(0,0,0,0.08); border-radius: 10px;
+    padding: 7px 10px; box-shadow: 0 4px 20px rgba(32, 62, 110, 0.12);
+    font-size: 0.74rem; color: var(--text-main); white-space: nowrap; z-index: 5;
+}
+.pulse-tip-date { font-weight: 600; color: var(--text-muted); margin-bottom: 2px; }
+.pulse-tip-val { font-weight: 600; font-variant-numeric: tabular-nums; }

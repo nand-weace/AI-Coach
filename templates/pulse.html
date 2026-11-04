@@ -8,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('header.css') }}">
+    <link rel="stylesheet" href="{{ asset('pulse-dashboard.css') }}">
     <link rel="icon" id="app-favicon" href="{{ branding.favicon_url }}">
     <style>
         :root {
@@ -153,96 +154,10 @@
         }
 
         /* ── Pulse Dashboard (corporate super admin) ──
-           The org-wide aggregate — moved here from the Nexa Insights dashboard
-           so admins have one dedicated home for it instead of it sitting inside
-           Sentiment Intelligence's page. */
-        .section-row {
-            display: flex; align-items: flex-end; justify-content: space-between;
-            margin: 0 0 16px; gap: 12px; flex-wrap: wrap;
-        }
-        .section-row h3 { font-size: 1rem; font-weight: 600; margin-bottom: 3px; }
-        .section-row p { font-size: 0.8rem; color: var(--text-muted); }
-        .section-meta { font-size: 0.78rem; color: var(--text-muted); white-space: nowrap; }
+           Drawn by static/pulse-dashboard.js, styled by pulse-dashboard.css. */
         .skeleton { background: linear-gradient(90deg, #f0f3f8 25%, #dfe4ec 50%, #f0f3f8 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 4px; height: 14px; }
         @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
-        .pulse-window {
-            display: inline-flex; background: rgba(255,255,255,0.7);
-            border: 1px solid rgba(59, 89, 138, 0.14); border-radius: 999px; padding: 3px;
-        }
-        .pulse-window button {
-            font-family: inherit; font-size: 0.76rem; font-weight: 600;
-            color: var(--text-muted); background: none; border: none;
-            border-radius: 999px; padding: 5px 13px; cursor: pointer;
-        }
-        .pulse-window button.active { background: var(--primary-color); color: #fff; }
-        .pulse-tiles {
-            display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 12px; margin-bottom: 16px;
-        }
-        .pulse-tile {
-            background: var(--glass-bg); border: 1px solid rgba(59, 89, 138, 0.12);
-            border-radius: 14px; padding: 14px 16px;
-        }
-        .pulse-tile-label {
-            font-size: 0.72rem; font-weight: 600; letter-spacing: 0.04em;
-            text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px;
-        }
-        .pulse-tile-value {
-            font-size: 1.5rem; font-weight: 700; letter-spacing: -0.03em;
-            font-variant-numeric: tabular-nums;
-        }
-        .pulse-tile-sub { font-size: 0.74rem; color: var(--text-muted); margin-top: 3px; }
-
-        .pulse-card {
-            background: var(--glass-bg); border: 1px solid rgba(59, 89, 138, 0.12);
-            border-radius: 16px; padding: 18px 20px;
-        }
-        .pulse-card h4 { font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; }
-        .pulse-card .pulse-card-sub { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 14px; }
-
-        .pulse-mood-bars { display: grid; gap: 8px; }
-        .pulse-mood-row { display: grid; grid-template-columns: 74px 1fr 34px; align-items: center; gap: 10px; }
-        .pulse-mood-name { font-size: 0.76rem; color: var(--text-muted); font-weight: 500; }
-        .pulse-mood-track { height: 8px; border-radius: 999px; background: rgba(32, 54, 90, 0.08); overflow: hidden; }
-        .pulse-mood-fill { height: 100%; border-radius: 999px; background: var(--accent-gradient); }
-        .pulse-mood-pct {
-            font-size: 0.74rem; font-weight: 600; color: var(--text-muted);
-            text-align: right; font-variant-numeric: tabular-nums;
-        }
-
-        .pulse-privacy {
-            display: flex; align-items: flex-start; gap: 9px;
-            margin-top: 14px; font-size: 0.75rem; color: var(--text-muted); line-height: 1.55;
-        }
-        .pulse-privacy svg { flex-shrink: 0; margin-top: 2px; color: var(--primary-color); }
-        .pulse-empty { font-size: 0.82rem; color: var(--text-muted); text-align: center; padding: 22px 0; }
-
-        /* ── Over-time charts ──
-           Two charts side by side rather than one with two y-axes: a count and a
-           1-5 rating don't share a scale, so each gets its own. */
-        .pulse-time-grid {
-            display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 14px; margin-bottom: 14px;
-        }
-        @media (max-width: 900px) { .pulse-time-grid { grid-template-columns: 1fr; } }
-        .pulse-chart { position: relative; }
-        .pulse-chart svg { width: 100%; height: auto; display: block; overflow: visible; }
-        .pulse-chart .axis-text { font-size: 10px; fill: #7887a0; font-family: inherit; }
-        .pulse-chart .grid-line { stroke: rgba(32, 54, 90, 0.08); stroke-width: 1; }
-        .pulse-chart .hit { fill: transparent; cursor: default; }
-        .pulse-chart .bar { fill: var(--primary-color); }
-        .pulse-chart .hit:hover + .bar,
-        .pulse-chart .bar.is-hover { fill: #0f4fd0; }
-        .pulse-chart .hover-line { stroke: rgba(32, 54, 90, 0.25); stroke-width: 1; stroke-dasharray: 3 3; }
-        .pulse-tip {
-            position: absolute; pointer-events: none; display: none;
-            background: #fff; border: 1px solid rgba(0,0,0,0.08); border-radius: 10px;
-            padding: 7px 10px; box-shadow: 0 4px 20px rgba(32, 62, 110, 0.12);
-            font-size: 0.74rem; color: var(--text-main); white-space: nowrap; z-index: 5;
-        }
-        .pulse-tip-date { font-weight: 600; color: var(--text-muted); margin-bottom: 2px; }
-        .pulse-tip-val { font-weight: 600; font-variant-numeric: tabular-nums; }
     </style>
 </head>
 <body>
@@ -256,25 +171,7 @@
         <p>Anonymous daily check-ins — how {{ org_name }} is feeling, never individual notes.</p>
     </div>
 
-    <div class="section-row">
-        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-            <div class="pulse-window" id="pulse-window">
-                <button type="button" data-days="7">7d</button>
-                <button type="button" data-days="30" class="active">30d</button>
-                <button type="button" data-days="90">90d</button>
-            </div>
-        </div>
-    </div>
-    <div id="pulse-body">
-        <div class="pulse-empty"><div class="skeleton" style="width:200px; margin:0 auto;"></div></div>
-    </div>
-    <div class="pulse-privacy">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-        </svg>
-        <span>Check-ins are stored with no link to the person who sent them, and no note is
-              ever shown here.</span>
-    </div>
+    <div id="pulse-dashboard"></div>
 </div>
 {% else %}
 <div class="page">
@@ -350,6 +247,7 @@
 {% endif %}
 
 <script src="{{ asset('header.js') }}"></script>
+{% if is_org_admin %}<script src="{{ asset('pulse-dashboard.js') }}"></script>{% endif %}
 <script>
     NexaHeader.init();
 
@@ -365,223 +263,11 @@
     }
 
 {% if is_org_admin %}
-    // ── Pulse Dashboard (corporate super admin) ──────────────────────────────
-    // The org-wide aggregate, moved here from the Nexa Insights dashboard. Data
-    // comes from the anonymous pulse pool via /api/pulse/aggregate, which never
-    // returns note text — counts, moods and their trend over time are the
-    // whole of what an admin can see.
-    const PULSE_MOOD_LABELS = { 1: 'Terrible', 2: 'Poor', 3: 'Okay', 4: 'Good', 5: 'Great' };
-    let pulseDays = 30;
-
-    function pulseQuery() {
-        return '?' + new URLSearchParams({ days: String(pulseDays) }).toString();
-    }
-
-    function renderMoodMix(counts, total) {
-        const rows = [5, 4, 3, 2, 1].map(m => {
-            const n = counts[String(m)] || 0;
-            const pct = total ? Math.round((n / total) * 100) : 0;
-            return `<div class="pulse-mood-row">
-                        <span class="pulse-mood-name">${PULSE_MOOD_LABELS[m]}</span>
-                        <div class="pulse-mood-track"><div class="pulse-mood-fill" style="width:${pct}%"></div></div>
-                        <span class="pulse-mood-pct">${pct}%</span>
-                    </div>`;
-        }).join('');
-        return `<div class="pulse-mood-bars">${rows}</div>`;
-    }
-
-    // ── Over time ────────────────────────────────────────────────────────────
-    // The API's trend only has rows for days someone responded, so the window
-    // is laid out day by day here: a quiet day is a real zero on the
-    // submissions chart and a gap (not a dip) on the rating line.
-    function pulseDaysInWindow(days) {
-        const out = [];
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        for (let i = days; i >= 0; i--) {
-            const d = new Date(today);
-            d.setDate(today.getDate() - i);
-            const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-            out.push(iso);
-        }
-        return out;
-    }
-
-    const fmtDay = (iso, opts) => new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', opts || { day: 'numeric', month: 'short' });
-
-    // Shared frame for both charts: x is the day index across the window.
-    function pulseChartFrame(n) {
-        const W = 520, H = 200, padL = 30, padR = 10, padT = 12, padB = 26;
-        const iW = W - padL - padR, iH = H - padT - padB;
-        const slot = iW / n;
-        return { W, H, padL, padR, padT, padB, iW, iH, slot,
-                 cx: i => padL + slot * (i + 0.5) };
-    }
-
-    function pulseXLabels(f, dates) {
-        const n = dates.length;
-        const step = Math.max(1, Math.ceil(n / 6));
-        return dates.map((d, i) => (i % step === 0 || i === n - 1)
-            ? `<text class="axis-text" x="${f.cx(i).toFixed(1)}" y="${f.H - 6}" text-anchor="middle">${fmtDay(d)}</text>`
-            : '').join('');
-    }
-
-    function renderSubmissionsChart(dates, byDate) {
-        const f = pulseChartFrame(dates.length);
-        const counts = dates.map(d => (byDate[d] || {}).responses || 0);
-        const max = Math.max(1, ...counts);
-        // Whole-number ticks — these are people, not fractions of them.
-        const stepV = Math.max(1, Math.ceil(max / 4));
-        const top = stepV * Math.ceil(max / stepV);
-        const toY = v => f.padT + f.iH - (v / top) * f.iH;
-        const ticks = [];
-        for (let v = 0; v <= top; v += stepV) ticks.push(v);
-        const grid = ticks.map(v => `<line class="grid-line" x1="${f.padL}" x2="${f.W - f.padR}" y1="${toY(v).toFixed(1)}" y2="${toY(v).toFixed(1)}"/>
-            <text class="axis-text" x="${f.padL - 6}" y="${toY(v).toFixed(1)}" text-anchor="end" dominant-baseline="middle">${v}</text>`).join('');
-        // 2px surface gap between neighbours; top corners rounded, base square.
-        const bw = Math.max(1, f.slot - 2);
-        const bars = counts.map((c, i) => {
-            const x = f.cx(i) - bw / 2;
-            const hit = `<rect class="hit" data-i="${i}" x="${(f.padL + f.slot * i).toFixed(1)}" y="${f.padT}" width="${f.slot.toFixed(1)}" height="${f.iH}"/>`;
-            if (!c) return hit;
-            const y = toY(c), h = f.padT + f.iH - y;
-            const r = Math.min(4, bw / 2, h);
-            const path = `M${x.toFixed(1)},${(y + h).toFixed(1)} V${(y + r).toFixed(1)} Q${x.toFixed(1)},${y.toFixed(1)} ${(x + r).toFixed(1)},${y.toFixed(1)}`
-                       + ` H${(x + bw - r).toFixed(1)} Q${(x + bw).toFixed(1)},${y.toFixed(1)} ${(x + bw).toFixed(1)},${(y + r).toFixed(1)} V${(y + h).toFixed(1)} Z`;
-            return hit + `<path class="bar" d="${path}"/>`;
-        }).join('');
-        return `<div class="pulse-chart" data-chart="submissions">
-            <svg viewBox="0 0 ${f.W} ${f.H}" role="img" aria-label="Pulse submissions per day">${grid}${bars}${pulseXLabels(f, dates)}</svg>
-            <div class="pulse-tip"></div>
-        </div>`;
-    }
-
-    function renderRatingChart(dates, byDate) {
-        const f = pulseChartFrame(dates.length);
-        const toY = v => f.padT + f.iH - ((v - 1) / 4) * f.iH;
-        const grid = [1, 2, 3, 4, 5].map(v => `<line class="grid-line" x1="${f.padL}" x2="${f.W - f.padR}" y1="${toY(v).toFixed(1)}" y2="${toY(v).toFixed(1)}"/>
-            <text class="axis-text" x="${f.padL - 6}" y="${toY(v).toFixed(1)}" text-anchor="end" dominant-baseline="middle">${v}</text>`).join('');
-        const pts = dates.map((d, i) => byDate[d] ? { i, v: byDate[d].avg_mood } : null).filter(Boolean);
-        // Consecutive responding days join up; a day with no responses breaks
-        // the line rather than being drawn through as if it had been measured.
-        const segs = [];
-        pts.forEach(p => {
-            const last = segs[segs.length - 1];
-            if (last && p.i === last[last.length - 1].i + 1) last.push(p);
-            else segs.push([p]);
-        });
-        const lines = segs.filter(sg => sg.length > 1).map(sg =>
-            `<polyline points="${sg.map(p => `${f.cx(p.i).toFixed(1)},${toY(p.v).toFixed(1)}`).join(' ')}" fill="none" stroke="var(--primary-color)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`).join('');
-        const dots = pts.map(p =>
-            `<circle cx="${f.cx(p.i).toFixed(1)}" cy="${toY(p.v).toFixed(1)}" r="4" fill="var(--primary-color)" stroke="#fff" stroke-width="2"/>`).join('');
-        const hits = dates.map((d, i) =>
-            `<rect class="hit" data-i="${i}" x="${(f.padL + f.slot * i).toFixed(1)}" y="${f.padT}" width="${f.slot.toFixed(1)}" height="${f.iH}"/>`).join('');
-        return `<div class="pulse-chart" data-chart="rating">
-            <svg viewBox="0 0 ${f.W} ${f.H}" role="img" aria-label="Average pulse rating per day, 1 to 5">${grid}<g class="hover-g"></g>${lines}${dots}${pulseXLabels(f, dates)}${hits}</svg>
-            <div class="pulse-tip"></div>
-        </div>`;
-    }
-
-    // One tooltip per chart, positioned over the hovered day.
-    function wirePulseCharts(root, dates, byDate) {
-        root.querySelectorAll('.pulse-chart').forEach(chart => {
-            const kind = chart.dataset.chart;
-            const svg = chart.querySelector('svg');
-            const tip = chart.querySelector('.pulse-tip');
-            const f = pulseChartFrame(dates.length);
-            const hoverG = chart.querySelector('.hover-g');
-            chart.querySelectorAll('.hit').forEach(hit => {
-                hit.addEventListener('mouseenter', () => {
-                    const i = +hit.dataset.i;
-                    const row = byDate[dates[i]];
-                    const val = kind === 'submissions'
-                        ? `${row ? row.responses : 0} submission${row && row.responses === 1 ? '' : 's'}`
-                        : (row ? `${row.avg_mood.toFixed(1)} / 5 avg · ${row.responses} response${row.responses === 1 ? '' : 's'}` : 'No responses');
-                    tip.innerHTML = `<div class="pulse-tip-date">${fmtDay(dates[i], { weekday: 'short', day: 'numeric', month: 'short' })}</div><div class="pulse-tip-val">${val}</div>`;
-                    if (hoverG) hoverG.innerHTML = `<line class="hover-line" x1="${f.cx(i).toFixed(1)}" x2="${f.cx(i).toFixed(1)}" y1="${f.padT}" y2="${f.padT + f.iH}"/>`;
-                    const scale = svg.getBoundingClientRect().width / f.W;
-                    tip.style.display = 'block';
-                    const x = f.cx(i) * scale;
-                    const left = Math.min(Math.max(0, x - tip.offsetWidth / 2), chart.clientWidth - tip.offsetWidth);
-                    tip.style.left = left + 'px';
-                    tip.style.top = (f.padT * scale - tip.offsetHeight - 4) + 'px';
-                });
-                hit.addEventListener('mouseleave', () => {
-                    tip.style.display = 'none';
-                    if (hoverG) hoverG.innerHTML = '';
-                });
-            });
-        });
-    }
-
-    function renderPulse(data) {
-        const body = document.getElementById('pulse-body');
-
-        const avg = data.avg_mood !== null && data.avg_mood !== undefined ? data.avg_mood.toFixed(1) : '—';
-        const nearest = data.avg_mood ? PULSE_MOOD_LABELS[Math.round(data.avg_mood)] : '';
-        const dates = pulseDaysInWindow(data.days);
-        const byDate = Object.fromEntries((data.trend || []).map(t => [t.date, t]));
-
-        body.innerHTML = `
-            <div class="pulse-tiles">
-                <div class="pulse-tile">
-                    <div class="pulse-tile-label">Responses</div>
-                    <div class="pulse-tile-value">${data.responses}</div>
-                    <div class="pulse-tile-sub">in the last ${data.days} days</div>
-                </div>
-                <div class="pulse-tile">
-                    <div class="pulse-tile-label">Average mood</div>
-                    <div class="pulse-tile-value">${avg}<span style="font-size:0.9rem; font-weight:500; color:var(--text-muted);"> / 5</span></div>
-                    <div class="pulse-tile-sub">${nearest ? 'around &ldquo;' + nearest + '&rdquo;' : ''}</div>
-                </div>
-            </div>
-            <div class="pulse-time-grid">
-                <div class="pulse-card">
-                    <h4>Submissions over time</h4>
-                    <div class="pulse-card-sub">Pulse check-ins per day</div>
-                    ${renderSubmissionsChart(dates, byDate)}
-                </div>
-                <div class="pulse-card">
-                    <h4>Average rating over time</h4>
-                    <div class="pulse-card-sub">Mean mood per day, 1 (Terrible) to 5 (Great)</div>
-                    ${renderRatingChart(dates, byDate)}
-                </div>
-            </div>
-            <div class="pulse-card">
-                <h4>How the days are landing</h4>
-                <div class="pulse-card-sub">Share of responses at each mood</div>
-                ${renderMoodMix(data.mood_counts || {}, data.responses)}
-            </div>`;
-        wirePulseCharts(body, dates, byDate);
-    }
-
-    async function loadPulse() {
-        const body = document.getElementById('pulse-body');
-        body.innerHTML = '<div class="pulse-empty"><div class="skeleton" style="width:200px; margin:0 auto;"></div></div>';
-        try {
-            const res = await fetch('/api/pulse/aggregate' + pulseQuery(),
-                                    { headers: getAuthHeaders(), credentials: 'omit' });
-            const data = await res.json();
-            if (!res.ok) {
-                body.innerHTML = `<div class="pulse-empty">${escHtml(data.error || 'Could not load the pulse.')}</div>`;
-                return;
-            }
-            renderPulse(data);
-        } catch (_) {
-            body.innerHTML = '<div class="pulse-empty">Request failed. Please try again.</div>';
-        }
-    }
-
-    document.querySelectorAll('#pulse-window button').forEach(btn => {
-        btn.addEventListener('click', () => {
-            pulseDays = parseInt(btn.dataset.days, 10);
-            document.querySelectorAll('#pulse-window button')
-                .forEach(b => b.classList.toggle('active', b === btn));
-            loadPulse();
-        });
-    });
-
-    loadPulse();
+    // ── Pulse Dashboard (corporate super admin) — see static/pulse-dashboard.js
+    NexaPulseDashboard.create({
+        mount: document.getElementById('pulse-dashboard'),
+        headers: getAuthHeaders,
+    }).load();
 {% else %}
     const NOTE_MAX = {{ note_max }};
 

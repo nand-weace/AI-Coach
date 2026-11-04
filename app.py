@@ -70,6 +70,11 @@ from database import (
     record_pulse,
     get_pulse_summary,
     get_pulse_insight,
+    claim_word_cloud_run,
+    finish_word_cloud_run,
+    fail_word_cloud_run,
+    get_word_cloud,
+    get_word_cloud_dates,
 )
 import linkedin
 import calendar_context
@@ -2151,6 +2156,31 @@ def dashboard():
     )
 
 
+@app.route('/users')
+def users_page():
+    """User Management — the org's users and their Nexa access, on its own tab
+    rather than under Nexa Insights. Same audience as /dashboard; the table
+    fills from /api/nexa-users."""
+    if 'user_id' not in session:
+        return redirect('/')
+    if not _has_role(session.get('role'), 'corporate_super_admin'):
+        return redirect('/')
+    name = session['user_name']
+    initials = ''.join(w[0].upper() for w in name.split()[:2])
+    return render_template('users.html',
+        user_name=name,
+        initials=initials,
+        profile_image=session.get('profile_image', ''),
+        org_name=session.get('org_name', 'Organisation'),
+        refresh_token=session.get('refresh_token', ''),
+        # shared header (_header.html)
+        active_tab='users',
+        show_pulse=_has_pulse(session.get('org_slug')),
+        show_org_tabs=True,
+        show_admin=_has_role(session.get('role'), 'weace_super_admin'),
+    )
+
+
 @app.route('/api/cohorts')
 @require_weace_token
 def cohorts():
@@ -2398,6 +2428,141 @@ def sentiment_refresh():
             data = get_org_sentiment_data(org_slug)
             return jsonify({'ok': True, 'data': data or result})
         return jsonify({'ok': False, 'error': 'No new messages to analyse or analysis failed'}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ── Org word cloud ──────────────────────────────────────────────────────────
+# The words people across an org bring to Nexa most, filler removed, and the
+# themes an LLM groups their chats into (see word_cloud_job.py). One cloud is saved per org per day: the first admin view
+# of the day builds it, Refresh rebuilds it, and earlier days stay viewable.
+#
+# Building one reads the org's whole chat history, which can outlast a request,
+# so it runs on a background thread. Run state lives in org_word_clouds rather
+# than memory — a poll rarely lands on the worker that owns the thread — and
+# the page long-polls /api/word-cloud/status until the run settles.
+_WORD_CLOUD_MAX_WAIT = 20   # seconds one long poll may hold the request open
+
+
+def _word_cloud_org():
+    """(org_slug, None) for the org being looked at, or (None, error response).
+    A corporate admin always gets their own org; a WeAce admin names one."""
+    if not g.user:
+        return None, (jsonify({'error': 'Session not initialised — call /session first'}), 401)
+    if not _has_role(g.user.get('role'), 'corporate_super_admin', 'weace_super_admin'):
+        return None, (jsonify({'error': 'Forbidden'}), 403)
+    if _has_role(g.user.get('role'), 'weace_super_admin'):
+        org_slug = (request.args.get('org_slug') or '').strip()
+        if org_slug in ('', 'all', '__all__'):
+            return None, (jsonify({'error': 'Select a specific organisation to see its word cloud.'}), 400)
+    else:
+        org_slug = (g.user.get('org_id') or '').strip()
+        if not org_slug:
+            return None, (jsonify({'error': 'No organisation associated with this account'}), 400)
+    return org_slug, None
+
+
+def _word_cloud_date():
+    """The requested day, or today. Raises ValueError on a malformed date."""
+    from datetime import date
+    raw = (request.args.get('date') or '').strip()
+    return date.fromisoformat(raw) if raw else date.today()
+
+
+def _run_word_cloud_job(org_slug: str, cloud_date):
+    from word_cloud_job import build_org_word_cloud
+    try:
+        finish_word_cloud_run(org_slug, cloud_date, build_org_word_cloud(org_slug))
+    except Exception:
+        logger.exception('[word-cloud] build failed for org=%s', org_slug)
+        fail_word_cloud_run(org_slug, cloud_date, 'Could not build the word cloud. Please try again.')
+
+
+def _start_word_cloud_job(org_slug: str, cloud_date) -> bool:
+    """Start a run unless one is already going; False means join that one."""
+    if not claim_word_cloud_run(org_slug, cloud_date):
+        return False
+    threading.Thread(target=_run_word_cloud_job, args=(org_slug, cloud_date),
+                     daemon=True).start()
+    return True
+
+
+def _word_cloud_payload(org_slug: str, cloud_date, cloud: dict | None) -> dict:
+    from datetime import date
+    payload = cloud or {'status': 'none', 'words': None, 'themes': None}
+    payload.update({
+        'date': cloud_date.isoformat(),
+        'today': date.today().isoformat(),
+        'dates': get_word_cloud_dates(org_slug),
+    })
+    return payload
+
+
+@app.route('/api/word-cloud')
+@require_weace_token
+def word_cloud():
+    """The org's word cloud for one day (?date=YYYY-MM-DD, default today).
+
+    Today's cloud is built on its first view of the day, so this can come back
+    'running' — the page then long-polls /api/word-cloud/status. Past days are
+    only ever read.
+    """
+    org_slug, err = _word_cloud_org()
+    if err:
+        return err
+    try:
+        cloud_date = _word_cloud_date()
+    except ValueError:
+        return jsonify({'error': 'date must be YYYY-MM-DD'}), 400
+    try:
+        from datetime import date
+        cloud = get_word_cloud(org_slug, cloud_date)
+        if cloud is None and cloud_date == date.today():
+            _start_word_cloud_job(org_slug, cloud_date)
+            cloud = get_word_cloud(org_slug, cloud_date)
+        return jsonify(_word_cloud_payload(org_slug, cloud_date, cloud))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/word-cloud/refresh', methods=['POST'])
+@require_weace_token
+def word_cloud_refresh():
+    """Rebuild today's cloud and return straight away (202). A click while a
+    run is going joins it rather than starting a second one."""
+    org_slug, err = _word_cloud_org()
+    if err:
+        return err
+    try:
+        from datetime import date
+        _start_word_cloud_job(org_slug, date.today())
+        return jsonify({'ok': True, 'status': 'running', 'date': date.today().isoformat()}), 202
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/word-cloud/status')
+@require_weace_token
+def word_cloud_status():
+    """Long poll: holds the request until the day's run settles or `wait`
+    seconds (max 20) pass, then answers like GET /api/word-cloud. A response
+    still 'running' just means "ask again" — each poll stays well inside the
+    worker and load-balancer timeouts however long the build takes."""
+    org_slug, err = _word_cloud_org()
+    if err:
+        return err
+    try:
+        cloud_date = _word_cloud_date()
+        wait = min(_WORD_CLOUD_MAX_WAIT, max(0, int(request.args.get('wait', _WORD_CLOUD_MAX_WAIT))))
+    except ValueError:
+        return jsonify({'error': 'date must be YYYY-MM-DD and wait a number of seconds'}), 400
+    try:
+        deadline = time.monotonic() + wait
+        cloud = get_word_cloud(org_slug, cloud_date)
+        while cloud and cloud['status'] == 'running' and time.monotonic() < deadline:
+            time.sleep(1)
+            cloud = get_word_cloud(org_slug, cloud_date)
+        return jsonify(_word_cloud_payload(org_slug, cloud_date, cloud))
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

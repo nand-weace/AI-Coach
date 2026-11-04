@@ -17,4 +17,6 @@ ENV PYTHONUNBUFFERED=1
 
 EXPOSE 5000
 
-CMD ["gunicorn", "-w", "2", "-b", "0.0.0.0:5000", "--timeout", "120", "app:app"]
+# Threaded workers: the word cloud's status endpoint long-polls (holds a request
+# up to 20s), which would tie up a whole sync worker per waiting admin.
+CMD ["gunicorn", "-w", "2", "--worker-class", "gthread", "--threads", "8", "-b", "0.0.0.0:5000", "--timeout", "120", "app:app"]
