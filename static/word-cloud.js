@@ -3,10 +3,10 @@
   Admin. The two clouds sit side by side: raw words on the left, the themes an
   LLM grouped the chats into on the right (see word_cloud_job.py).
 
-  Shows one saved pair per day (the date picker steps back through earlier
-  ones). Today's is built server-side on its first view or on Refresh; while
-  that runs the card long-polls /api/word-cloud/status, which holds each
-  request up to 20s and answers as soon as the run settles.
+  Always shows the latest pair, built from the org's chats across all time.
+  It's rebuilt server-side on the day's first view or on Refresh; while that
+  runs the card long-polls /api/word-cloud/status, which holds each request up
+  to 20s and answers as soon as the run settles.
 
     const cloud = NexaWordCloud.create({
         mount:   document.getElementById('word-cloud'),
@@ -24,12 +24,6 @@ const NexaWordCloud = (() => {
     function esc(str) {
         return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
             .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    }
-
-    function dayLabel(iso, today) {
-        if (iso === today) return 'Today';
-        const d = new Date(iso + 'T00:00:00');
-        return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
     }
 
     // Biggest words in the middle, smaller ones fanning out to either side,
@@ -77,7 +71,6 @@ const NexaWordCloud = (() => {
                         <span class="heat-num"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
                         <h3>What People Are Talking About</h3>
                     </div>
-                    <select class="wc-date" aria-label="Cloud day" hidden></select>
                 </div>
                 <div class="wc-body" aria-live="polite"></div>
                 <div class="combo-footer">
@@ -89,16 +82,13 @@ const NexaWordCloud = (() => {
         const body = mount.querySelector('.wc-body');
         const meta = mount.querySelector('.wc-meta');
         const btn = mount.querySelector('.wc-refresh');
-        const picker = mount.querySelector('.wc-date');
 
         let req = 0;          // bumped by every load/refresh; older loops stop
-        let viewDate = null;  // null = today
 
         function url(path, extra) {
             const params = new URLSearchParams(extra || {});
             const slug = orgSlug && orgSlug();
             if (slug) params.set('org_slug', slug);
-            if (viewDate) params.set('date', viewDate);
             const qs = params.toString();
             return path + (qs ? '?' + qs : '');
         }
@@ -110,16 +100,7 @@ const NexaWordCloud = (() => {
             return data;
         }
 
-        function renderPicker(data) {
-            const days = Array.from(new Set([data.today, ...(data.dates || [])])).sort().reverse();
-            picker.innerHTML = days.map(d =>
-                `<option value="${esc(d)}">${esc(dayLabel(d, data.today))}</option>`).join('');
-            picker.value = data.date;
-            picker.hidden = days.length < 2;
-        }
-
         function render(data) {
-            renderPicker(data);
             const words = data.words || [];
             const themes = data.themes;   // null: the theme pass hasn't run or couldn't
             const running = data.status === 'running';
@@ -151,8 +132,6 @@ const NexaWordCloud = (() => {
                     + (note ? `<div class="wc-note${data.status === 'error' ? ' is-error' : ''}">${esc(note)}</div>` : '');
             } else if (data.status === 'error') {
                 body.innerHTML = `<div class="sentiment-no-data">${esc(note)}</div>`;
-            } else if (data.status === 'none') {
-                body.innerHTML = '<div class="sentiment-no-data">No word cloud was saved for this day.</div>';
             } else {
                 body.innerHTML = '<div class="sentiment-no-data">Not enough conversation yet — keep encouraging your team to chat with Nexa.</div>';
             }
@@ -171,7 +150,6 @@ const NexaWordCloud = (() => {
         }
 
         function renderMessage(msg) {
-            picker.hidden = true;
             meta.textContent = '';
             body.innerHTML = `<div class="sentiment-no-data">${esc(msg)}</div>`;
         }
@@ -223,7 +201,6 @@ const NexaWordCloud = (() => {
 
         async function refresh() {
             const mine = ++req;
-            viewDate = null;
             btn.disabled = true;
             btn.textContent = 'Refreshing…';
             try {
@@ -238,14 +215,8 @@ const NexaWordCloud = (() => {
         }
 
         btn.addEventListener('click', refresh);
-        picker.addEventListener('change', () => {
-            viewDate = picker.value === picker.options[0]?.value ? null : picker.value;
-            load();
-        });
 
-        return {
-            load() { viewDate = null; return load(); },
-        };
+        return { load };
     }
 
     return { create };

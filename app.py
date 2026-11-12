@@ -50,6 +50,7 @@ from database import (
     get_user_profile_context,
     get_user_identity,
     get_all_users_admin,
+    get_admin_usage_totals,
     get_all_orgs,
     get_corporate_stats,
     set_org_licence,
@@ -2249,6 +2250,23 @@ def dashboard_filters():
         return jsonify({'error': str(e)}), 500
 
 
+def _weace_user_summary(r: dict) -> dict:
+    """One row of a WeAce /api/v1/users response, in the shape the Users tables show."""
+    name = ' '.join(p for p in (r.get('firstName'), r.get('lastName')) if p).strip()
+    profile = r.get('candidateProfile') if isinstance(r.get('candidateProfile'), dict) else {}
+    # primaryCalendar is 'google' | 'outlook' | null — null means nothing is connected.
+    calendar = str(r.get('primaryCalendar') or '').strip().lower() or None
+    return {
+        'id': str(r.get('_id') or r.get('id') or ''),
+        'name': name,
+        'email': r.get('email') or '',
+        'org_id': str(r.get('organizationId') or ''),
+        'linkedin_synced': profile.get('isLinkedinSynced') is True,
+        'calendar': calendar,
+        'nexa': r.get('nexaAccess') is True,
+    }
+
+
 @app.route('/api/nexa-users')
 @require_weace_token
 def nexa_users():
@@ -2287,22 +2305,7 @@ def nexa_users():
         if not resp.ok:
             return jsonify({'error': 'Failed to fetch users', 'status': resp.status_code}), resp.status_code
         rows, container = _nexa_rows(resp.json())
-        users = []
-        for r in rows:
-            if not isinstance(r, dict):
-                continue
-            name = ' '.join(p for p in (r.get('firstName'), r.get('lastName')) if p).strip()
-            profile = r.get('candidateProfile') if isinstance(r.get('candidateProfile'), dict) else {}
-            # primaryCalendar is 'google' | 'outlook' | null — null means nothing is connected.
-            calendar = str(r.get('primaryCalendar') or '').strip().lower() or None
-            users.append({
-                'id': str(r.get('_id') or r.get('id') or ''),
-                'name': name,
-                'email': r.get('email') or '',
-                'linkedin_synced': profile.get('isLinkedinSynced') is True,
-                'calendar': calendar,
-                'nexa': r.get('nexaAccess') is True,
-            })
+        users = [_weace_user_summary(r) for r in rows if isinstance(r, dict)]
         total = _first_num(container, 'total', 'totalCount') or len(users)
         return jsonify({
             'users': users,
@@ -3031,20 +3034,44 @@ def career_horoscope_status():
 _HOROSCOPE_DAILY = 'career_daily_horoscope'
 # Bumped when the daily prompt changes enough that saved notes should be
 # written again rather than served.
-_HOROSCOPE_DAILY_VERSION = 3
+_HOROSCOPE_DAILY_VERSION = 4
 
 _WEEKDAY_RULERS = ('the Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn', 'the Sun')
+
+# The sky alone barely changes from one day to the next (the Moon holds a sign
+# for ~2.5 days and everything else moves slower), so left to itself the model
+# writes near-identical notes all week. Each day is handed one of these seven
+# energies instead, rotating by date so neighbouring days always differ and any
+# seven days cover all of them. A per-user offset keeps colleagues from reading
+# the same theme on the same day.
+_DAILY_ENERGIES = (
+    'bold and outward: pitch, ask, decide, take the lead',
+    'social: reconnect, collaborate, negotiate, give credit',
+    'sharp and analytical: review, edit, fix, simplify',
+    'creative: sketch, brainstorm, try the unusual idea',
+    'visible: present, share your work, speak up in the room',
+    'restorative: clear the backlog, say no, step back for the bigger picture',
+    'curious: learn something new, ask the naive question, seek a mentor\'s view',
+)
+
+
+def _daily_energy(user_id: str, day) -> str:
+    import hashlib
+    offset = int(hashlib.sha256(str(user_id).encode()).hexdigest(), 16) % len(_DAILY_ENERGIES)
+    return _DAILY_ENERGIES[(day.toordinal() + offset) % len(_DAILY_ENERGIES)]
 
 
 def _generate_daily_horoscope(user_id: str, name: str, birth: dict, language: str, day: str,
                               earlier: list) -> dict:
-    """`earlier` is the other days' headlines this week, so the day can
-    steer clear of their themes."""
+    """`earlier` is (date, note) pairs for nearby days, so the day can
+    steer clear of their themes and wording."""
     from datetime import date
     weekday = date.fromisoformat(day)
     system = CAREER_DAILY_HOROSCOPE_PROMPT.replace('{{language}}', language)
     time_line = birth.get('birth_time') or 'Unknown / not provided'
-    earlier_block = ''.join(f"- {h}\n" for h in earlier) or 'None yet.\n'
+    earlier_block = ''.join(
+        f"- {d}: \"{n.get('headline', '')}\" (focus: {n.get('focus', '')})\n"
+        for d, n in earlier) or 'None yet.\n'
     chart = _chart_block(user_id, birth, day)
     # The chart block already lists the day's transits; without one, the
     # Moon's sign alone still gives the day some character of its own.
@@ -3067,7 +3094,8 @@ def _generate_daily_horoscope(user_id: str, name: str, birth: dict, language: st
         "DAY_SKY\n"
         f"- Weekday: {weekday:%A}, ruled by {_WEEKDAY_RULERS[weekday.weekday()]}\n"
         f"{moon_line}\n"
-        "EARLIER_THIS_WEEK (headlines already written for other days)\n"
+        f"DAY_ENERGY: {_daily_energy(user_id, weekday)}\n\n"
+        "EARLIER_THIS_WEEK (notes already written for nearby days)\n"
         f"{earlier_block}\n"
         "Return ONLY the JSON object from the schema, written for the date above."
     )
@@ -3120,25 +3148,33 @@ def _daily_horoscope_response(user_id: str, name: str, force: bool, day_raw=None
 
     days = _daily_horoscope_cache(user_id)
     if not force and days.get(day):
-        return jsonify({'daily': _strip_dashes_deep(days[day])})
+        return jsonify({'daily': _strip_dashes_deep(days[day]), 'birth': birth})
 
     lang_code = get_user_language(user_id) or DEFAULT_LANGUAGE
     language = SUPPORTED_LANGUAGES.get(lang_code, (lang_code, lang_code))[1]
     try:
-        earlier = [v.get('headline') for d, v in sorted(days.items())
-                   if d != day and v.get('headline')]
+        from datetime import date
+        target = date.fromisoformat(day)
+        # Nearest days first, within a week either side of the one asked for.
+        earlier = sorted(
+            ((d, v) for d, v in days.items()
+             if d != day and v.get('headline')
+             and abs((date.fromisoformat(d) - target).days) <= 6),
+            key=lambda dv: abs((date.fromisoformat(dv[0]) - target).days))
         data = _generate_daily_horoscope(user_id, name, birth, language, day, earlier)
     except Exception:
         logger.exception('[career-horoscope] daily generation failed for user_id=%s', user_id)
         return jsonify({'error': "Could not load this day's horoscope. Please try again."}), 502
 
-    # Keep only the days the row can still show, so the map stays small.
-    floor = _daily_horoscope_day(None)
+    # Keep the past week too: the row doesn't show those days, but they're
+    # what the next day's note has to differ from. Older ones are dropped.
+    from datetime import date, timedelta
+    floor = (date.today() - timedelta(days=7)).isoformat()
     days = {d: v for d, v in days.items() if d >= floor or d == day}
     days[day] = data
     upsert_user_insight_report(user_id, _HOROSCOPE_DAILY,
                                {'v': _HOROSCOPE_DAILY_VERSION, 'days': days})
-    return jsonify({'daily': data})
+    return jsonify({'daily': data, 'birth': birth})
 
 
 @app.route('/api/career-horoscope/daily')
@@ -4230,20 +4266,109 @@ def admin_set_corporate_licence():
 @app.route('/api/admin/users')
 @require_weace_token
 def admin_users():
+    """Every user in scope, from the WeAce users API (the same source as
+    /api/nexa-users), with their Nexa session stats and admin notes merged in
+    from our own tables. Users who have never opened Nexa are included, with
+    zero counts.
+    """
     if not g.user:
         return jsonify({'error': 'Session not initialised — call /session first'}), 401
     if not _has_role(g.user.get('role'), 'corporate_super_admin', 'weace_super_admin'):
         return jsonify({'error': 'Forbidden'}), 403
-    # weace_super_admin can scope to one organisation (or all) via org_slug param.
-    org_slug = None
+    # weace_super_admin picks one organisation via org_slug param — listing every
+    # org's users times out the WeAce API, so "all" isn't offered. A corporate
+    # admin only ever sees their own.
     if _has_role(g.user.get('role'), 'weace_super_admin'):
         req_org = request.args.get('org_slug', '').strip()
-        org_slug = None if req_org in ('', 'all', '__all__') else req_org
+        org_id = None if req_org in ('', 'all', '__all__') else req_org
+        if not org_id:
+            return jsonify({'error': 'Select an organisation to list its users'}), 400
+    else:
+        org_id = g.user.get('org_id', '').strip() or None
+        if not org_id:
+            return jsonify({'error': 'No organisation associated with this account'}), 400
+
+    PAGE_SIZE, MAX_PAGES = 100, 50
+    rows = []
     try:
-        users = get_all_users_admin(org_slug)
+        for page in range(1, MAX_PAGES + 1):
+            params = {'page': page, 'limit': PAGE_SIZE}
+            if org_id:
+                params['organizationId'] = org_id
+            resp = http_requests.get(
+                f'{WEACE_API_URL}/api/v1/users',
+                params=params,
+                headers={'Authorization': f'Bearer {g.access_token}'},
+                timeout=20,
+            )
+            if not resp.ok:
+                return jsonify({'error': 'Failed to fetch users', 'status': resp.status_code}), resp.status_code
+            page_rows, container = _nexa_rows(resp.json())
+            rows.extend(r for r in page_rows if isinstance(r, dict))
+            last_page = _first_num(container, 'lastPage')
+            if len(page_rows) < PAGE_SIZE or (last_page is not None and page >= last_page):
+                break
+
+        local = {u['user_id']: u for u in get_all_users_admin(org_id)}
+        org_names = {u['org_slug']: u['org_name'] for u in local.values() if u.get('org_slug')}
+        users, seen = [], set()
+        for r in rows:
+            w = _weace_user_summary(r)
+            if not w['id'] or w['id'] in seen:
+                continue
+            seen.add(w['id'])
+            stats = local.get(w['id'], {})
+            user_org = w['org_id'] or stats.get('org_slug') or org_id or ''
+            users.append({
+                'user_id': w['id'],
+                'user_name': w['name'] or stats.get('user_name') or '',
+                'email': w['email'] or stats.get('email') or '',
+                'org_slug': user_org,
+                'org_name': stats.get('org_name') or org_names.get(user_org)
+                            or (g.user.get('org_name', '') if user_org == g.user.get('org_id') else ''),
+                'cohort_id': stats.get('cohort_id'),
+                'first_login': stats.get('first_login'),
+                'last_login': stats.get('last_login'),
+                'access_last_date': stats.get('access_last_date'),
+                'session_count': stats.get('session_count') or 0,
+                'chat_count': stats.get('chat_count') or 0,
+                'nexa_access': w['nexa'],
+                'additional_details': stats.get('additional_details') or '',
+                'linkedin_synced': w['linkedin_synced'],
+                'calendar': w['calendar'],
+            })
+        # Most recently seen first; people who have never logged in go last.
+        users.sort(key=lambda u: u['last_login'] or '', reverse=True)
         return jsonify({'users': users, 'total': len(users)})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/admin/user-totals')
+@require_weace_token
+def admin_user_totals():
+    """Total users, sessions and chats across every organisation, for the admin
+    stat cards under "All organisations" — /api/admin/users won't list every
+    org's users, so the cards can't be summed from it there.
+
+    Users is the WeAce users API's own total (one row fetched just to read it),
+    so it counts the same people the per-org view lists; if that call fails it
+    falls back to everyone who has used Nexa.
+    """
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    if not _has_role(g.user.get('role'), 'weace_super_admin'):
+        return jsonify({'error': 'Forbidden'}), 403
+    try:
+        totals = get_admin_usage_totals()
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+    return jsonify({
+        'total_users': totals['nexa_users'],
+        'total_sessions': totals['total_sessions'],
+        'total_chats': totals['total_chats'],
+    })
 
 
 def _authorise_admin_target(target_id: str):

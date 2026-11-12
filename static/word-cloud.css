@@ -4,13 +4,6 @@
 .word-cloud-card { margin-top: 24px; display: flex; flex-direction: column; }
 .word-cloud-card .heat-card-header { gap: 12px; flex-wrap: wrap; }
 
-.wc-date {
-    padding: 6px 14px; border: 1px solid var(--glass-border); border-radius: 999px;
-    background: rgba(240, 243, 254, 0.9); font-family: inherit; font-size: 0.8rem;
-    color: var(--text-main); outline: none; cursor: pointer;
-}
-.wc-date:focus-visible { box-shadow: 0 0 0 2px rgba(92, 151, 246, 0.35); }
-
 .wc-body { margin-bottom: 16px; }
 /* Words and Themes side by side; stacked on narrow screens. */
 .wc-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }

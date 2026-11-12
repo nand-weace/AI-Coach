@@ -85,6 +85,21 @@
             display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
         }
         .table-header h3 { font-size: 0.95rem; font-weight: 600; }
+        .table-header h3 { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+        .table-counts { display: inline-flex; flex-wrap: wrap; gap: 6px; margin-left: 4px; }
+        .table-counts:empty { display: none; }
+        .count-pill {
+            display: inline-flex; align-items: baseline; gap: 5px;
+            padding: 3px 10px; border-radius: 999px;
+            font-size: 0.76rem; font-weight: 500; white-space: nowrap;
+            color: var(--pill-fg); background: var(--pill-bg);
+            border: 1px solid var(--pill-border);
+        }
+        .count-pill strong { font-weight: 700; font-size: 0.82rem; }
+        .count-pill.total    { --pill-fg: #1f4fa3; --pill-bg: rgba(40, 108, 217, 0.10); --pill-border: rgba(40, 108, 217, 0.22); }
+        .count-pill.nexa     { --pill-fg: #5b3db8; --pill-bg: rgba(124, 92, 230, 0.11); --pill-border: rgba(124, 92, 230, 0.24); }
+        .count-pill.linkedin { --pill-fg: #0a5f8a; --pill-bg: rgba(10, 132, 196, 0.10); --pill-border: rgba(10, 132, 196, 0.24); }
+        .count-pill.calendar { --pill-fg: #17714a; --pill-bg: rgba(34, 160, 100, 0.11); --pill-border: rgba(34, 160, 100, 0.26); }
         .table-search {
             padding: 6px 14px; border: 1px solid var(--glass-border);
             border-radius: 999px; background: rgba(240, 243, 254, 0.9);
@@ -133,6 +148,26 @@
         }
         .nexa-on  { background: rgba(16, 185, 129, 0.1); color: #059669; }
         .nexa-off { background: rgba(100, 112, 132, 0.1); color: var(--text-muted); }
+        .nexa-switch { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.8rem; color: var(--text-muted); }
+        .nexa-switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+        .nexa-switch .track {
+            position: relative; width: 34px; height: 20px; flex-shrink: 0;
+            border-radius: 999px; background: rgba(100, 112, 132, 0.25);
+            transition: background 0.2s;
+        }
+        .nexa-switch .track::after {
+            content: ''; position: absolute; top: 2px; left: 2px;
+            width: 16px; height: 16px; border-radius: 50%; background: #fff;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2); transition: transform 0.2s;
+        }
+        .nexa-switch input:checked + .track { background: #10b981; }
+        .nexa-switch input:checked + .track::after { transform: translateX(14px); }
+        .nexa-switch input:checked ~ .state { color: #059669; }
+        .nexa-switch input:focus-visible + .track { box-shadow: 0 0 0 2px rgba(92, 151, 246, 0.4); }
+        .nexa-switch input:disabled + .track { opacity: 0.5; }
+        .nexa-switch:has(input:disabled) { cursor: progress; }
+        .nexa-error { display: none; padding: 10px 24px; font-size: 0.8rem; color: #b91c1c; background: rgba(239, 68, 68, 0.08); border-bottom: 1px solid var(--glass-border); }
+        .nexa-error.visible { display: block; }
         @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
         /* ── Refresh button ── */
@@ -889,14 +924,17 @@
         <div id="usage-actives-wrap"></div>
     </div>
 
-    <div class="table-card">
+    <!-- Hidden under "All organisations": listing every WeAce user across all
+         orgs times out the users API, so the table needs one org picked. -->
+    <div class="table-card" id="all-users-card">
         <div class="table-header">
-            <h3>All Users</h3>
+            <h3>All Users<span class="table-counts" id="user-table-counts"></span></h3>
             <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
                 <input type="text" class="table-search" id="search-input" placeholder="Search name, email, org…">
                 <button class="refresh-btn" id="export-btn">Export CSV</button>
             </div>
         </div>
+        <div class="nexa-error" id="nexa-error" role="alert"></div>
         <table>
             <thead>
                 <tr id="user-table-head">
@@ -906,12 +944,14 @@
                     <th class="sortable" data-sort-key="last_login">Last Login<span class="sort-arrow"></span></th>
                     <th class="sortable" data-sort-key="session_count">Sessions<span class="sort-arrow"></span></th>
                     <th class="sortable" data-sort-key="chat_count">Chats<span class="sort-arrow"></span></th>
+                    <th class="sortable" data-sort-key="linkedin">LinkedIn<span class="sort-arrow"></span></th>
+                    <th class="sortable" data-sort-key="calendar">Calendar<span class="sort-arrow"></span></th>
                     <th class="sortable" data-sort-key="nexa_access">Nexa Access<span class="sort-arrow"></span></th>
                     <th class="sortable" data-sort-key="details">Details<span class="sort-arrow"></span></th>
                 </tr>
             </thead>
             <tbody id="user-table-body">
-                <tr><td colspan="8"><div class="skeleton" style="width:60%; margin:0 auto;"></div></td></tr>
+                <tr><td colspan="10"><div class="skeleton" style="width:60%; margin:0 auto;"></div></td></tr>
             </tbody>
         </table>
     </div>
@@ -968,7 +1008,9 @@
     <div id="word-cloud"></div>
 
     <!-- Pulse Dashboard (static/pulse-dashboard.js) — the same view a corporate
-         super admin gets on /pulse, for the organisation picked above. -->
+         super admin gets on /pulse, for the organisation picked above. Shown
+         only when that organisation has at least one check-in (see loadPulseSection). -->
+    <div id="pulse-section" hidden>
     <div class="section-row" style="margin-top:28px;">
         <div>
             <h3>Pulse Dashboard</h3>
@@ -976,6 +1018,7 @@
         </div>
     </div>
     <div id="pulse-dashboard" style="margin-bottom:28px;"></div>
+    </div><!-- /#pulse-section -->
     </div><!-- /#admin-panel-trends -->
 
 </div>
@@ -1059,6 +1102,8 @@
         last_login:    { get: u => u.last_login  ? Date.parse(u.last_login)  : null, type: 'num' },
         session_count: { get: u => u.session_count || 0, type: 'num' },
         chat_count:    { get: u => u.chat_count || 0,    type: 'num' },
+        linkedin:      { get: u => (u.linkedin_synced ? 1 : 0), type: 'num' },
+        calendar:      { get: u => (u.calendar ? 1 : 0), type: 'num' },
         nexa_access:   { get: u => (u.nexa_access ? 1 : 0), type: 'num' },
         details:       { get: u => ((u.additional_details || '').trim() ? 1 : 0), type: 'num' },
     };
@@ -1124,11 +1169,19 @@
         });
     });
 
+    const NEXA_CALENDARS = { google: 'Google', outlook: 'Outlook' };
+
+    function syncBadge(synced, label) {
+        return synced
+            ? `<span class="nexa-badge nexa-on">${escHtml(String(label || 'Synced'))}</span>`
+            : '<span class="nexa-badge nexa-off">Not synced</span>';
+    }
+
     function renderTable(users) {
         visibleUsers = users;
         const tbody = document.getElementById('user-table-body');
         if (!users.length) {
-            tbody.innerHTML = '<tr class="empty-row"><td colspan="8">No users found.</td></tr>';
+            tbody.innerHTML = '<tr class="empty-row"><td colspan="10">No users found.</td></tr>';
             return;
         }
         tbody.innerHTML = users.map(u => {
@@ -1141,11 +1194,14 @@
                 <td class="cell-muted">${formatDate(u.last_login)}</td>
                 <td>${u.session_count}</td>
                 <td>${u.chat_count}</td>
+                <td>${syncBadge(u.linkedin_synced, 'Synced')}</td>
+                <td>${syncBadge(!!u.calendar, NEXA_CALENDARS[u.calendar] || u.calendar)}</td>
                 <td>
-                    <span class="nexa-badge ${u.nexa_access ? 'nexa-on' : 'nexa-off'}"
-                          title="From the WeAce user-config API at the user's last login">
-                        ${u.nexa_access ? 'Enabled' : 'Disabled'}
-                    </span>
+                    <label class="nexa-switch">
+                        <input type="checkbox" data-nexa-user-id="${escHtml(u.user_id)}" ${u.nexa_access ? 'checked' : ''}
+                               aria-label="Nexa access for ${escHtml(u.user_name || u.email || 'user')}">
+                        <span class="track"></span><span class="state">${u.nexa_access ? 'On' : 'Off'}</span>
+                    </label>
                 </td>
                 <td>
                     <button class="details-btn ${hasDetails ? 'has-details' : ''}"
@@ -1264,6 +1320,48 @@
         }
     }
 
+    function showNexaError(msg) {
+        const el = document.getElementById('nexa-error');
+        el.textContent = msg || '';
+        el.classList.toggle('visible', !!msg);
+    }
+
+    // Flip the switch straight away, then put it back if the API refuses —
+    // most often because the org has used up its Nexa licences. Same endpoint
+    // as the corporate Users page.
+    async function setNexaAccess(input) {
+        const userId = input.dataset.nexaUserId;
+        const on = input.checked;
+        const state = input.parentElement.querySelector('.state');
+        state.textContent = on ? 'On' : 'Off';
+        input.disabled = true;
+        showNexaError('');
+        try {
+            const res = await fetch(`/api/nexa-users/${encodeURIComponent(userId)}/nexa-access`, {
+                method: 'PATCH',
+                headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+                credentials: 'omit',
+                body: JSON.stringify({ nexaAccess: on }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || 'Failed to update Nexa access');
+            const user = allUsers.find(u => u.user_id === userId);
+            if (user) user.nexa_access = on;
+            updateUserTableCounts();
+            loadNexaCounts();
+        } catch (e) {
+            input.checked = !on;
+            state.textContent = !on ? 'On' : 'Off';
+            showNexaError(e.message);
+        } finally {
+            input.disabled = false;
+        }
+    }
+
+    document.getElementById('user-table-body').addEventListener('change', (e) => {
+        if (e.target.matches('input[data-nexa-user-id]')) setNexaAccess(e.target);
+    });
+
     document.getElementById('user-table-body').addEventListener('click', (e) => {
         const btn = e.target.closest('.details-btn');
         if (btn) openDetailsModal(btn.dataset.userId);
@@ -1305,18 +1403,63 @@
         if (e.key === 'Escape' && detailsModal.classList.contains('open')) closeDetailsModal();
     });
 
+    // "All organisations" has no user list to sum, so the three cards come
+    // from their own totals endpoint instead.
+    async function loadAllOrgTotals() {
+        const ids = { 'stat-users': 'total_users', 'stat-sessions': 'total_sessions', 'stat-chats': 'total_chats' };
+        const cards = Object.keys(ids).map(id => document.getElementById(id));
+        cards.forEach(el => { el.textContent = '—'; el.classList.add('loading'); });
+        try {
+            const res = await fetch('/api/admin/user-totals', { headers: getAuthHeaders() });
+            if (res.status === 401 || res.status === 403) { window.location.href = '/'; return; }
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'failed');
+            if (currentOrgSlug !== ALL_ORGS) return;  // an org was picked while loading
+            cards.forEach(el => { el.textContent = (data[ids[el.id]] ?? 0).toLocaleString(); });
+        } catch (_) {
+            cards.forEach(el => { el.textContent = '—'; });
+        } finally {
+            cards.forEach(el => el.classList.remove('loading'));
+        }
+    }
+
+    // Totals beside the "All Users" title, for the whole org (not the search).
+    function updateUserTableCounts() {
+        const el = document.getElementById('user-table-counts');
+        if (!allUsers.length) { el.textContent = ''; return; }
+        const count = test => allUsers.filter(test).length;
+        const pill = (cls, n, label) =>
+            `<span class="count-pill ${cls}"><strong>${n}</strong>${label}</span>`;
+        el.innerHTML = [
+            pill('total', allUsers.length, 'Total users'),
+            pill('nexa', count(u => u.nexa_access), 'Nexa enabled'),
+            pill('linkedin', count(u => u.linkedin_synced), 'LinkedIn synced'),
+            pill('calendar', count(u => u.calendar), 'Calendar synced'),
+        ].join('');
+    }
+
     async function loadUsers() {
-        const qs = currentOrgSlug !== ALL_ORGS
-            ? ('?org_slug=' + encodeURIComponent(currentOrgSlug)) : '';
+        const allOrgs = currentOrgSlug === ALL_ORGS;
+        document.getElementById('all-users-card').style.display = allOrgs ? 'none' : '';
+        showNexaError('');
+        if (allOrgs) {
+            allUsers = [];
+            visibleUsers = [];
+            loadAllOrgTotals();
+            return;
+        }
+        const qs = '?org_slug=' + encodeURIComponent(currentOrgSlug);
+        document.getElementById('user-table-counts').textContent = '';  // no stale org's totals while loading
         document.querySelectorAll('.stat-card:not(.nexa-stat) .stat-value').forEach(el => el.classList.add('loading'));
         document.getElementById('user-table-body').innerHTML =
-            '<tr><td colspan="8"><div class="skeleton" style="width:60%; margin:0 auto;"></div></td></tr>';
+            '<tr><td colspan="10"><div class="skeleton" style="width:60%; margin:0 auto;"></div></td></tr>';
         try {
             const res = await fetch('/api/admin/users' + qs, { headers: getAuthHeaders() });
             if (res.status === 401 || res.status === 403) { window.location.href = '/'; return; }
             const data = await res.json();
 
             allUsers = data.users || [];
+            updateUserTableCounts();
 
             const totalSessions = allUsers.reduce((s, u) => s + u.session_count, 0);
             const totalChats = allUsers.reduce((s, u) => s + u.chat_count, 0);
@@ -1328,8 +1471,10 @@
 
             applyUserFilters();
         } catch (_) {
+            allUsers = [];
+            updateUserTableCounts();
             document.getElementById('user-table-body').innerHTML =
-                '<tr class="empty-row"><td colspan="8">Failed to load data. Please refresh.</td></tr>';
+                '<tr class="empty-row"><td colspan="10">Failed to load data. Please refresh.</td></tr>';
         }
     }
 
@@ -1366,7 +1511,7 @@
         if (!visibleUsers.length) { alert('No users to export.'); return; }
 
         const headers = ['Name', 'Email', 'Organisation', 'Active Since', 'First Login',
-                         'Last Login', 'Sessions', 'Chats', 'Nexa Access', 'Additional Details'];
+                         'Last Login', 'Sessions', 'Chats', 'LinkedIn', 'Calendar', 'Nexa Access', 'Additional Details'];
         const rows = visibleUsers.map(u => [
             u.user_name || '',
             u.email || '',
@@ -1376,6 +1521,8 @@
             u.last_login ? u.last_login.slice(0, 10) : '',
             u.session_count,
             u.chat_count,
+            u.linkedin_synced ? 'Synced' : 'Not synced',
+            u.calendar ? (NEXA_CALENDARS[u.calendar] || u.calendar) : 'Not synced',
             u.nexa_access ? 'Enabled' : 'Disabled',
             u.additional_details || '',
         ]);
@@ -2312,12 +2459,14 @@
         headers: getAuthHeaders,
         orgSlug: () => (currentOrgSlug === ALL_ORGS ? null : currentOrgSlug),
     });
+    const PULSE_DAYS = 90;   // the Pulse Dashboard's window, also used by loadPulseSection
     const pulseDashboard = NexaPulseDashboard.create({
         mount: document.getElementById('pulse-dashboard'),
         headers: getAuthHeaders,
         orgSlug: () => (currentOrgSlug === ALL_ORGS ? null : currentOrgSlug),
         noOrgText: 'Select an organisation to see its pulse.',
         lockedText: "This organisation isn't on Nexa Pro, so it has no Daily Pulse.",
+        days: PULSE_DAYS,
     });
 
     // ── Page tabs ──
@@ -2331,7 +2480,27 @@
         trendsStale = false;
         loadSentiment();
         wordCloud.load();
-        pulseDashboard.load();
+        loadPulseSection();
+    }
+
+    // The Pulse Dashboard only appears for an organisation with at least one
+    // check-in in the window it shows (PULSE_DAYS), so it never opens empty.
+    // No org picked, not on Nexa Pro, or a failed check all count as "none".
+    let pulseCheckReq = 0;
+    async function loadPulseSection() {
+        const mine = ++pulseCheckReq;
+        const section = document.getElementById('pulse-section');
+        section.hidden = true;
+        if (currentOrgSlug === ALL_ORGS) return;
+        try {
+            const params = new URLSearchParams({ days: String(PULSE_DAYS), org_slug: currentOrgSlug });
+            const res = await fetch('/api/pulse/aggregate?' + params, { headers: getAuthHeaders(), credentials: 'omit' });
+            const data = await res.json().catch(() => ({}));
+            if (mine !== pulseCheckReq) return;   // org changed while this was in flight
+            if (!res.ok || !(data.responses > 0)) return;
+            section.hidden = false;
+            pulseDashboard.load();
+        } catch (_) { /* leave it hidden */ }
     }
 
     // `load: false` on the first call: page start-up (below, or loadOrgs for a

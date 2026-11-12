@@ -685,11 +685,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         hint._timer = setTimeout(() => hint.remove(), 5000);
     }
 
-    function stopDictation() {
+    function stopDictation({ discard = false } = {}) {
         // a deliberate stop never auto-sends — the user keeps the draft
         clearSilenceTimer();
         autoSendOnEnd = false;
-        if (recognition) {
+        if (!recognition) return;
+        if (discard) {
+            // The message is being sent. stop() would still deliver the last
+            // results after this, writing the text back into the box the
+            // submit just cleared, so drop them and abort instead.
+            recognition._discard = true;
+            dictationBase = '';
+            recognition.abort();  // onend does the UI cleanup
+        } else {
             recognition.stop();   // onend does the UI cleanup
         }
     }
@@ -716,6 +724,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
 
         rec.onresult = (event) => {
+            if (rec._discard) return;   // already sent; late results are stale
             let finalText = '';
             let interimText = '';
             for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -1006,10 +1015,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Chat
     chatForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        stopDictation();  // sending ends the dictation turn
-        stopSpeaking();   // and cuts off whatever Nexa was still reading
         const message = userInput.value.trim();
         if (!message) return;
+        stopDictation({ discard: true });  // sending ends the dictation turn
+        stopSpeaking();   // and cuts off whatever Nexa was still reading
 
         clearSuggestions();
         addMessage(message, 'user');

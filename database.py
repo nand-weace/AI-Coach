@@ -2436,6 +2436,26 @@ def get_all_users_admin(org_slug=None) -> list:
         conn.close()
 
 
+def get_admin_usage_totals() -> dict:
+    """Sessions, chats (user messages) and users who have used Nexa, across every
+    org — the admin stat cards under "All organisations", where listing each user
+    is too slow. Counted separately so the message join can't inflate the
+    session count."""
+    conn = get_reader_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur, """
+                SELECT
+                    (SELECT COUNT(DISTINCT session_id) FROM ai_coach_sessions) AS total_sessions,
+                    (SELECT COUNT(DISTINCT user_id)    FROM ai_coach_sessions) AS nexa_users,
+                    (SELECT COUNT(*) FROM ai_coach_messages WHERE role = 'user') AS total_chats
+            """)
+            row = cur.fetchone() or {}
+            return {k: int(row.get(k) or 0) for k in ('total_sessions', 'nexa_users', 'total_chats')}
+    finally:
+        conn.close()
+
+
 def get_usage_trend(org_slug=None, granularity: str = 'day', points: int = 30) -> dict:
     """Message volume and active users over time, for the admin usage chart.
 

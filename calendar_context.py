@@ -270,17 +270,17 @@ def importance(ev: dict) -> float:
     if ev['all_day'] or any(t in title for t in _NOISE_TERMS):
         return 0.0
     score = 1.0
-    score += sum(2.0 for t in _IMPORTANT_TERMS if t in title)
+    score += sum(1.0 for t in _IMPORTANT_TERMS if t in title)
     hours = (ev['end'] - ev['start']).total_seconds() / 3600
     if hours >= 1.5:
-        score += 1.5
+        score += 1.0
     elif hours >= 1:
         score += 0.5
     n = ev['attendee_count']
     if n >= 8:
-        score += 1.5
-    elif n >= 4:
         score += 1.0
+    elif n >= 4:
+        score += 0.5
     elif n == 2:
         score += 0.5  # a 1:1 in disguise
     if ev['description']:
