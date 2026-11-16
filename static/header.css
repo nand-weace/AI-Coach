@@ -269,38 +269,6 @@ body {
     transform: rotate(-135deg) translate(-2px, -2px);
 }
 
-.app-tab-wrap {
-    position: relative;
-    flex-shrink: 0;
-}
-
-/* Flyout panel anchored to the right of a tab (language picker) */
-.tab-popover {
-    display: none;
-    position: absolute;
-    top: -4px;
-    left: calc(100% + 8px);
-    min-width: 210px;
-    max-height: 260px;
-    overflow-y: auto;
-    padding: 4px;
-    background: #fff;
-    border: 1px solid var(--glass-border);
-    border-radius: 12px;
-    box-shadow: 0 8px 28px rgba(32, 62, 110, 0.12);
-    z-index: 60;
-    animation: chipDropIn 0.14s ease;
-}
-
-.app-tab-wrap.open .tab-popover {
-    display: block;
-}
-
-.tab-popover .chip-submenu-option {
-    padding: 8px 12px;
-    border-radius: 8px;
-}
-
 /* Wide enough for the tabs but not the badge and the user's name too. */
 @media (max-width: 1280px) {
     .topbar-privacy { display: none; }
@@ -513,7 +481,43 @@ body {
     margin: 2px 0;
 }
 
-/* Language options — rendered into the Language tab's popover */
+/* Language — an expandable section inside the chip dropdown */
+.chip-lang-current {
+    margin-left: auto;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+
+.chip-lang-caret {
+    transition: transform 0.15s;
+}
+
+.chip-lang.open .chip-lang-caret {
+    transform: rotate(180deg);
+}
+
+.chip-lang-list {
+    display: none;
+    max-height: 240px;
+    overflow-y: auto;
+    padding: 2px 6px 6px 30px;
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.chip-lang.open .chip-lang-list {
+    display: block;
+}
+
+.chip-lang-list .chip-submenu-option {
+    border-radius: 8px;
+}
+
+.chip-lang-list .chip-submenu-option:disabled {
+    cursor: progress;
+    opacity: 0.6;
+}
+
+/* Language options */
 .chip-submenu-option {
     display: flex;
     align-items: center;

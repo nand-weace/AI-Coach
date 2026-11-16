@@ -386,48 +386,6 @@ body {
     row-gap: 8px;
 }
 
-/* ── Language picker (sits at the right of the mode row) ────────────────
-   Shares header.js's ids and the .app-tab-wrap open/close plumbing, but
-   wears a chip here and opens upward — it's at the bottom of the card. */
-.lang-picker {
-    margin-left: auto;
-}
-
-.lang-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    padding: 5px 12px;
-    border: 1px solid var(--glass-border);
-    border-radius: 999px;
-    background: rgba(240, 243, 254, 0.9);
-    color: var(--text-muted);
-    font-family: inherit;
-    font-size: 0.8rem;
-    font-weight: 500;
-    white-space: nowrap;
-    cursor: pointer;
-    transition: color 0.15s, border-color 0.15s;
-}
-
-.lang-btn:hover,
-.lang-picker.open .lang-btn {
-    color: var(--primary-color);
-    border-color: var(--primary-ring);
-}
-
-.lang-picker .app-tab-value {
-    margin-left: 0;
-    color: inherit;
-}
-
-.lang-picker .tab-popover {
-    top: auto;
-    bottom: calc(100% + 8px);
-    left: auto;
-    right: 0;
-}
-
 .mode-toggle {
     position: relative;
     display: inline-flex;

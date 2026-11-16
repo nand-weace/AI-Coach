@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexa - My Insights</title>
+    <title data-i18n>Nexa - My Insights</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -1137,21 +1137,15 @@
                 <path d="M8.5 11h5M11 8.5v5" stroke-width="1.8" stroke="#b5d1fd"/>
             </svg>
         </div>
-        <div class="no-data-title">Not enough data… yet!</div>
-        <div class="no-data-sub">
-            Your personal insights need at least
-            <strong>3 messages</strong> before they can say
-            anything meaningful about your coaching conversations.
-            <br><br>
-            The more you talk to Nexa, the sharper your insights get.
-        </div>
+        <div class="no-data-title" data-i18n>Not enough data… yet!</div>
+        <div class="no-data-sub" data-i18n-html>Your personal insights need at least <strong>3 messages</strong> before they can say anything meaningful about your coaching conversations. <br><br> The more you talk to Nexa, the sharper your insights get.</div>
         <div class="no-data-progress-wrap">
             <div class="no-data-progress-fill" id="no-data-progress-fill" style="width:0%"></div>
         </div>
-        <div class="no-data-progress-label" id="no-data-progress-label">Gathering data…</div>
+        <div class="no-data-progress-label" id="no-data-progress-label" data-i18n>Gathering data…</div>
         <a href="/" class="no-data-tip" id="no-data-chat">
             <img src="/static/nexa-avatar.png" alt="" />
-            Head back to Chat and keep the conversation going
+            <span data-i18n>Head back to Chat and keep the conversation going</span>
             <span aria-hidden="true">→</span>
         </a>
     </div>
@@ -1164,24 +1158,24 @@
          The headline stats share this row: they are page-wide context, not part
          of any one panel, so they sit opposite the tabs rather than above them. -->
     <div class="tabs-row">
-        <div class="insight-tabs" role="tablist" aria-label="Insight sections">
-            <button class="insight-tab active" role="tab" aria-selected="true"  aria-controls="panel-sentiment" data-panel="sentiment">Sentiment Analysis</button>
-            <button class="insight-tab"        role="tab" aria-selected="false" aria-controls="panel-growth"    data-panel="growth">Growth Mirror</button>
-            <button class="insight-tab"        role="tab" aria-selected="false" aria-controls="panel-recs"      data-panel="recs">Resources</button>
+        <div class="insight-tabs" role="tablist" aria-label="Insight sections" data-i18n-aria="Insight sections">
+            <button class="insight-tab active" role="tab" aria-selected="true"  aria-controls="panel-sentiment" data-panel="sentiment" data-i18n>Sentiment Analysis</button>
+            <button class="insight-tab"        role="tab" aria-selected="false" aria-controls="panel-growth"    data-panel="growth" data-i18n>Growth Mirror</button>
+            <button class="insight-tab"        role="tab" aria-selected="false" aria-controls="panel-recs"      data-panel="recs" data-i18n>Resources</button>
         </div>
         <div class="stats-grid">
             {# Temporarily hidden. The element stays so loadStats() and the
                not-enough-data gate can keep reading the session count. #}
             <div class="stat-card" id="stat-card-sessions" style="display:none;">
-                <div class="stat-label">My Sessions</div>
+                <div class="stat-label" data-i18n>My Sessions</div>
                 <div class="stat-value loading" id="stat-sessions">—</div>
             </div>
             <div class="stat-card">
-                <div class="stat-label">My Messages</div>
+                <div class="stat-label" data-i18n>My Messages</div>
                 <div class="stat-value loading" id="stat-messages">—</div>
             </div>
             <div class="stat-card">
-                <div class="stat-label">Coaching Since</div>
+                <div class="stat-label" data-i18n>Coaching Since</div>
                 <div class="stat-value loading" id="stat-since">—</div>
             </div>
         </div>
@@ -1205,11 +1199,11 @@
             <div class="heat-card-header">
                 <div class="heat-title-wrap">
                     <span class="heat-num"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="18" y="3" width="4" height="18"/><rect x="10" y="8" width="4" height="13"/><rect x="2" y="13" width="4" height="8"/></svg></span>
-                    <h3>My Sentiment Analysis</h3>
+                    <h3 data-i18n>My Sentiment Analysis</h3>
                 </div>
-                <div class="combo-switch" id="combo-view-switch" role="tablist" aria-label="Scores or trend view">
-                    <button type="button" class="combo-switch-btn active" data-view="scores" role="tab" aria-selected="true">Scores</button>
-                    <button type="button" class="combo-switch-btn" data-view="trends" role="tab" aria-selected="false">Trend</button>
+                <div class="combo-switch" id="combo-view-switch" role="tablist" aria-label="Scores or trend view" data-i18n-aria="Scores or trend view">
+                    <button type="button" class="combo-switch-btn active" data-view="scores" role="tab" aria-selected="true" data-i18n>Scores</button>
+                    <button type="button" class="combo-switch-btn" data-view="trends" role="tab" aria-selected="false" data-i18n>Trend</button>
                 </div>
             </div>
             <div id="combo-body"></div>
@@ -1218,10 +1212,10 @@
             <div class="combo-footer">
                 <span class="combo-footer-hint">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-                    Had new conversations? Recalculate to include them.
+                    <span data-i18n>Had new conversations? Recalculate to include them.</span>
                 </span>
                 <span class="section-meta" id="sentiment-updated"></span>
-                <button class="refresh-btn" id="sentiment-refresh-btn">Recalculate</button>
+                <button class="refresh-btn" id="sentiment-refresh-btn" data-i18n>Recalculate</button>
             </div>
         </div>
 
@@ -1230,7 +1224,7 @@
              here — the same detail a click on it opens in the modal below. -->
         <div class="heat-card hover-detail-card" id="hover-detail-card">
             <div class="hover-detail-placeholder" id="hover-detail-placeholder">
-                Hover a dimension on the left to see its detail here.
+                <span data-i18n>Hover a dimension on the left to see its detail here.</span>
             </div>
             <div id="hover-detail-body"></div>
         </div>
@@ -1242,12 +1236,12 @@
     <section class="themes-panel">
         <div class="section-row">
             <div>
-                <h3>Recurring Themes</h3>
-                <p>What you keep coming back to across your sessions</p>
+                <h3 data-i18n>Recurring Themes</h3>
+                <p data-i18n>What you keep coming back to across your sessions</p>
             </div>
             <div style="display:flex; align-items:center; gap:10px; flex-shrink:0;">
                 <span class="section-meta" id="themes-updated"></span>
-                <button class="refresh-btn" id="themes-refresh-btn">Refresh themes</button>
+                <button class="refresh-btn" id="themes-refresh-btn" data-i18n>Refresh themes</button>
             </div>
         </div>
         <div id="themes-wrap">
@@ -1261,11 +1255,11 @@
     <!-- ── Reading Recommendations ── -->
     <div class="section-row" id="recs-section">
         <div>
-            <h3>Recommended for you</h3>
+            <h3 data-i18n>Recommended for you</h3>
         </div>
         <div style="display:flex; align-items:center; gap:10px; flex-shrink:0;">
             <span class="section-meta" id="recs-updated"></span>
-            <button class="refresh-btn" id="recs-refresh-btn">Find recommendations</button>
+            <button class="refresh-btn" id="recs-refresh-btn" data-i18n>Find recommendations</button>
         </div>
     </div>
     <div id="recs-wrap">
@@ -1280,7 +1274,7 @@
     <div class="section-row" style="justify-content:flex-end;">
         <div style="display:flex; align-items:center; gap:10px; flex-shrink:0;">
             <span class="section-meta" id="growth-updated"></span>
-            <button class="refresh-btn" id="growth-refresh-btn">Rebuild Growth Mirror</button>
+            <button class="refresh-btn" id="growth-refresh-btn" data-i18n>Rebuild Growth Mirror</button>
         </div>
     </div>
     <div id="growth-wrap">
@@ -1305,6 +1299,10 @@
         return Object.assign({ 'Authorization': `Bearer ${token}` }, extra || {});
     }
 
+    // Fixed UI text goes through the static dictionaries (static/i18n.js);
+    // dates follow the same language.
+    const tr = (text, vars) => NexaI18n.t(text, vars);
+
     function escHtml(str) {
         return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;')
             .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -1313,7 +1311,7 @@
     function formatDate(dateStr) {
         if (!dateStr) return '—';
         const d = new Date(dateStr);
-        return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+        return d.toLocaleDateString(NexaI18n.locale, { day: 'numeric', month: 'short', year: 'numeric' });
     }
 
     async function loadStats() {
@@ -1344,10 +1342,65 @@
                 document.getElementById('no-data-progress-fill').style.width =
                     Math.min(sessionPct, messagePct) + '%';
                 document.getElementById('no-data-progress-label').textContent =
-                    `${messages} message${messages !== 1 ? 's' : ''} so far — need ${MIN_MESSAGES} messages`;
+                    tr(messages === 1 ? '{n} message so far — need {min} messages'
+                                      : '{n} messages so far — need {min} messages',
+                       { n: messages, min: MIN_MESSAGES });
             }
         } catch (_) {}
     }
+
+    // ── Report language ───────────────────────────────────────────────────────
+    // Every generated report carries the language it was written in ('language';
+    // reports from before that was recorded are English). When it differs from
+    // the language the user has selected, the report is shown as-is first and
+    // then swapped for the copy /api/translate returns — which the server also
+    // saves over the original, so the next visit needs no translation. Picking
+    // another language from the chip dropdown re-checks every report on screen.
+    const DEFAULT_LANGUAGE = 'English';
+    const shownReports = {};   // report type -> { data, render } as last loaded
+
+    function showReport(report, data, render) {
+        shownReports[report] = { data, render };
+        render(data);
+        translateIfNeeded(report);
+    }
+
+    async function translateIfNeeded(report) {
+        const entry = shownReports[report];
+        // Only a stored report can be translated — an empty state has nothing to send.
+        if (!entry || !entry.data || !entry.data.calculated_at) return;
+        const target = NexaHeader.getLanguage();
+        if ((entry.data.language || DEFAULT_LANGUAGE) === target) return;
+        try {
+            const res = await fetch('/api/translate', {
+                method: 'POST',
+                credentials: 'omit',
+                headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+                body: JSON.stringify({ report, language: target }),
+            });
+            if (!res.ok) return;           // keep showing the original
+            const payload = await res.json();
+            // Drop a reply that a reload or another language pick has overtaken.
+            if (!payload.ok || shownReports[report] !== entry
+                || NexaHeader.getLanguage() !== target) return;
+            // The server saved the translation over the original, so it is now
+            // the report's stored copy — later language checks compare against it.
+            entry.data = payload.data;
+            entry.render(payload.data);
+        } catch (_) {}
+    }
+
+    // Fires once the new language's static dictionary is in (static/i18n.js):
+    // every report is redrawn so its fixed labels switch, and any whose
+    // generated text is in another language is sent for translation.
+    window.addEventListener('nexa:i18nchange', () => {
+        loadStats();
+        Object.keys(shownReports).forEach(report => {
+            const entry = shownReports[report];
+            entry.render(entry.data);
+            translateIfNeeded(report);
+        });
+    });
 
     // ── Sentiment Intelligence ────────────────────────────────────────────────
     // A dimension's key, title and description all come from the API response
@@ -1428,7 +1481,7 @@
                 </g>
             </svg>
             <div class="gauge-value" style="color:${color}">${toTen(score)}</div>
-            <div class="gauge-sub">out of 10</div>
+            <div class="gauge-sub">${escHtml(tr('out of 10'))}</div>
         </div>`;
     }
 
@@ -1466,7 +1519,7 @@
         // hang off the rail. Clamped to keep it on the track.
         const pos = Math.max(4, Math.min(96, score));
         return `<div class="hd-scale">
-            <div class="hd-block-label">What 0 and 10 mean here</div>
+            <div class="hd-block-label">${escHtml(tr('What 0 and 10 mean here'))}</div>
             <div class="hd-scale-body">
                 <div class="hd-scale-rail">
                     <div class="hd-scale-track"></div>
@@ -1475,11 +1528,11 @@
                 <div class="hd-scale-ends">
                     <div class="hd-scale-end">
                         <span class="hd-scale-num">10</span>
-                        <span class="hd-scale-text">${escHtml(dim.scale_high)}</span>
+                        <span class="hd-scale-text">${escHtml(tr(dim.scale_high))}</span>
                     </div>
                     <div class="hd-scale-end">
                         <span class="hd-scale-num">0</span>
-                        <span class="hd-scale-text">${escHtml(dim.scale_low)}</span>
+                        <span class="hd-scale-text">${escHtml(tr(dim.scale_low))}</span>
                     </div>
                 </div>
             </div>
@@ -1497,10 +1550,10 @@
     };
 
     function renderEvidenceBase(dim) {
-        const note = EVIDENCE_BASE[dim.evidence_strength];
+        const note = EVIDENCE_BASE[dim.evidence_strength] && tr(EVIDENCE_BASE[dim.evidence_strength]);
         if (!note) return '';
         const count = dim.mentions > 0
-            ? `${dim.mentions} message${dim.mentions === 1 ? '' : 's'} \u00b7 `
+            ? tr(dim.mentions === 1 ? '{n} message' : '{n} messages', { n: dim.mentions }) + ' \u00b7 '
             : '';
         return `<div class="hd-evidence-base">${escHtml(count)}${escHtml(note)}</div>`;
     }
@@ -1512,12 +1565,12 @@
     // entirely when the report has nothing for it, so an older report that
     // predates these fields still renders as it always did.
     function renderDimQualitative(dim, cls) {
-        const band = BAND_NAMES[cls.num] || '';
+        const band = BAND_NAMES[cls.num] ? tr(BAND_NAMES[cls.num]) : '';
         const out = [];
 
         if (dim.rationale) {
             out.push(`<div class="hd-block">
-                <div class="hd-block-label">Why this scores ${escHtml(toTen(dim.score || 0))}${band ? ' \u00b7 ' + escHtml(band) : ''}</div>
+                <div class="hd-block-label">${escHtml(tr('Why this scores {score}', { score: toTen(dim.score || 0) }))}${band ? ' \u00b7 ' + escHtml(band) : ''}</div>
                 <div class="hd-rationale">${escHtml(dim.rationale)}</div>
                 ${renderEvidenceBase(dim)}
             </div>`);
@@ -1526,7 +1579,7 @@
         const evidence = dim.evidence || [];
         if (evidence.length) {
             out.push(`<div class="hd-block">
-                <div class="hd-block-label">In your own words</div>
+                <div class="hd-block-label">${escHtml(tr('In your own words'))}</div>
                 ${evidence.map(q => `<div class="hd-quote">\u201c${escHtml(q)}\u201d</div>`).join('')}
             </div>`);
         }
@@ -1534,14 +1587,14 @@
         const signals = dim.signals || [];
         if (signals.length) {
             out.push(`<div class="hd-block">
-                <div class="hd-block-label">Language patterns behind it</div>
+                <div class="hd-block-label">${escHtml(tr('Language patterns behind it'))}</div>
                 <div class="hd-signals">${signals.map(sg => `<span class="hd-signal">${escHtml(sg)}</span>`).join('')}</div>
             </div>`);
         }
 
         if (dim.anecdote) {
             out.push(`<div class="hd-block">
-                <div class="hd-block-label">A moment from your sessions</div>
+                <div class="hd-block-label">${escHtml(tr('A moment from your sessions'))}</div>
                 <div class="hd-anecdote">${escHtml(dim.anecdote)}</div>
             </div>`);
         }
@@ -1555,7 +1608,7 @@
         document.getElementById('hover-detail-placeholder').style.display = 'none';
         document.getElementById('hover-detail-body').innerHTML = `
             <div class="trend-modal-head">
-                <div class="trend-modal-title">${escHtml(d.dim.title)}</div>
+                <div class="trend-modal-title">${escHtml(tr(d.dim.title))}</div>
                 
             </div>
             <div class="hd-gauge-row">
@@ -1580,11 +1633,11 @@
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.className = 'hd-more';
-            btn.textContent = 'Show more';
+            btn.textContent = tr('Show more');
             btn.setAttribute('aria-expanded', 'false');
             btn.addEventListener('click', () => {
                 const open = el.classList.toggle('is-open');
-                btn.textContent = open ? 'Show less' : 'Show more';
+                btn.textContent = tr(open ? 'Show less' : 'Show more');
                 btn.setAttribute('aria-expanded', String(open));
             });
             el.after(btn);
@@ -1647,7 +1700,7 @@
         const step = Math.max(1, Math.ceil(dates.length / 6));
         const dateLabels = dates.map((d, i) => {
             if (i % step !== 0 && i !== dates.length - 1) return '';
-            const label = new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+            const label = new Date(d).toLocaleDateString(NexaI18n.locale, { day: 'numeric', month: 'short' });
             return `<text x="${toX(i).toFixed(1)}" y="${H - 8}" text-anchor="middle" font-size="10" fill="#7887a0">${label}</text>`;
         }).join('');
 
@@ -1715,7 +1768,7 @@
         });
         const sortedDates = [...dateSet].sort();
         if (sortedDates.length < 2) {
-            wrap.innerHTML = '<div class="sentiment-no-data">Not enough history yet to show a trend — check back after a few more conversations.</div>';
+            wrap.innerHTML = `<div class="sentiment-no-data">${escHtml(tr('Not enough history yet to show a trend — check back after a few more conversations.'))}</div>`;
             return;
         }
 
@@ -1736,7 +1789,7 @@
         const step = Math.max(1, Math.ceil(n / 6));
         const xLabels = sortedDates.map((d, i) => {
             if (i % step !== 0 && i !== n - 1) return '';
-            const lbl = new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+            const lbl = new Date(d).toLocaleDateString(NexaI18n.locale, { day: 'numeric', month: 'short' });
             return `<text x="${toX(i).toFixed(1)}" y="${H - 8}" text-anchor="middle" font-size="10" fill="#7887a0">${lbl}</text>`;
         }).join('');
 
@@ -1767,13 +1820,13 @@
             const cls = scoreClasses(score);
             return `<div class="combo-legend-item" data-dim-key="${dim.key}">
                 <span class="combo-legend-line" style="background:${color}"></span>
-                <span class="combo-legend-name">${dim.title}</span>
+                <span class="combo-legend-name">${escHtml(tr(dim.title))}</span>
                 <span class="combo-legend-score ${cls.num}">${toTen(score)}</span>
             </div>`;
         }).join('');
 
         wrap.innerHTML = `
-            <span class="combo-focus-hint">Click a line to focus it</span>
+            <span class="combo-focus-hint">${escHtml(tr('Click a line to focus it'))}</span>
             <div class="combo-chart-body">
                 ${svg}
                 <div class="combo-tooltip" id="combo-tooltip"></div>
@@ -1784,7 +1837,7 @@
             dates: sortedDates, dateIdx, n,
             W, H, padL, padR, padT, padB, iW, iH,
             dims: dims.filter(dim => dim.trend && dim.trend.length).map(dim => (
-                { key: dim.key, label: dim.title, color: DIM_COLORS[dim.key] || '#7887a0',
+                { key: dim.key, label: escHtml(tr(dim.title)), color: DIM_COLORS[dim.key] || '#7887a0',
                   scoreMap: new Map(dim.trend.map(t => [t.date, t.score])) }
             )),
         };
@@ -1816,7 +1869,7 @@
             hoverG.innerHTML = `<line x1="${cx}" y1="${m.padT}" x2="${cx}" y2="${m.padT + m.iH}"
                 stroke="rgba(0,0,0,0.18)" stroke-width="1" stroke-dasharray="4,3"/>${dots}`;
 
-            const dateLabel = new Date(date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+            const dateLabel = new Date(date).toLocaleDateString(NexaI18n.locale, { day: 'numeric', month: 'short', year: 'numeric' });
             const rows = shown.map(d => {
                 const s = d.scoreMap.get(date);
                 if (s === undefined) return '';
@@ -1898,9 +1951,9 @@
         });
         const hint = wrap.querySelector('.combo-focus-hint');
         if (hint) {
-            hint.textContent = focusedDim
+            hint.textContent = tr(focusedDim
                 ? 'Showing one line — click it again to show all'
-                : 'Click a line to focus it';
+                : 'Click a line to focus it');
         }
     }
 
@@ -1938,7 +1991,7 @@
                 const svg = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${meta.icon || ''}</svg>`;
                 return `<div class="heat-row" data-dim-key="${dim.key}">
                     <div class="heat-row-icon">${svg}</div>
-                    <div class="heat-row-label">${dim.title}</div>
+                    <div class="heat-row-label">${escHtml(tr(dim.title))}</div>
                     <div class="heat-row-track"><div class="heat-row-fill" style="width:${score}%; background:${BAND_COLORS[cls.num] || '#7887a0'}"></div></div>
                     <div class="heat-row-score" style="color:${BAND_COLORS[cls.num] || 'var(--text-muted)'}">${toTen(score)}</div>
                 </div>`;
@@ -1946,7 +1999,7 @@
             return `<div class="heat-band" data-band="${bandKey}">
                 <div class="heat-band-label" style="color:${BAND_COLORS[bandKey]}">
                     <span class="heat-band-dot" style="background:${BAND_COLORS[bandKey]}"></span>
-                    <span>${BAND_LABELS[bandKey]}</span>
+                    <span>${escHtml(tr(BAND_LABELS[bandKey]))}</span>
                 </div>
                 <div class="heat-rows">${rows}</div>
             </div>`;
@@ -2009,7 +2062,7 @@
         // hidden dimensions included (only the 'sentiments' list leaves those
         // out) — collect them all so Growth Snapshot pills always resolve.
         Object.entries(data || {}).forEach(([key, v]) => {
-            if (v && typeof v === 'object' && !Array.isArray(v) && v.title) DIM_LABEL[key] = v.title;
+            if (v && typeof v === 'object' && !Array.isArray(v) && v.title) DIM_LABEL[key] = tr(v.title);
         });
         const hasDims = data && data.sentiments && data.sentiments.length > 0;
         renderLegend(data);
@@ -2017,7 +2070,7 @@
             document.getElementById('insight-row').style.display = '';
             document.getElementById('hover-detail-card').style.display = 'none';
             document.getElementById('combo-body').innerHTML =
-                '<div class="sentiment-no-data">No insights yet — click Recalculate to analyse your conversations so far.</div>';
+                `<div class="sentiment-no-data">${escHtml(tr('No insights yet — click Recalculate to analyse your conversations so far.'))}</div>`;
             clearHoverDetail();
             return;
         }
@@ -2026,7 +2079,7 @@
         const updatedEl = document.getElementById('sentiment-updated');
         if (data.calculated_at) {
             const d = new Date(data.calculated_at);
-            let meta = `Last calculated ${d.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' })}`;
+            let meta = tr('Last calculated {date}', { date: d.toLocaleDateString(NexaI18n.locale, { day:'numeric', month:'short', year:'numeric' }) });
             updatedEl.textContent = meta;
         }
 
@@ -2048,14 +2101,14 @@
             document.getElementById('insight-row').style.display = '';
             document.getElementById('hover-detail-card').style.display = 'none';
             document.getElementById('combo-body').innerHTML =
-                '<div class="sentiment-no-data">Failed to load your insights. Please refresh.</div>';
+                `<div class="sentiment-no-data">${escHtml(tr('Failed to load your insights. Please refresh.'))}</div>`;
         };
         try {
             const res = await fetch('/api/my-sentiment', { headers: getAuthHeaders(), credentials: 'omit' });
             done();
             if (res.status === 401 || res.status === 403) { window.location.href = '/'; return; }
             if (!res.ok) { fail(); return; }
-            renderSentiment(await res.json());
+            showReport('sentiment', await res.json(), renderSentiment);
         } catch (_) {
             done();
             fail();
@@ -2124,8 +2177,8 @@
         const paint = () => {
             wrap.innerHTML = `<div class="panel-empty panel-waiting">
                 <div class="panel-waiting-dots"><span></span><span></span><span></span></div>
-                <div class="panel-waiting-line">${escHtml(copy.lines[i % copy.lines.length])}</div>
-                <div class="panel-waiting-sub">${escHtml(copy.sub)}</div>
+                <div class="panel-waiting-line">${escHtml(tr(copy.lines[i % copy.lines.length]))}</div>
+                <div class="panel-waiting-sub">${escHtml(tr(copy.sub))}</div>
             </div>`;
             i++;
         };
@@ -2211,7 +2264,7 @@
                     data-focus-practice="${escHtml(practice || '')}"
                     data-focus-dimension="${escHtml(DIM_LABEL[dimension] || dimension || '')}">
                 <img src="/static/nexa-avatar.png" alt="" />
-                <span>${escHtml(label)}</span>
+                <span>${escHtml(tr(label))}</span>
             </button>`;
     }
 
@@ -2221,7 +2274,7 @@
 
         if (data && data.calculated_at) {
             const d = new Date(data.calculated_at);
-            let meta = `Built ${d.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' })}`;
+            let meta = tr('Built {date}', { date: d.toLocaleDateString(NexaI18n.locale, { day:'numeric', month:'short', year:'numeric' }) });
             updatedEl.textContent = meta;
         } else {
             updatedEl.textContent = '';
@@ -2231,7 +2284,7 @@
         if (!filled) {
             wrap.innerHTML = `<div class="panel-empty">${escHtml(
                 (data && data.overview) ||
-                'No snapshot yet — once you have talked through a few sessions this fills in from your own words.'
+                tr('No snapshot yet — once you have talked through a few sessions this fills in from your own words.')
             )}</div>`;
             return;
         }
@@ -2241,11 +2294,11 @@
             const body = items.length
                 ? `<div class="growth-items">${items.map(it =>
                        `<div class="growth-item">${q.item(it)}</div>`).join('')}</div>`
-                : `<div class="growth-quad-empty">${escHtml(q.empty)}</div>`;
+                : `<div class="growth-quad-empty">${escHtml(tr(q.empty))}</div>`;
             return `<div class="growth-quad">
                 <div class="growth-quad-head">
-                    <div class="growth-quad-title">${escHtml(q.title)}</div>
-                    <div class="growth-quad-sub">${escHtml(q.sub)}</div>
+                    <div class="growth-quad-title">${escHtml(tr(q.title))}</div>
+                    <div class="growth-quad-sub">${escHtml(tr(q.sub))}</div>
                 </div>
                 ${body}
             </div>`;
@@ -2263,18 +2316,18 @@
             stopWaiting('growth');
             if (res.status === 401 || res.status === 403) { window.location.href = '/'; return; }
             if (!res.ok) { renderGrowth(null); return; }
-            renderGrowth(await res.json());
+            showReport('growth_snapshot', await res.json(), renderGrowth);
         } catch (_) {
             stopWaiting('growth');
             document.getElementById('growth-wrap').innerHTML =
-                '<div class="panel-empty">Failed to load your snapshot. Please refresh.</div>';
+                `<div class="panel-empty">${escHtml(tr('Failed to load your snapshot. Please refresh.'))}</div>`;
         }
     }
 
     document.getElementById('growth-refresh-btn').addEventListener('click', async () => {
         const btn = document.getElementById('growth-refresh-btn');
         btn.disabled = true;
-        btn.textContent = 'Building…';
+        btn.textContent = tr('Building…');
         startWaiting('growth', 'growth-wrap');
         try {
             const res = await fetch('/api/my-growth/refresh', { method: 'POST', headers: getAuthHeaders(), credentials: 'omit' });
@@ -2282,18 +2335,18 @@
             stopWaiting('growth');
             if (payload.ok && payload.data) {
                 payload.data.calculated_at = new Date().toISOString();
-                renderGrowth(payload.data);
+                showReport('growth_snapshot', payload.data, renderGrowth);
             } else {
                 document.getElementById('growth-wrap').innerHTML =
-                    `<div class="panel-empty">${escHtml(payload.error || 'Could not build a snapshot. Try again later.')}</div>`;
+                    `<div class="panel-empty">${escHtml(tr(payload.error || 'Could not build a snapshot. Try again later.'))}</div>`;
             }
         } catch (_) {
             document.getElementById('growth-wrap').innerHTML =
-                '<div class="panel-empty">Request failed. Please try again.</div>';
+                `<div class="panel-empty">${escHtml(tr('Request failed. Please try again.'))}</div>`;
         } finally {
             stopWaiting('growth');
             btn.disabled = false;
-            btn.textContent = 'Rebuild snapshot';
+            btn.textContent = tr('Rebuild Growth Mirror');
         }
     });
 
@@ -2311,10 +2364,10 @@
     });
 
     function startFocusSession(focus) {
-        const bits = [`I'd like to use this session to work on ${focus.label}.`];
-        if (focus.summary)  bits.push(`My Growth Snapshot put it like this: "${focus.summary}"`);
-        if (focus.practice) bits.push(`It suggested I try: "${focus.practice}"`);
-        bits.push('Can you help me work out what is getting in the way, and what I could actually do about it?');
+        const bits = [tr("I'd like to use this session to work on {label}.", { label: focus.label })];
+        if (focus.summary)  bits.push(tr('My Growth Snapshot put it like this: "{summary}"', { summary: focus.summary }));
+        if (focus.practice) bits.push(tr('It suggested I try: "{practice}"', { practice: focus.practice }));
+        bits.push(tr('Can you help me work out what is getting in the way, and what I could actually do about it?'));
 
         try {
             sessionStorage.setItem(FOCUS_KEY, JSON.stringify({
@@ -2335,7 +2388,7 @@
         const label = btn.dataset.focusLabel || '';
         if (!label) return;
         btn.disabled = true;
-        btn.querySelector('span').textContent = 'Opening session…';
+        btn.querySelector('span').textContent = tr('Opening session…');
         startFocusSession({
             label,
             summary:   btn.dataset.focusSummary || '',
@@ -2358,7 +2411,7 @@
         const updatedEl = document.getElementById('themes-updated');
         if (data && data.calculated_at) {
             const d = new Date(data.calculated_at);
-            let meta = `Refreshed ${d.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' })}`;
+            let meta = tr('Refreshed {date}', { date: d.toLocaleDateString(NexaI18n.locale, { day:'numeric', month:'short', year:'numeric' }) });
             updatedEl.textContent = meta;
         } else {
             updatedEl.textContent = '';
@@ -2367,7 +2420,7 @@
         if (!themes.length) {
             wrap.innerHTML = `<div class="panel-empty">${escHtml(
                 (data && data.overview) ||
-                'No repeating themes yet — once a topic shows up across a few sessions it will appear here.'
+                tr('No repeating themes yet — once a topic shows up across a few sessions it will appear here.')
             )}</div>`;
             return;
         }
@@ -2396,18 +2449,18 @@
             stopWaiting('themes');
             if (res.status === 401 || res.status === 403) { window.location.href = '/'; return; }
             if (!res.ok) { renderThemes(null); return; }
-            renderThemes(await res.json());
+            showReport('recurring_themes', await res.json(), renderThemes);
         } catch (_) {
             stopWaiting('themes');
             document.getElementById('themes-wrap').innerHTML =
-                '<div class="panel-empty">Failed to load your themes. Please refresh.</div>';
+                `<div class="panel-empty">${escHtml(tr('Failed to load your themes. Please refresh.'))}</div>`;
         }
     }
 
     document.getElementById('themes-refresh-btn').addEventListener('click', async () => {
         const btn = document.getElementById('themes-refresh-btn');
         btn.disabled = true;
-        btn.textContent = 'Detecting…';
+        btn.textContent = tr('Detecting…');
         startWaiting('themes', 'themes-wrap');
         try {
             const res = await fetch('/api/my-themes/refresh', { method: 'POST', headers: getAuthHeaders(), credentials: 'omit' });
@@ -2415,19 +2468,19 @@
             stopWaiting('themes');
             if (payload.ok && payload.data) {
                 payload.data.calculated_at = new Date().toISOString();
-                renderThemes(payload.data);
+                showReport('recurring_themes', payload.data, renderThemes);
             } else {
                 document.getElementById('themes-wrap').innerHTML =
-                    `<div class="panel-empty">${escHtml(payload.error || 'Detection failed. Try again later.')}</div>`;
+                    `<div class="panel-empty">${escHtml(tr(payload.error || 'Detection failed. Try again later.'))}</div>`;
             }
         } catch (_) {
             stopWaiting('themes');
             document.getElementById('themes-wrap').innerHTML =
-                '<div class="panel-empty">Request failed. Please try again.</div>';
+                `<div class="panel-empty">${escHtml(tr('Request failed. Please try again.'))}</div>`;
         } finally {
             stopWaiting('themes');
             btn.disabled = false;
-            btn.textContent = 'Detect themes';
+            btn.textContent = tr('Refresh themes');
         }
     });
 
@@ -2483,11 +2536,11 @@
         const vid = ytVideoId(r.url);
         const dur = r.length ? `<span class="rec-duration">${escHtml(r.length)}</span>` : '';
         const media = vid
-            ? `<button type="button" class="rec-media" data-yt="${escHtml(vid)}" aria-label="Play ${escHtml(r.title)}">
+            ? `<button type="button" class="rec-media" data-yt="${escHtml(vid)}" aria-label="${escHtml(tr('Play {title}', { title: r.title }))}">
                    <img src="https://i.ytimg.com/vi/${escHtml(vid)}/hqdefault.jpg" alt="" loading="lazy">${PLAY_BADGE}${dur}
                </button>`
             : `<a class="rec-media" href="${escHtml(r.url)}" target="_blank" rel="noopener noreferrer"
-                  aria-label="Find ${escHtml(r.title)} on YouTube">${PLAY_BADGE}${dur}</a>`;
+                  aria-label="${escHtml(tr('Find {title} on YouTube', { title: r.title }))}">${PLAY_BADGE}${dur}</a>`;
         const by = [r.author, r.topic].filter(Boolean).join(' · ');
         return `<div class="rec-video">
             ${media}
@@ -2498,11 +2551,11 @@
     }
 
     function recBookHtml(r) {
-        const linkText = r.verified ? 'Open the book' : 'Find the book';
+        const linkText = escHtml(tr(r.verified ? 'Open the book' : 'Find the book'));
         return `<section class="rec-panel rec-book">
-            ${recHeadHtml(REC_TYPES.book.icon, 'Your book pick', r.topic || 'One book, worth the time', '')}
+            ${recHeadHtml(REC_TYPES.book.icon, tr('Your book pick'), r.topic || tr('One book, worth the time'), '')}
             <div class="rec-book-title">${escHtml(r.title)}</div>
-            ${r.author ? `<div class="rec-byline">By ${escHtml(r.author)}</div>` : ''}
+            ${r.author ? `<div class="rec-byline">${escHtml(tr('By {author}', { author: r.author }))}</div>` : ''}
             ${r.description ? `<p class="rec-book-desc">${escHtml(r.description)}</p>` : ''}
             <div class="rec-book-foot">
                 <span>${escHtml(r.length || '')}</span>
@@ -2515,7 +2568,7 @@
         const t = REC_TYPES[r.type] || REC_TYPES.article;
         const tag = r.url ? 'a' : 'div';
         const attrs = r.url ? ` href="${escHtml(r.url)}" target="_blank" rel="noopener noreferrer"` : '';
-        const label = [t.label, r.author].filter(Boolean).join(' · ');
+        const label = [tr(t.label), r.author].filter(Boolean).join(' · ');
         return `<${tag} class="rec-item"${attrs}>
             <div class="rec-item-icon">${recIcon(t.icon)}</div>
             <div class="rec-item-body">
@@ -2537,13 +2590,13 @@
         if (data && data.calculated_at) {
             const d = new Date(data.calculated_at);
             updatedEl.textContent =
-                `Curated ${d.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' })}`;
+                tr('Curated {date}', { date: d.toLocaleDateString(NexaI18n.locale, { day:'numeric', month:'short', year:'numeric' }) });
         } else {
             updatedEl.textContent = '';
         }
 
         if (!items.length) {
-            wrap.innerHTML = '<div class="panel-empty">Click “Find recommendations” to build your list — Nexa searches for each resource, so this one takes a few moments.</div>';
+            wrap.innerHTML = `<div class="panel-empty">${escHtml(tr('Click “Find recommendations” to build your list — Nexa searches for each resource, so this one takes a few moments.'))}</div>`;
             return;
         }
 
@@ -2557,7 +2610,7 @@
         let html = '';
         if (videos.length) {
             html += `<section class="rec-panel">
-                ${recHeadHtml(YT_ICON, 'Quick videos', 'Watch in a few minutes', `${videos.length} video${videos.length === 1 ? '' : 's'}`)}
+                ${recHeadHtml(YT_ICON, tr('Quick videos'), tr('Watch in a few minutes'), tr(videos.length === 1 ? '{n} video' : '{n} videos', { n: videos.length }))}
                 <div class="rec-video-grid">${videos.map(recVideoHtml).join('')}</div>
             </section>`;
         }
@@ -2566,9 +2619,9 @@
             if (book) html += recBookHtml(book);
             if (reads.length) {
                 html += `<section class="rec-panel">
-                    ${recHeadHtml(REC_TYPES.article.icon, 'Read & listen', 'Articles and talks', `${reads.length} pick${reads.length === 1 ? '' : 's'}`)}
+                    ${recHeadHtml(REC_TYPES.article.icon, tr('Read & listen'), tr('Articles and talks'), tr(reads.length === 1 ? '{n} pick' : '{n} picks', { n: reads.length }))}
                     <div class="rec-list">${reads.map(recItemHtml).join('')}</div>
-                    ${unverified ? '<div class="rec-note">Some links open a search, where Nexa could not confirm the exact page.</div>' : ''}
+                    ${unverified ? `<div class="rec-note">${escHtml(tr('Some links open a search, where Nexa could not confirm the exact page.'))}</div>` : ''}
                 </section>`;
             }
             html += '</div>';
@@ -2605,7 +2658,7 @@
         clearTimeout(recsPollTimer); recsPollTimer = null;
         const btn = document.getElementById('recs-refresh-btn');
         btn.disabled = false;
-        btn.textContent = 'Find recommendations';
+        btn.textContent = tr('Find recommendations');
     }
 
     async function loadRecs({ poll = false } = {}) {
@@ -2620,7 +2673,7 @@
                 // loaded — a reload mid-run picks the wait back up here.
                 const btn = document.getElementById('recs-refresh-btn');
                 btn.disabled = true;
-                btn.textContent = 'Curating…';
+                btn.textContent = tr('Curating…');
                 if (!_waitTimers.recs) showRecsWaiting();
                 recsPollTimer = setTimeout(() => loadRecs({ poll: true }), 3000);
                 return;
@@ -2630,24 +2683,24 @@
             // 'empty' and 'error' both carry the reason the run gave; anything
             // already cached is still worth showing over a bare message.
             if ((data.recommendations || []).length) {
-                renderRecs(data);
+                showReport('recommendations', data, renderRecs);
             } else if (data.error) {
                 document.getElementById('recs-wrap').innerHTML =
-                    `<div class="panel-empty">${escHtml(data.error)}</div>`;
+                    `<div class="panel-empty">${escHtml(tr(data.error))}</div>`;
             } else {
-                renderRecs(data);
+                showReport('recommendations', data, renderRecs);
             }
         } catch (_) {
             stopRecsWaiting();
             document.getElementById('recs-wrap').innerHTML =
-                '<div class="panel-empty">Failed to load your recommendations. Please refresh.</div>';
+                `<div class="panel-empty">${escHtml(tr('Failed to load your recommendations. Please refresh.'))}</div>`;
         }
     }
 
     document.getElementById('recs-refresh-btn').addEventListener('click', async () => {
         const btn = document.getElementById('recs-refresh-btn');
         btn.disabled = true;
-        btn.textContent = 'Curating…';
+        btn.textContent = tr('Curating…');
         showRecsWaiting();
         try {
             const res = await fetch('/api/my-recommendations/refresh', { method: 'POST', headers: getAuthHeaders(), credentials: 'omit' });
@@ -2657,12 +2710,12 @@
             } else {
                 stopRecsWaiting();
                 document.getElementById('recs-wrap').innerHTML =
-                    `<div class="panel-empty">${escHtml(payload.error || 'Could not build a list. Try again later.')}</div>`;
+                    `<div class="panel-empty">${escHtml(tr(payload.error || 'Could not build a list. Try again later.'))}</div>`;
             }
         } catch (_) {
             stopRecsWaiting();
             document.getElementById('recs-wrap').innerHTML =
-                '<div class="panel-empty">Request failed. Please try again.</div>';
+                `<div class="panel-empty">${escHtml(tr('Request failed. Please try again.'))}</div>`;
         }
     });
 
@@ -2677,29 +2730,33 @@
     document.getElementById('sentiment-refresh-btn').addEventListener('click', async () => {
         const btn = document.getElementById('sentiment-refresh-btn');
         btn.disabled = true;
-        btn.textContent = 'Calculating…';
+        btn.textContent = tr('Calculating…');
         document.getElementById('combo-body').innerHTML =
             '<div class="sentiment-no-data"><div class="skeleton" style="width:220px; margin:0 auto;"></div></div>';
         try {
             const res = await fetch('/api/my-sentiment/refresh', { method: 'POST', headers: getAuthHeaders(), credentials: 'omit' });
             const payload = await res.json();
             if (payload.ok && payload.data) {
-                renderSentiment(payload.data);
+                showReport('sentiment', payload.data, renderSentiment);
             } else {
                 document.getElementById('combo-body').innerHTML =
-                    `<div class="sentiment-no-data">${escHtml(payload.error || 'Calculation failed. Try again later.')}</div>`;
+                    `<div class="sentiment-no-data">${escHtml(tr(payload.error || 'Calculation failed. Try again later.'))}</div>`;
             }
         } catch (_) {
             document.getElementById('combo-body').innerHTML =
-                '<div class="sentiment-no-data">Request failed. Please try again.</div>';
+                `<div class="sentiment-no-data">${escHtml(tr('Request failed. Please try again.'))}</div>`;
         } finally {
             btn.disabled = false;
-            btn.textContent = 'Recalculate';
+            btn.textContent = tr('Recalculate');
         }
     });
 
     // Shared header — tabs, language picker, chip dropdown
     NexaHeader.init();
+    // The cached language may be stale here (only the chat page calls
+    // /session); if the saved one differs, 'nexa:languagechange' fires and
+    // the reports already shown are re-checked.
+    NexaHeader.syncLanguage();
 
     // Smooth exit navigation — fade out then follow the link
     function smoothNavTo(url) {
@@ -2770,8 +2827,12 @@
 
     // Stats sit above the tabs and gate the whole page (they decide whether the
     // not-enough-data screen shows), so they load regardless of which tab opens.
-    loadStats();
-    showTab(location.hash.slice(1), { updateHash: false });
+    // Wait for the static dictionary (instant when cached) so nothing is drawn
+    // in English first.
+    NexaI18n.ready.then(() => {
+        loadStats();
+        showTab(location.hash.slice(1), { updateHash: false });
+    });
 </script>
 </body>
 </html>

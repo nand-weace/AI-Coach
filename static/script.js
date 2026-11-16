@@ -4,6 +4,11 @@
 const THUMB_UP_PATH = 'M2 20h2.5V10H2v10zM22 11c0-1.1-.9-2-2-2h-5.6l.9-4.1v-.3c0-.4-.2-.8-.4-1.1L13.8 2 7.6 8.2c-.4.4-.6.9-.6 1.4V19c0 1.1.9 2 2 2h8.5c.8 0 1.5-.5 1.8-1.2l2.6-6.1c.1-.2.1-.5.1-.7v-2z';
 const THUMB_DOWN_PATH = 'M22 4h-2.5v10H22V4zM2 13c0 1.1.9 2 2 2h5.6l-.9 4.1v.3c0 .4.2.8.4 1.1l1.1 1.1 6.2-6.2c.4-.4.6-.9.6-1.4V5c0-1.1-.9-2-2-2H6.5c-.8 0-1.5.5-1.8 1.2l-2.6 6.1c-.1.2-.1.5-.1.7v2z';
 
+// Fixed UI text in the user's language, from the static dictionaries
+// (static/i18n.js, loaded by _header.html ahead of this file). Module scope for
+// the same reason as the icons above.
+const tr = (text, vars) => (window.NexaI18n ? NexaI18n.t(text, vars) : text);
+
 document.addEventListener('DOMContentLoaded', async () => {
     const chatForm = document.getElementById('chat-form');
     const userInput = document.getElementById('user-input');
@@ -148,7 +153,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     li.style.setProperty('--step-delay', (i * 70) + 'ms');
                     li.innerHTML =
                         '<span class="login-step-marker"><span class="login-step-dot"></span></span>' +
-                        '<span class="login-step-label">' + step.label + '</span>';
+                        '<span class="login-step-label">' + tr(step.label) + '</span>';
                     list.appendChild(li);
                 });
             }
@@ -189,7 +194,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const form = document.getElementById('login-form');
                 if (form) form.style.display = 'none';
                 if (loader) loader.style.display = 'flex';
-                if (status) status.textContent = 'Setting up Nexa for you';
+                if (status) status.textContent = tr('Setting up Nexa for you');
                 render();
                 schedule();
             },
@@ -217,7 +222,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (data.org_id) localStorage.setItem('we_ace_org_id', data.org_id);
         if (data.org_name) localStorage.setItem('we_ace_org_name', data.org_name);
         if (data.cohort_id) localStorage.setItem('we_ace_cohort_id', data.cohort_id);
-        if (data.language) localStorage.setItem('we_ace_language', data.language);
+        if (data.language) {
+            // The saved language can differ from this browser's cached one (a
+            // different device, or another user signing in) — switch the UI.
+            const previous = localStorage.getItem('we_ace_language');
+            localStorage.setItem('we_ace_language', data.language);
+            if (previous !== data.language) {
+                window.dispatchEvent(new CustomEvent('nexa:languagechange',
+                    { detail: { language: data.language } }));
+            }
+        }
         if (data.mode) localStorage.setItem('we_ace_mode', data.mode);
         if (data.role) storeProfileRoles(data.role);
         if (data.branding) NexaHeader.applyBranding(data.branding);
@@ -337,7 +351,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             btn.classList.toggle('is-active', on);
             btn.setAttribute('aria-checked', on ? 'true' : 'false');
         });
-        if (modeHint) modeHint.textContent = COACH_MODES[mode].hint;
+        if (modeHint) modeHint.textContent = tr(COACH_MODES[mode].hint);
     }
 
     // Marks the point in the transcript where the user changed their mind, so
@@ -345,7 +359,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     function addModeSwitchNote(mode) {
         const note = document.createElement('div');
         note.className = 'mode-switch-note';
-        note.textContent = COACH_MODES[mode].note;
+        note.textContent = tr(COACH_MODES[mode].note);
         chatContainer.appendChild(note);
         scrollToBottom();
     }
@@ -397,7 +411,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // fall through to the normal chain and start a new session.
     if (!_urlRefreshToken && !_extToken && consumeTabNavIntent()) {
         const _resumeStatus = document.getElementById('login-status');
-        if (_resumeStatus) _resumeStatus.textContent = 'Picking up where you left off';
+        if (_resumeStatus) _resumeStatus.textContent = tr('Picking up where you left off');
         const _resumeName = document.getElementById('user-display');
         if (_resumeName && !_resumeName.textContent.trim())
             _resumeName.textContent = localStorage.getItem('we_ace_user_name') || '';
@@ -555,10 +569,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             loginProgress.stop();
             showLoginForm();
             btn.disabled = false;
-            btn.innerHTML = 'Sign In';
+            btn.textContent = tr('Sign In');
         };
         btn.disabled = true;
-        btn.innerHTML = '<span class="btn-spinner"></span>Signing in…';
+        btn.innerHTML = '<span class="btn-spinner"></span>' + tr('Signing in…');
         errorEl.textContent = '';
         loginProgress.start(0);
 
@@ -582,12 +596,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
             authData = await authRes.json();
             if (!authRes.ok) {
-                errorEl.textContent = authData.message || authData.error || 'Invalid email or password';
+                errorEl.textContent = authData.message || authData.error || tr('Invalid email or password');
                 resetBtn();
                 return;
             }
         } catch (err) {
-            errorEl.textContent = 'Authentication service unavailable. Please try again.';
+            errorEl.textContent = tr('Authentication service unavailable. Please try again.');
             resetBtn();
             return;
         }
@@ -606,13 +620,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             const data = await buildSession(authData.accessToken, authData.refreshToken, authData.profileDetails?.roles);
             if (!data) {
-                errorEl.textContent = 'Session error. Please try again.';
+                errorEl.textContent = tr('Session error. Please try again.');
                 resetBtn();
                 return;
             }
             showApp(data);
         } catch (err) {
-            errorEl.textContent = 'Connection error. Please try again.';
+            errorEl.textContent = tr('Connection error. Please try again.');
             resetBtn();
         }
     });
@@ -648,7 +662,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
     let recognition = null;      // active recogniser, null when idle
     let dictationBase = '';      // text already in the box when dictation started
-    const DEFAULT_PLACEHOLDER = userInput.placeholder;
 
     // Hands-free: three seconds of silence after something has been said ends
     // dictation and sends the message, so speaking to Nexa needs no tap.
@@ -680,7 +693,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             hint.className = 'voice-hint';
             chatForm.parentNode.insertBefore(hint, chatForm);
         }
-        hint.textContent = text;
+        hint.textContent = tr(text);
         clearTimeout(hint._timer);
         hint._timer = setTimeout(() => hint.remove(), 5000);
     }
@@ -718,9 +731,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         rec.onstart = () => {
             micButton.classList.add('recording');
             micButton.setAttribute('aria-pressed', 'true');
-            micButton.title = 'Stop listening';
+            micButton.title = tr('Stop listening');
             userInput.classList.add('dictating');
-            userInput.placeholder = 'Listening… speak now';
+            userInput.placeholder = tr('Listening… speak now');
         };
 
         rec.onresult = (event) => {
@@ -758,9 +771,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             recognition = null;
             micButton.classList.remove('recording');
             micButton.setAttribute('aria-pressed', 'false');
-            micButton.title = 'Speak your message';
+            micButton.title = tr('Speak your message');
             userInput.classList.remove('dictating');
-            userInput.placeholder = DEFAULT_PLACEHOLDER;
+            userInput.placeholder = tr(userInput.dataset.i18nPlaceholder || 'Type your message here...');
             userInput.focus();
 
             if (autoSendOnEnd) {
@@ -908,14 +921,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!button) return;
         button.classList.add('speaking');
         button.setAttribute('aria-pressed', 'true');
-        button.title = 'Stop reading';
+        button.title = tr('Stop reading');
     }
 
     function clearSpeaking() {
         if (speakingButton) {
             speakingButton.classList.remove('speaking');
             speakingButton.setAttribute('aria-pressed', 'false');
-            speakingButton.title = 'Read this aloud';
+            speakingButton.title = tr('Read this aloud');
         }
         speakingButton = null;
     }
@@ -955,18 +968,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // Play button shown alongside the thumbs on a Nexa reply.
+    // Play button shown alongside the thumbs on a Nexa reply. `text` may be a
+    // function, read at click time — the welcome greeting can be re-translated
+    // after the button is made.
     function makeSpeakButton(text) {
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'feedback-btn speak-btn';
-        btn.title = 'Read this aloud';
-        btn.setAttribute('aria-label', 'Read this aloud');
+        btn.title = tr('Read this aloud');
+        btn.setAttribute('aria-label', tr('Read this aloud'));
         btn.setAttribute('aria-pressed', 'false');
         btn.innerHTML = SPEAKER_ICON;
         btn.addEventListener('click', () => {
             if (speakingButton === btn) stopSpeaking();
-            else speak(text, btn);
+            else speak(typeof text === 'function' ? text() : text, btn);
         });
         return btn;
     }
@@ -975,8 +990,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!speakToggle) return;
         speakToggle.classList.toggle('is-on', autoSpeak);
         speakToggle.setAttribute('aria-pressed', autoSpeak ? 'true' : 'false');
-        const label = autoSpeak ? 'Nexa reads replies aloud — tap to mute'
-                                : 'Have Nexa read replies aloud';
+        const label = tr(autoSpeak ? 'Nexa reads replies aloud — tap to mute'
+                                   : 'Have Nexa read replies aloud');
         speakToggle.title = label;
         speakToggle.setAttribute('aria-label', label);
         const on = speakToggle.querySelector('.speaker-on');
@@ -996,6 +1011,35 @@ document.addEventListener('DOMContentLoaded', async () => {
             else stopSpeaking();
         });
     }
+
+    // ── Language switch ─────────────────────────────────────────────────────
+    // Marked-up text (data-i18n) is swapped by i18n.js itself. These labels are
+    // set from script, often per state, so they are restated here — once the
+    // dictionary first loads, and again whenever the user picks a language.
+    // The conversation itself is left as it was written.
+    function relabelForLanguage() {
+        renderMode(currentMode());
+        if (typeof renderSpeakToggle === 'function') renderSpeakToggle();
+        if (micButton && !recognition) micButton.title = tr('Speak your message');
+        document.querySelectorAll('.speak-btn').forEach(b => {
+            b.title = tr(b === speakingButton ? 'Stop reading' : 'Read this aloud');
+            b.setAttribute('aria-label', tr('Read this aloud'));
+        });
+        document.querySelectorAll('.feedback-btn[data-rating]').forEach(b => {
+            const label = tr(b.dataset.rating === '1' ? 'Good response' : 'Bad response');
+            b.title = label;
+            b.setAttribute('aria-label', label);
+        });
+        document.querySelectorAll('.message-time[data-ts]').forEach(el => {
+            el.textContent = formatMessageTime(el.dataset.ts);
+        });
+        const welcome = document.getElementById('welcome-text');
+        if (welcome && welcome.dataset.welcomeKey) {
+            welcome.textContent = tr(welcome.dataset.welcomeKey, { name: welcome.dataset.welcomeName });
+        }
+    }
+    if (window.NexaI18n) NexaI18n.ready.then(relabelForLanguage);
+    window.addEventListener('nexa:i18nchange', relabelForLanguage);
 
     // Speech keeps playing after the tab is left behind in some browsers.
     window.addEventListener('pagehide', stopSpeaking);
@@ -1058,13 +1102,21 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (autoSpeak) speak(data.response, replyEl._speakButton);
                 renderSuggestions(data.suggestions);
             } else {
-                addMessage(`Error: ${data.error}`, 'assistant');
+                addMessage(tr('Error: {error}', { error: data.error }), 'assistant');
             }
         } catch (err) {
             removeElement(typingId);
-            addMessage(`Connection error: ${err.message}`, 'assistant');
+            addMessage(tr('Connection error: {error}', { error: err.message }), 'assistant');
         }
     });
+
+    // The built-in greeting, used when /session sends no generated one. Its key
+    // and name are kept on the element so a language switch can restate it.
+    function setFallbackWelcome(el, key, name) {
+        el.dataset.welcomeKey = key;
+        el.dataset.welcomeName = name || '';
+        el.textContent = tr(key, { name: name || '' });
+    }
 
     function showApp(sessionData) {
         const {
@@ -1150,9 +1202,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         } else if (welcomeMessage && welcomeMessage.trim()) {
             welcomeEl.textContent = welcomeMessage.trim();
         } else if (returning) {
-            welcomeEl.textContent = `Welcome back, ${userName}. Ready to continue your leadership journey? What's on your mind today?`;
+            setFallbackWelcome(welcomeEl, "Welcome back, {name}. Ready to continue your leadership journey? What's on your mind today?", userName);
         } else {
-            welcomeEl.textContent = `Welcome to your Executive Leadership Coaching Session, ${userName}. I'm Nexa, here to help you navigate complex professional challenges, enhance your leadership skills, and drive strategic impact. What would you like to focus on today?`;
+            setFallbackWelcome(welcomeEl, "Welcome to your Executive Leadership Coaching Session, {name}. I'm Nexa, here to help you navigate complex professional challenges, enhance your leadership skills, and drive strategic impact. What would you like to focus on today?", userName);
         }
         // The greeting (or nothing, on a resume) is in place — drop the spinner.
         document.documentElement.classList.remove('nexa-shell');
@@ -1165,7 +1217,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 welcomeBody.classList.contains('message-body')) {
             const actions = document.createElement('div');
             actions.className = 'message-feedback';
-            const speakBtn = makeSpeakButton(welcomeEl.textContent);
+            const speakBtn = makeSpeakButton(() => welcomeEl.textContent);
             actions.appendChild(speakBtn);
             welcomeBody.appendChild(actions);
             if (autoSpeak) speak(welcomeEl.textContent, speakBtn);
@@ -1176,7 +1228,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (!resumed) {
                 anchor = document.createElement('div');
                 anchor.className = 'history-divider';
-                anchor.innerHTML = '<span>Previous conversation</span>';
+                anchor.innerHTML = '<span data-i18n>Previous conversation</span>';
+                if (window.NexaI18n) NexaI18n.apply(anchor);
                 chatContainer.appendChild(anchor);
             }
             recentMessages.forEach(msg => addMessage(msg.content, msg.role, msg.created_at,
@@ -1255,11 +1308,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     function showNexaAccessDenied() {
         const expiryNotice = document.getElementById('access-expiry-notice');
         const expiryText = document.getElementById('access-expiry-text');
-        expiryText.textContent = 'Your access has been expired, please contact your corporate Admin.';
+        expiryText.textContent = tr('Your access has been expired, please contact your corporate Admin.');
         expiryNotice.style.display = 'block';
         const input = document.getElementById('user-input');
         input.disabled = true;
-        input.placeholder = 'Access expired';
+        // Kept as the placeholder's dictionary key, so a language switch
+        // re-translates this rather than restoring the normal prompt.
+        input.dataset.i18nPlaceholder = 'Access expired';
+        input.placeholder = tr('Access expired');
         document.getElementById('send-button').disabled = true;
         const mic = document.getElementById('mic-button');
         if (mic) mic.disabled = true;
@@ -1277,11 +1333,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     function formatMessageTime(value) {
         const d = value ? new Date(value) : new Date();
         if (isNaN(d.getTime())) return '';
-        const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+        const locale = window.NexaI18n ? NexaI18n.locale : [];
+        const time = d.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' });
         const now = new Date();
         const sameDay = d.toDateString() === now.toDateString();
         if (sameDay) return time;
-        const date = d.toLocaleDateString([], { day: 'numeric', month: 'short' });
+        const date = d.toLocaleDateString(locale, { day: 'numeric', month: 'short' });
         return `${date}, ${time}`;
     }
 
@@ -1291,7 +1348,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         btn.type = 'button';
         btn.className = 'feedback-btn' + (active ? ' active' : '');
         btn.dataset.rating = String(rating);
-        const label = rating === 1 ? 'Good response' : 'Bad response';
+        const label = tr(rating === 1 ? 'Good response' : 'Bad response');
         btn.title = label;
         btn.setAttribute('aria-label', label);
         btn.setAttribute('aria-pressed', active ? 'true' : 'false');
@@ -1329,7 +1386,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const note = document.createElement('span');
         note.className = 'feedback-thanks';
-        note.textContent = 'Thanks for the feedback';
+        note.dataset.i18n = '';
+        note.dataset.i18nSrc = 'Thanks for the feedback';
+        note.textContent = tr('Thanks for the feedback');
         row.appendChild(note);
 
         function paint() {
@@ -1393,7 +1452,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const timeEl = document.createElement('div');
         timeEl.className = 'message-time';
-        timeEl.textContent = formatMessageTime(timestamp);
+        // Kept raw so a language switch can re-format it (relabelForLanguage).
+        timeEl.dataset.ts = timestamp || new Date().toISOString();
+        timeEl.textContent = formatMessageTime(timeEl.dataset.ts);
 
         const bubble = document.createElement('div');
         bubble.className = 'message-body';
@@ -1518,7 +1579,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const loader = document.createElement('div');
         loader.className = 'history-loader';
-        loader.textContent = 'Loading earlier messages…';
+        loader.textContent = tr('Loading earlier messages…');
         chatContainer.insertBefore(loader, chatContainer.firstChild);
 
         try {

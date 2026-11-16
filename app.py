@@ -40,6 +40,8 @@ from database import (
     get_user_sentiment,
     get_user_sentiment_data,
     get_user_insight_report,
+    replace_user_insight_report_data,
+    replace_user_sentiment_data,
     upsert_user_insight_report,
     add_career_situation_reading,
     get_career_situation_history,
@@ -81,27 +83,8 @@ import linkedin
 import calendar_context
 import birth_chart
 
-# Languages Nexa can coach in, as code -> (display label, name used in the prompt).
-# Keep in sync with the picker in static/script.js.
-SUPPORTED_LANGUAGES = {
-    'English': ('English', 'English'),
-    'Hindi': ('हिन्दी (Hindi)', 'Hindi'),
-    'Marathi': ('मराठी (Marathi)', 'Marathi'),
-    'Bengali': ('বাংলা (Bengali)', 'Bengali'),
-    'Tamil': ('தமிழ் (Tamil)', 'Tamil'),
-    'Telugu': ('తెలుగు (Telugu)', 'Telugu'),
-    'Kannada': ('ಕನ್ನಡ (Kannada)', 'Kannada'),
-    'Malayalam': ('മലയാളം (Malayalam)', 'Malayalam'),
-    'Gujarati': ('ગુજરાતી (Gujarati)', 'Gujarati'),
-    'Spanish': ('Español (Spanish)', 'Spanish'),
-    'French': ('Français (French)', 'French'),
-    'German': ('Deutsch (German)', 'German'),
-    'Portuguese': ('Português (Portuguese)', 'Portuguese'),
-    'Arabic': ('العربية (Arabic)', 'Arabic'),
-    'Chinese': ('中文 (Chinese)', 'Chinese (Simplified)'),
-    'Japanese': ('日本語 (Japanese)', 'Japanese'),
-}
-DEFAULT_LANGUAGE = 'English'
+# Languages Nexa can coach in — see languages.py.
+from languages import SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE, normalize_language
 
 # How Nexa shows up: 'coaching' draws the answer out of the user, 'mentoring'
 # gives direct advice from experience. Toggled from the chat window; the prompt
@@ -1449,7 +1432,7 @@ def create_session():
             logger.info("[create_session] reusing cached system prompt: session_uuid=%s",
                         session_uuid)
 
-        language = get_user_language(user_id) or DEFAULT_LANGUAGE
+        language = normalize_language(get_user_language(user_id))
         mode = get_user_mode(user_id) or DEFAULT_MODE
         logger.info("[create_session] language for user_id=%s: %s (mode=%s)",
                     user_id, language, mode)
@@ -1650,7 +1633,7 @@ def resume_session():
             nexa_access = settings['nexa_access']
             access_last_date = settings['access_last_date']
 
-        language = get_user_language(user_id) or DEFAULT_LANGUAGE
+        language = normalize_language(get_user_language(user_id))
         mode = get_user_mode(user_id) or DEFAULT_MODE
 
         # Keep Flask session (server-rendered pages) and the token cache (/chat)
@@ -1773,7 +1756,7 @@ def new_session():
         prompt = _build_personalized_prompt(user_name, highlights, profile_context)
         sessions_cache[session_uuid] = [{"role": "system", "content": prompt}]
 
-        language = get_user_language(user_id) or DEFAULT_LANGUAGE
+        language = normalize_language(get_user_language(user_id))
         mode = get_user_mode(user_id) or DEFAULT_MODE
         calendar = _get_calendar_cached(user_id, g.user.get('access_token'))
         welcome_message, welcome_suggestions = _generate_welcome(
@@ -1945,7 +1928,7 @@ def user_language():
     user_id = g.user['user_id']
     if request.method == 'GET':
         return jsonify({
-            'language': get_user_language(user_id) or DEFAULT_LANGUAGE,
+            'language': normalize_language(get_user_language(user_id)),
             'languages': _language_list(),
         })
 
@@ -2043,7 +2026,7 @@ def chat():
     # request so a mid-session language switch takes effect immediately.
     language = (data.get('language') or '').strip()
     if language not in SUPPORTED_LANGUAGES:
-        language = get_user_language(user_id) or DEFAULT_LANGUAGE
+        language = normalize_language(get_user_language(user_id))
 
     # Same for the coaching/mentoring toggle — read per request so flipping it
     # mid-conversation changes the very next reply.
@@ -2962,8 +2945,8 @@ def career_horoscope_generate():
     _save_birth_details(user_id, place, birth_date, birth_time)
 
     # Write the reading in the user's chosen coaching language, mapped to the
-    # prompt-facing name (e.g. 'Chinese' -> 'Chinese (Simplified)').
-    lang_code = get_user_language(user_id) or DEFAULT_LANGUAGE
+    # prompt-facing name (see languages.py).
+    lang_code = normalize_language(get_user_language(user_id))
     language = SUPPORTED_LANGUAGES.get(lang_code, (lang_code, lang_code))[1]
     system = CAREER_HOROSCOPE_PROMPT.replace('{{language}}', language)
 
@@ -3147,10 +3130,27 @@ def _daily_horoscope_response(user_id: str, name: str, force: bool, day_raw=None
         return jsonify({'error': 'The horoscope service is not available right now.'}), 503
 
     days = _daily_horoscope_cache(user_id)
+    lang_code = normalize_language(get_user_language(user_id))
     if not force and days.get(day):
-        return jsonify({'daily': _strip_dashes_deep(days[day]), 'birth': birth})
+        cached = days[day]
+        # Notes record the language they were written in (older ones are
+        # English). One cached before the user switched language is translated
+        # once and saved back, so the day's note isn't regenerated, and
+        # changed, just because the language did.
+        source = cached.get('language') or DEFAULT_LANGUAGE
+        if source != lang_code:
+            try:
+                from translator import translate_content
+                cached = dict(translate_content(cached, lang_code, source))
+                cached['language'] = lang_code
+                days[day] = cached
+                upsert_user_insight_report(user_id, _HOROSCOPE_DAILY,
+                                           {'v': _HOROSCOPE_DAILY_VERSION, 'days': days})
+            except Exception:
+                logger.warning('[career-horoscope] daily translate %s->%s failed for user_id=%s',
+                               source, lang_code, user_id, exc_info=True)
+        return jsonify({'daily': _strip_dashes_deep(cached), 'birth': birth})
 
-    lang_code = get_user_language(user_id) or DEFAULT_LANGUAGE
     language = SUPPORTED_LANGUAGES.get(lang_code, (lang_code, lang_code))[1]
     try:
         from datetime import date
@@ -3162,6 +3162,7 @@ def _daily_horoscope_response(user_id: str, name: str, force: bool, day_raw=None
              and abs((date.fromisoformat(d) - target).days) <= 6),
             key=lambda dv: abs((date.fromisoformat(dv[0]) - target).days))
         data = _generate_daily_horoscope(user_id, name, birth, language, day, earlier)
+        data['language'] = lang_code
     except Exception:
         logger.exception('[career-horoscope] daily generation failed for user_id=%s', user_id)
         return jsonify({'error': "Could not load this day's horoscope. Please try again."}), 502
@@ -3338,7 +3339,7 @@ def career_horoscope_situation():
 
     from datetime import date
     today = date.today().isoformat()
-    lang_code = get_user_language(user_id) or DEFAULT_LANGUAGE
+    lang_code = normalize_language(get_user_language(user_id))
     language = SUPPORTED_LANGUAGES.get(lang_code, (lang_code, lang_code))[1]
     system = CAREER_SITUATION_PROMPT.replace('{{language}}', language)
 
@@ -3479,7 +3480,7 @@ def _generate_career_futures(user_id: str, name: str) -> dict | None:
     if len(convo) > _FUTURES_MAX_CHARS:
         convo = '[...earlier messages truncated]\n' + convo[-_FUTURES_MAX_CHARS:]
 
-    lang_code = get_user_language(user_id) or DEFAULT_LANGUAGE
+    lang_code = normalize_language(get_user_language(user_id))
     language = SUPPORTED_LANGUAGES.get(lang_code, (lang_code, lang_code))[1]
     system = CAREER_FUTURES_PROMPT.replace('{{language}}', language)
     user_block = (
@@ -3495,6 +3496,9 @@ def _generate_career_futures(user_id: str, name: str) -> dict | None:
     data['paths'] = _score_future_paths(data.get('paths'))
     data['messages_analyzed'] = len(messages)
     data['generated_at'] = time.time()
+    # The language it was written in, so the page can tell when the user has
+    # since switched and ask /api/translate for a copy.
+    data['language'] = lang_code
     return data
 
 
@@ -3792,6 +3796,99 @@ def my_digest_refresh():
                         'error': 'Too few messages this week to write a digest — chat with Nexa and try again.'}), 400
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+# ── Translation of generated insights ──────────────────────────────────────
+# Every personal report records the language it was written in ('language').
+# When the user has since picked another language, My Insights compares the two
+# and asks here for a translation. The translated report is saved over the
+# original (language slug included), so from then on the page shows it straight
+# from storage with no further translation. The report is loaded server-side by
+# type rather than sent by the page, so this can't be used as a general
+# translator.
+#
+# report type -> extra keys left untranslated: the user's own quoted words, and
+# the titles/authors of real works.
+_TRANSLATABLE_REPORTS = {
+    'sentiment':        ('evidence',),
+    'recurring_themes': (),
+    'growth_snapshot':  ('quote',),
+    'recommendations':  ('title', 'author'),
+    'weekly_digest':    (),
+    'tip_of_day':       ('recent_headlines',),
+    # Career Path (Career page). Numbers and the path 'type' enum pass through.
+    _CAREER_FUTURES:    ('generated_at',),
+}
+
+
+@app.route('/api/translate', methods=['POST'])
+@require_weace_token
+def translate_report():
+    """Translate one of the user's insight reports into their selected language
+    and save it in place.
+
+    Body: {"report": <type>, "language": <optional target>}. The target
+    defaults to the user's saved language. Returns the report in the same shape
+    its own GET endpoint does.
+    """
+    if not g.user:
+        return jsonify({'error': 'Session not initialised — call /session first'}), 401
+    from translator import translate_content, TranslationError
+
+    user_id = g.user['user_id']
+    body = request.get_json(silent=True) or {}
+    report_type = (body.get('report') or '').strip()
+    if report_type not in _TRANSLATABLE_REPORTS:
+        return jsonify({'error': 'Unknown report'}), 400
+    target = (body.get('language') or '').strip() or normalize_language(get_user_language(user_id))
+    if target not in SUPPORTED_LANGUAGES:
+        return jsonify({'error': 'Unsupported language'}), 400
+
+    is_sentiment = report_type == 'sentiment'
+    try:
+        # The stored content itself — for sentiment that's the insights row,
+        # not the scores/trend the GET composes around it.
+        stored = get_user_sentiment(user_id) if is_sentiment \
+            else get_user_insight_report(user_id, report_type)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    if not stored:
+        return jsonify({'error': 'Nothing to translate yet'}), 404
+
+    calculated_at = stored.pop('calculated_at', None)
+    source = stored.get('language') or DEFAULT_LANGUAGE
+    if source != target:
+        try:
+            stored = dict(translate_content(stored, target, source,
+                                            _TRANSLATABLE_REPORTS[report_type]))
+        except TranslationError as e:
+            logger.warning('[translate] user_id=%s report=%s %s->%s: %s',
+                           user_id, report_type, source, target, e)
+            return jsonify({'ok': False, 'error': 'Could not translate this right now.'}), 503
+        stored['language'] = target
+        try:
+            save = replace_user_sentiment_data if is_sentiment \
+                else (lambda u, d, c: replace_user_insight_report_data(u, report_type, d, c))
+            saved = save(user_id, stored, calculated_at)
+        except Exception:
+            logger.warning('[translate] save failed user_id=%s report=%s',
+                           user_id, report_type, exc_info=True)
+            saved = False
+        # Not saved means the report was regenerated meanwhile (or the write
+        # failed) — the translation is still returned for this view.
+        logger.info('[translate] user_id=%s report=%s %s->%s saved=%s',
+                    user_id, report_type, source, target, saved)
+
+    if is_sentiment:
+        # Rebuild the GET's shape around the (now translated) insights.
+        data = get_user_sentiment_data(user_id) or {}
+        if data.get('language') != target:
+            data = translate_content(data, target, data.get('language') or source,
+                                     _TRANSLATABLE_REPORTS[report_type])
+            data['language'] = target
+    else:
+        data = dict(stored, calculated_at=calculated_at)
+    return jsonify({'ok': True, 'translated': source != target, 'language': target, 'data': data})
 
 
 # Recommendation runs. Building a list means one web search per resource, which

@@ -2117,6 +2117,46 @@ def get_user_insight_report(user_id: str, report_type: str) -> dict | None:
         conn.close()
 
 
+def replace_user_insight_report_data(user_id: str, report_type: str, report_data: dict,
+                                     calculated_at: str) -> bool:
+    """Overwrite a stored report's content in place — used to save a translation.
+
+    Keeps calculated_at, so a translation never makes a report look fresher than
+    it is (staleness and "generated on" dates read it). Only writes if the row
+    still has the calculated_at it was read with: a report regenerated meanwhile
+    is newer than the translation and must not be overwritten. Returns whether
+    the row was written.
+    """
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            n = _execute(cur,
+                "UPDATE user_insight_reports SET report_data = %s "
+                "WHERE user_id = %s AND report_type = %s AND calculated_at = %s",
+                (json.dumps(report_data), user_id, report_type, calculated_at),
+            )
+        conn.commit()
+        return bool(n)
+    finally:
+        conn.close()
+
+
+def replace_user_sentiment_data(user_id: str, sentiment_data: dict, calculated_at: str) -> bool:
+    """Same as replace_user_insight_report_data, for the personal sentiment insights."""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            n = _execute(cur,
+                "UPDATE user_sentiment SET sentiment_data = %s "
+                "WHERE user_id = %s AND calculated_at = %s",
+                (json.dumps(sentiment_data), user_id, calculated_at),
+            )
+        conn.commit()
+        return bool(n)
+    finally:
+        conn.close()
+
+
 def upsert_user_insight_report(user_id: str, report_type: str, report_data: dict):
     conn = get_connection()
     try:
@@ -2378,6 +2418,9 @@ def get_user_sentiment_data(user_id: str, trend_limit: int = 12,
 
         result['messages_analyzed'] = insight_data.get('messages_analyzed', 0)
         result['calculated_at'] = insight_data.get('calculated_at', '')
+        # The language the insights were written in. Reports from before this
+        # was recorded were all written in English.
+        result['language'] = insight_data.get('language') or 'English'
         # Same per-dimension data as the top-level keys, just as a list — handy
         # for a caller that wants to iterate all of them without knowing the
         # dimension keys up front.

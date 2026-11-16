@@ -1,27 +1,18 @@
 // Shared top-bar behaviour — chat page and dashboard both load this.
-// Wires the tabs, language picker, Corporate Knowledge modal, user-chip
-// dropdown and the narrow-screen nav drawer. The sub-nav drop-downs are
+// Wires the tabs, Corporate Knowledge modal, user-chip dropdown (with the
+// language picker) and the narrow-screen nav drawer. The sub-nav drop-downs are
 // pure CSS (hover / focus-within). Pages hook back in via
 // window.NexaHeader.
 
-// Language picker — keep in sync with SUPPORTED_LANGUAGES in app.py
+// Language picker — keep in sync with SUPPORTED_LANGUAGES in languages.py
 const LANGUAGES = [
-    { code: 'English',    label: 'English' },
-    { code: 'Hindi',      label: 'हिन्दी (Hindi)' },
-    { code: 'Marathi',    label: 'मराठी (Marathi)' },
-    { code: 'Bengali',    label: 'বাংলা (Bengali)' },
-    { code: 'Tamil',      label: 'தமிழ் (Tamil)' },
-    { code: 'Telugu',     label: 'తెలుగు (Telugu)' },
-    { code: 'Kannada',    label: 'ಕನ್ನಡ (Kannada)' },
-    { code: 'Malayalam',  label: 'മലയാളം (Malayalam)' },
-    { code: 'Gujarati',   label: 'ગુજરાતી (Gujarati)' },
-    { code: 'Spanish',    label: 'Español (Spanish)' },
-    { code: 'French',     label: 'Français (French)' },
-    { code: 'German',     label: 'Deutsch (German)' },
-    { code: 'Portuguese', label: 'Português (Portuguese)' },
-    { code: 'Arabic',     label: 'العربية (Arabic)' },
-    { code: 'Chinese',    label: '中文 (Chinese)' },
-    { code: 'Japanese',   label: '日本語 (Japanese)' },
+    { code: 'English', label: 'English' },
+    { code: 'Hindi',   label: 'हिन्दी (Hindi)' },
+    { code: 'Arabic',  label: 'العربية (Arabic)' },
+    { code: 'Spanish', label: 'Español (Spanish)' },
+    { code: 'Tamil',   label: 'தமிழ் (Tamil)' },
+    { code: 'French',  label: 'Français (French)' },
+    { code: 'German',  label: 'Deutsch (German)' },
 ];
 
 const NexaHeader = (() => {
@@ -106,11 +97,15 @@ const NexaHeader = (() => {
         const chip = $('user-chip-wrap');
         const lang = $('language-menu-wrap');
         if (chip) chip.classList.remove('open');
-        if (lang) {
-            lang.classList.remove('open');
-            const btn = $('btn-language');
-            if (btn) btn.setAttribute('aria-expanded', 'false');
-        }
+        setLanguageOpen(false);
+    }
+
+    // The language list expands inline inside the chip dropdown.
+    function setLanguageOpen(open) {
+        const wrap = $('language-menu-wrap');
+        const btn = $('btn-language');
+        if (wrap) wrap.classList.toggle('open', open);
+        if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
     }
 
     // ── Hash-addressed sub-navs (My Insights, Career) ───────────────────────
@@ -159,8 +154,11 @@ const NexaHeader = (() => {
     }
 
     // ── Language ────────────────────────────────────────────────────────────
+    // A cached language that is no longer offered reads as English.
     function getLanguage() {
-        return localStorage.getItem('we_ace_language') || 'English';
+        let code = '';
+        try { code = localStorage.getItem('we_ace_language') || ''; } catch (_) {}
+        return LANGUAGES.some(l => l.code === code) ? code : 'English';
     }
 
     function renderLanguageMenu() {
@@ -184,22 +182,67 @@ const NexaHeader = (() => {
         });
     }
 
+    // Saves the choice to the user's profile (user_settings via /language),
+    // which is what /session reads back on every page and device. If the save
+    // fails the picker reverts, so it never shows a language that isn't stored.
+    let _savingLanguage = false;
     async function setLanguage(code) {
         const previous = getLanguage();
+        if (code === previous) { closeMenus(); return; }
+        if (_savingLanguage) return;
+        _savingLanguage = true;
         localStorage.setItem('we_ace_language', code);
         renderLanguageMenu();
-        closeMenus();
-        if (code === previous) return;
+        const menu = $('language-submenu');
+        if (menu) menu.querySelectorAll('button').forEach(b => { b.disabled = true; });
+        let saved = false;
         try {
-            await fetch('/language', {
+            const res = await fetch('/language', {
                 method: 'POST',
                 credentials: 'omit',
                 headers: authHeaders({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({ language: code }),
             });
-        } catch (err) {
-            // Preference still applies locally — it's sent with every /chat request.
+            saved = res.ok;
+        } catch (_) {}
+        _savingLanguage = false;
+        if (!saved) {
+            localStorage.setItem('we_ace_language', previous);
+            renderLanguageMenu();
+            const current = $('language-current');
+            if (current) current.textContent = window.NexaI18n ? NexaI18n.t('Couldn\u2019t save') : 'Couldn\u2019t save';
+            setTimeout(renderLanguageMenu, 2500);
+            return;
         }
+        renderLanguageMenu();
+        closeMenus();
+        window.dispatchEvent(new CustomEvent('nexa:languagechange', { detail: { language: code } }));
+    }
+
+    // Pages other than chat never call /session, so their cached copy can be
+    // stale or missing — pull the stored preference once (on first open of the
+    // chip, or up front from a page that depends on it, e.g. My Insights).
+    // Announces 'nexa:languagechange' when the stored value differs.
+    let _languageSync = null;
+    function syncLanguage() {
+        if (_languageSync) return _languageSync;
+        if (!accessToken()) return Promise.resolve(getLanguage());
+        _languageSync = (async () => {
+            try {
+                const res = await fetch('/language', { credentials: 'omit', headers: authHeaders() });
+                if (!res.ok) return getLanguage();
+                const data = await res.json();
+                const previous = getLanguage();
+                if (data.language && !_savingLanguage && data.language !== previous) {
+                    localStorage.setItem('we_ace_language', data.language);
+                    renderLanguageMenu();
+                    window.dispatchEvent(new CustomEvent('nexa:languagechange',
+                        { detail: { language: data.language } }));
+                }
+            } catch (_) {}
+            return getLanguage();
+        })();
+        return _languageSync;
     }
 
     // ── Corporate Knowledge modal ───────────────────────────────────────────
@@ -315,7 +358,7 @@ const NexaHeader = (() => {
             chipTrigger.addEventListener('click', e => {
                 e.stopPropagation();
                 const open = !chipWrap.classList.contains('open');
-                if (open) renderOrgName();
+                if (open) { renderOrgName(); syncLanguage(); }
                 closeMenus();
                 chipWrap.classList.toggle('open', open);
             });
@@ -324,10 +367,7 @@ const NexaHeader = (() => {
         if (langWrap) {
             $('btn-language').addEventListener('click', e => {
                 e.stopPropagation();
-                const open = !langWrap.classList.contains('open');
-                closeMenus();
-                langWrap.classList.toggle('open', open);
-                e.currentTarget.setAttribute('aria-expanded', open ? 'true' : 'false');
+                setLanguageOpen(!langWrap.classList.contains('open'));
             });
         }
 
@@ -344,7 +384,6 @@ const NexaHeader = (() => {
 
         document.addEventListener('click', e => {
             if (chipWrap && chipWrap.contains(e.target)) return;
-            if (langWrap && langWrap.contains(e.target)) return;
             closeMenus();
         });
         document.addEventListener('keydown', e => {
@@ -369,11 +408,8 @@ const NexaHeader = (() => {
             });
         });
 
-        // Any nav choice dismisses the drawer on narrow screens. Language is
-        // the one exception — its flyout lives inside the panel, so closing it
-        // there would hide the options being picked from.
+        // Any nav choice dismisses the drawer on narrow screens.
         document.querySelectorAll('.app-tab, .app-subtab').forEach(tab => {
-            if (tab.id === 'btn-language') return;
             tab.addEventListener('click', () => setDrawer(false));
         });
 
@@ -489,7 +525,7 @@ const NexaHeader = (() => {
         if (!allowed) btn.title = 'Access required to use Weace Coaching';
     }
 
-    return { init, applyRoles, setNexaAccess, renderLanguageMenu, getLanguage, hasRole,
+    return { init, applyRoles, setNexaAccess, renderLanguageMenu, getLanguage, syncLanguage, hasRole,
              closeMenus, openCalendarSettings, setDrawer, syncSubnav, markTabNav, applyBranding };
 })();
 

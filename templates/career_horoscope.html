@@ -633,41 +633,40 @@
         <h2 id="horo-title">Daily Horoscope</h2>
         <p id="horo-sub">Today's career outlook, read from your chart</p>
         <button type="button" class="ghost-btn" id="regenerate-btn" title="" style="display:none;">Regenerate</button>
-        <button type="button" class="ghost-btn" id="futures-refresh">Refresh Career Paths</button>
+        <button type="button" class="ghost-btn" id="futures-refresh" data-i18n>Refresh Career Paths</button>
     </div>
 
     <div class="daily-wrap" id="daily-panel">
-        <div class="card daily-week" id="daily-week" role="tablist" aria-label="Pick a day"></div>
+        <div class="card daily-week" id="daily-week" role="tablist" aria-label="Pick a day" data-i18n-aria="Pick a day"></div>
 
         <div class="card" id="daily-card">
             <div class="daily-empty" id="daily-loading">
-                <div class="spinner"></div>Reading today's stars…
+                <div class="spinner"></div><span data-i18n>Reading today's stars…</span>
             </div>
         </div>
 
         <div class="card" id="sit-card">
-            <div class="sit-title">What's likely to happen?</div>
-            <p class="sit-sub">
-                Facing a big moment at work? Tell us, and see how it's likely to play out.
-            </p>
-            <div class="sit-examples" id="sit-examples" role="group" aria-label="Example situations">
-                <span class="sit-examples-label" id="sit-examples-label">Try an example:</span>
+            <div class="sit-title" data-i18n>What's likely to happen?</div>
+            <p class="sit-sub" data-i18n>Facing a big moment at work? Tell us, and see how it's likely to play out.</p>
+            <div class="sit-examples" id="sit-examples" role="group" aria-label="Example situations" data-i18n-aria="Example situations">
+                <span class="sit-examples-label" id="sit-examples-label" data-i18n>Try an example:</span>
                 <button type="button" class="sit-example" id="sit-example-promotion"
-                    data-example="I'm up for a promotion this quarter. How is the conversation with my manager likely to go?">Promotion</button>
+                    data-example="I'm up for a promotion this quarter. How is the conversation with my manager likely to go?" data-i18n>Promotion</button>
                 <button type="button" class="sit-example" id="sit-example-interview"
-                    data-example="I have a final-round interview coming up next week. How is it likely to go?">Interview</button>
+                    data-example="I have a final-round interview coming up next week. How is it likely to go?" data-i18n>Interview</button>
                 <button type="button" class="sit-example" id="sit-example-investor-meeting"
-                    data-example="I have an important investor meeting coming up. How is it likely to go?">Investor meeting</button>
+                    data-example="I have an important investor meeting coming up. How is it likely to go?" data-i18n>Investor meeting</button>
             </div>
             <div class="field full">
                 <textarea id="sit-input" maxlength="1500"
-                    placeholder="e.g. I have a final-round interview for a product lead role next Thursday. How is it likely to go?"></textarea>
+                    placeholder="e.g. I have a final-round interview for a product lead role next Thursday. How is it likely to go?"
+                    data-i18n-placeholder="e.g. I have a final-round interview for a product lead role next Thursday. How is it likely to go?"></textarea>
             </div>
             <div class="submit-row">
                 <span class="submit-error" id="sit-error"></span>
                 <span style="display:flex;align-items:center;gap:12px;margin-left:auto;">
                     <span class="sit-count" id="sit-count">0 / 1500</span>
-                    <button type="button" class="submit-btn" id="sit-submit">Read my situation</button>
+                    <button type="button" class="submit-btn" id="sit-submit" data-i18n>Read my situation</button>
                 </span>
             </div>
             <div id="sit-pending"></div>
@@ -677,7 +676,7 @@
 
     <div class="futures-wrap" id="futures-panel" style="display:none;">
         <div class="card" id="futures-card">
-            <div class="daily-empty"><div class="spinner"></div>Developing your career paths…</div>
+            <div class="daily-empty"><div class="spinner"></div><span data-i18n>Developing your career paths…</span></div>
         </div>
         <div id="path-detail"></div>
         <div id="futures-cta"></div>
@@ -744,6 +743,9 @@
 <script src="{{ asset('header.js') }}"></script>
 <script>
     NexaHeader.init();
+
+    // Fixed UI text comes from the static dictionaries (static/i18n.js).
+    const tr = (text, vars) => NexaI18n.t(text, vars);
 
     function getAuthHeaders(extra) {
         const token = localStorage.getItem('we_ace_access_token') || '';
@@ -1173,8 +1175,8 @@
     function showTab(tab) {
         const daily = tab === 'daily', futures = tab === 'futures';
         const [headTitle, headSub] = TAB_HEADS[tab] || TAB_HEADS.daily;
-        $('horo-title').textContent = headTitle;
-        $('horo-sub').textContent = headSub;
+        $('horo-title').textContent = tr(headTitle);
+        $('horo-sub').textContent = tr(headSub);
         $('horo-page').classList.toggle('on-daily', daily);
         $('horo-page').classList.toggle('on-futures', futures);
         $('reading-panel').style.display = tab === 'reading' ? '' : 'none';
@@ -1191,7 +1193,7 @@
 
     function formatDay(iso) {
         try {
-            return new Date(iso + 'T00:00:00').toLocaleDateString(undefined,
+            return new Date(iso + 'T00:00:00').toLocaleDateString(NexaI18n.locale,
                 { weekday: 'long', day: 'numeric', month: 'long' });
         } catch (e) { return iso || ''; }
     }
@@ -1206,7 +1208,7 @@
             ${d.headline ? `<div class="daily-headline">${escHtml(d.headline)}</div>` : ''}
             ${d.guidance ? `<p class="daily-guidance">${escHtml(d.guidance)}</p>` : ''}
             <div class="daily-meta">
-                ${d.focus ? `<div class="item-card"><div class="ic-title">Today's focus</div><p>${escHtml(d.focus)}</p></div>` : ''}
+                ${d.focus ? `<div class="item-card"><div class="ic-title">${escHtml(tr("Today's focus"))}</div><p>${escHtml(d.focus)}</p></div>` : ''}
             </div>`;
         $('daily-birth-edit').addEventListener('click', openBirthForm);
         $('db-cancel').addEventListener('click', () => { $('daily-birth-form').style.display = 'none'; });
@@ -1219,32 +1221,32 @@
         return `<div class="daily-birth-form" id="daily-birth-form"${firstTime ? '' : ' style="display:none;"'}>
                 <div class="form-grid">
                     <div class="field full">
-                        <label class="field-label" for="db-place">Place of birth</label>
-                        <input type="text" id="db-place" autocomplete="off" placeholder="City, Country">
+                        <label class="field-label" for="db-place">${escHtml(tr('Place of birth'))}</label>
+                        <input type="text" id="db-place" autocomplete="off" placeholder="${escHtml(tr('City, Country'))}">
                     </div>
                     <div class="field">
-                        <label class="field-label" for="db-date">Date of birth</label>
+                        <label class="field-label" for="db-date">${escHtml(tr('Date of birth'))}</label>
                         <input type="date" id="db-date">
                     </div>
                     <div class="field">
                         <label class="field-label" for="db-time">
-                            Time of birth <span class="field-hint">(optional)</span>
+                            ${escHtml(tr('Time of birth'))} <span class="field-hint">${escHtml(tr('(optional)'))}</span>
                         </label>
                         <input type="time" id="db-time">
                     </div>
                 </div>
                 <div class="submit-row">
                     <span class="submit-error" id="db-error"></span>
-                    ${firstTime ? '' : '<button type="button" class="ghost-btn" id="db-cancel">Cancel</button>'}
-                    <button type="button" class="submit-btn" id="db-save">${firstTime ? 'See my horoscope' : 'Save'}</button>
+                    ${firstTime ? '' : `<button type="button" class="ghost-btn" id="db-cancel">${escHtml(tr('Cancel'))}</button>`}
+                    <button type="button" class="submit-btn" id="db-save">${escHtml(tr(firstTime ? 'See my horoscope' : 'Save'))}</button>
                 </div>
             </div>`;
     }
 
     function renderBirthPrompt() {
         $('daily-card').innerHTML = `
-            <div class="daily-headline">Your birth details</div>
-            <p class="daily-guidance">Tell us when and where you were born, and we'll read your daily career outlook from your chart.</p>
+            <div class="daily-headline">${escHtml(tr('Your birth details'))}</div>
+            <p class="daily-guidance">${escHtml(tr("Tell us when and where you were born, and we'll read your daily career outlook from your chart."))}</p>
             ${birthFormHtml(true)}`;
         $('db-save').addEventListener('click', saveBirth);
         $('db-place').value = birth.place_of_birth || '';
@@ -1258,22 +1260,22 @@
 
     function formatBirthDate(iso) {
         const d = new Date(iso + 'T00:00:00');
-        return isNaN(d) ? iso : d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+        return isNaN(d) ? iso : d.toLocaleDateString(NexaI18n.locale, { day: 'numeric', month: 'short', year: 'numeric' });
     }
 
     function formatBirthTime(hhmm) {
         const d = new Date('1970-01-01T' + hhmm);
-        return isNaN(d) ? hhmm : d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+        return isNaN(d) ? hhmm : d.toLocaleTimeString(NexaI18n.locale, { hour: 'numeric', minute: '2-digit' });
     }
 
     function birthSummary() {
         const items = [
             birth.birth_date && formatBirthDate(birth.birth_date),
-            birth.birth_time ? formatBirthTime(birth.birth_time) : 'Time not set',
+            birth.birth_time ? formatBirthTime(birth.birth_time) : tr('Time not set'),
             birth.place_of_birth,
         ].filter(Boolean);
         return `${items.map(t => `<span class="daily-birth-item">${escHtml(t)}</span>`).join('<span aria-hidden="true">·</span>')}
-            <button type="button" class="daily-birth-edit" id="daily-birth-edit">Edit</button>`;
+            <button type="button" class="daily-birth-edit" id="daily-birth-edit">${escHtml(tr('Edit'))}</button>`;
     }
 
     function openBirthForm() {
@@ -1292,13 +1294,13 @@
             birth_time: $('db-time').value,
         };
         if (!next.place_of_birth || !next.birth_date) {
-            $('db-error').textContent = 'Please fill in your place of birth and date of birth.';
+            $('db-error').textContent = tr('Please fill in your place of birth and date of birth.');
             return;
         }
         const btn = $('db-save');
         const label = btn.textContent;
         btn.disabled = true;
-        btn.textContent = 'Saving…';
+        btn.textContent = tr('Saving…');
         try {
             const res = await fetch('/api/career-horoscope/birth', {
                 method: 'POST',
@@ -1318,7 +1320,7 @@
             Object.keys(dailyNotes).forEach(k => delete dailyNotes[k]);
             loadDaily(false);
         } catch (e) {
-            $('db-error').textContent = e.message || 'Could not save your birth details.';
+            $('db-error').textContent = tr(e.message || 'Could not save your birth details.');
             btn.disabled = false;
             btn.textContent = label;
         }
@@ -1330,7 +1332,7 @@
         const start = new Date();
         return Array.from({ length: 7 }, (_, i) => {
             const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
-            return { iso: isoDay(d), week: d.toLocaleDateString(undefined, { weekday: 'short' }), num: d.getDate() };
+            return { iso: isoDay(d), date: d, num: d.getDate() };
         });
     })();
     let dailyDay = weekDays[0].iso;
@@ -1341,8 +1343,8 @@
         $('daily-week').innerHTML = weekDays.map((d, i) => `
             <button type="button" role="tab" class="daily-day${d.iso === dailyDay ? ' active' : ''}"
                 data-day="${d.iso}" aria-selected="${d.iso === dailyDay}"
-                aria-label="${escHtml(i === 0 ? 'Today, ' + formatDay(d.iso) : formatDay(d.iso))}">
-                <span class="dd-week">${escHtml(d.week)}</span>
+                aria-label="${escHtml(i === 0 ? tr('Today, {date}', { date: formatDay(d.iso) }) : formatDay(d.iso))}">
+                <span class="dd-week">${escHtml(d.date.toLocaleDateString(NexaI18n.locale, { weekday: 'short' }))}</span>
                 <span class="dd-num">${d.num}</span>
             </button>`).join('');
         document.querySelectorAll('#daily-week .daily-day').forEach(b =>
@@ -1353,12 +1355,12 @@
                 loadDaily(false);
             }));
     }
-    renderWeek();
+    NexaI18n.ready.then(renderWeek);
 
     function renderDailyEmpty(msg) {
         $('daily-card').innerHTML = `<div class="daily-empty">
-            <p>${escHtml(msg)}</p>
-            <button type="button" class="ghost-btn" id="daily-retry">Try again</button>
+            <p>${escHtml(tr(msg))}</p>
+            <button type="button" class="ghost-btn" id="daily-retry">${escHtml(tr('Try again'))}</button>
         </div>`;
         $('daily-retry').addEventListener('click', () => loadDaily(false));
     }
@@ -1367,7 +1369,7 @@
         const day = dailyDay;
         if (!force && dailyNotes[day]) { renderDaily(dailyNotes[day]); return; }
         const isToday = day === weekDays[0].iso;
-        $('daily-card').innerHTML = `<div class="daily-empty"><div class="spinner"></div>${isToday ? "Reading today's stars…" : `Reading the stars for ${escHtml(formatDay(day))}…`}</div>`;
+        $('daily-card').innerHTML = `<div class="daily-empty"><div class="spinner"></div>${escHtml(isToday ? tr("Reading today's stars…") : tr('Reading the stars for {date}…', { date: formatDay(day) }))}</div>`;
         const failMsg = isToday ? "Could not load today's horoscope." : "Could not load this day's horoscope.";
         try {
             const url = (force ? '/api/career-horoscope/daily/refresh' : '/api/career-horoscope/daily') + '?date=' + day;
@@ -1386,7 +1388,8 @@
             dailyNotes[day] = data.daily || {};
             renderDaily(dailyNotes[day]);
         } catch (e) {
-            if (day === dailyDay) renderDailyEmpty(failMsg + ' Please try again.');
+            if (day === dailyDay) renderDailyEmpty(isToday ? "Could not load today's horoscope. Please try again."
+                                                           : "Could not load this day's horoscope. Please try again.");
         }
     }
 
@@ -1397,22 +1400,21 @@
             <div class="subsec-body">${body}</div></section>` : '';
         let body = '';
         const paths = Array.isArray(f.paths) ? f.paths.filter(p => p && p.role) : [];
-        body += subsec('Likely paths', paths.length
+        body += subsec(tr('Likely paths'), paths.length
             ? `<div class="path-tabs" role="tablist">${paths.map((p, i) => pathTab(p, i)).join('')}</div>`
-            : `<p class="paths-stale">Refresh to see your likely paths, with how likely each one is.</p>`);
+            : `<p class="paths-stale">${escHtml(tr('Refresh to see your likely paths, with how likely each one is.'))}</p>`);
         $('futures-card').innerHTML = body;
         $('futures-cta').innerHTML = `<div class="futures-cta">
             <span class="cta-icon" aria-hidden="true"><img src="/static/nexa-avatar.png" alt=""></span>
             <div class="cta-text">
-                <h4>Have a different role in mind?</h4>
-                <p>Discuss your career options, explore new possibilities or get a personalised development plan.</p>
+                <h4>${escHtml(tr('Have a different role in mind?'))}</h4>
+                <p>${escHtml(tr('Discuss your career options, explore new possibilities or get a personalised development plan.'))}</p>
             </div>
-            <button type="button" class="submit-btn" id="futures-talk"><img class="nexa-avatar" src="/static/nexa-avatar.png" alt="">Talk to Nexa about my career <span aria-hidden="true">→</span></button>
+            <button type="button" class="submit-btn" id="futures-talk"><img class="nexa-avatar" src="/static/nexa-avatar.png" alt="">${escHtml(tr('Talk to Nexa about my career'))} <span aria-hidden="true">→</span></button>
         </div>`;
         $('path-detail').innerHTML = '';
-        $('futures-talk').addEventListener('click', () => startNexaSession('Career',
-            "I'd like to talk about my career. I may have a different role in mind from the paths in my Career Futures. " +
-            'Can you help me explore my options, and put together a personalised development plan?'));
+        $('futures-talk').addEventListener('click', () => startNexaSession(tr('Career'),
+            tr("I'd like to talk about my career. I may have a different role in mind from the paths in my Career Futures. Can you help me explore my options, and put together a personalised development plan?")));
         if (paths.length) {
             const tabs = document.querySelectorAll('#futures-card .path-tab');
             const select = i => {
@@ -1434,9 +1436,9 @@
 
     function pathTab(p, i) {
         return `<button type="button" role="tab" class="path-tab${p.type === 'risk' ? ' risk' : ''}" data-i="${i}">
-            <div class="pt-kind">${escHtml(PATH_KINDS[p.type] || '')}</div>
+            <div class="pt-kind">${escHtml(PATH_KINDS[p.type] ? tr(PATH_KINDS[p.type]) : '')}</div>
             <div class="pt-role">${escHtml(p.role)}</div>
-            <div class="pt-conf">${pct(p.likelihood)}% probability</div>
+            <div class="pt-conf">${escHtml(tr('{n}% probability', { n: pct(p.likelihood) }))}</div>
         </button>`;
     }
 
@@ -1454,16 +1456,16 @@
         const nextStep = p.next_step || missing[0] || '';
         const list = (cls, icon, items) => items.length
             ? `<ul class="pd-list ${cls}">${items.map(x => `<li>${icon}<span>${escHtml(x)}</span></li>`).join('')}</ul>`
-            : '<p class="pd-empty">Not yet evidenced.</p>';
+            : `<p class="pd-empty">${escHtml(tr('Not yet evidenced.'))}</p>`;
         return `<div class="path-detail${isRisk ? ' risk' : ''}">
             <div class="pd-head">
-                <div class="pd-ring" role="img" aria-label="Likelihood ${conf} out of 100">
+                <div class="pd-ring" role="img" aria-label="${escHtml(tr('Likelihood {n} out of 100', { n: conf }))}">
                     <svg viewBox="0 0 120 120" aria-hidden="true">
                         <circle class="track" cx="60" cy="60" r="52" fill="none" stroke-width="10"/>
                         <circle class="fill" cx="60" cy="60" r="52" fill="none" stroke-width="10" stroke-linecap="round"
                             pathLength="100" stroke-dasharray="${conf} 100"/>
                     </svg>
-                    <div class="pd-ring-num"><strong>${conf}</strong><span>of 100</span></div>
+                    <div class="pd-ring-num"><strong>${conf}</strong><span>${escHtml(tr('of 100'))}</span></div>
                 </div>
                 <div class="pd-head-text">
                     ${p.timeline ? `<div class="pd-when">${escHtml(p.timeline)}</div>` : ''}
@@ -1473,21 +1475,21 @@
             </div>
             <div class="pd-cols">
                 <div>
-                    <h4>${isRisk ? 'Why this pattern is showing' : 'What supports this path'}</h4>
+                    <h4>${escHtml(tr(isRisk ? 'Why this pattern is showing' : 'What supports this path'))}</h4>
                     ${list('ok', PD_TICK, evidence)}
                 </div>
                 <div>
-                    <h4>${isRisk ? 'What to change' : 'What to build next'}</h4>
+                    <h4>${escHtml(tr(isRisk ? 'What to change' : 'What to build next'))}</h4>
                     ${list('gap', PD_ALERT, missing)}
                 </div>
             </div>
             <div class="pd-foot">
                 ${nextStep ? `<div class="pd-next">
-                    <div class="pd-next-label">A practical next step</div>
+                    <div class="pd-next-label">${escHtml(tr('A practical next step'))}</div>
                     <p>${escHtml(nextStep)}</p>
                 </div>` : ''}
                 <div class="pd-actions">
-                    <button type="button" class="submit-btn pd-explore"><img class="nexa-avatar" src="/static/nexa-avatar.png" alt="">Plan this with Nexa</button>
+                    <button type="button" class="submit-btn pd-explore"><img class="nexa-avatar" src="/static/nexa-avatar.png" alt="">${escHtml(tr('Plan this with Nexa'))}</button>
                 </div>
             </div>
         </div>`;
@@ -1502,14 +1504,16 @@
             .map(e => typeof e === 'string' ? e : (e && e.signal) || '').filter(Boolean);
         const missing = Array.isArray(p.missing) ? p.missing : [];
         const bits = [isRisk
-            ? `My Career Futures flagged a pattern to watch: "${p.role}"${p.timeline ? ` over the next ${p.timeline}` : ''}.`
-            : `I'd like to explore a possible career path: ${p.role}${p.timeline ? `, likely in ${p.timeline}` : ''}.`];
-        if (p.summary) bits.push(`My Career Futures put it like this: "${p.summary}"`);
-        if (evidence.length) bits.push(`What points toward it: ${evidence.join(', ')}.`);
-        if (missing.length) bits.push(`${isRisk ? 'What could change it' : 'An area to strengthen'}: "${missing[0]}"`);
-        bits.push(isRisk
+            ? tr(p.timeline ? 'My Career Futures flagged a pattern to watch: "{role}" over the next {timeline}.'
+                            : 'My Career Futures flagged a pattern to watch: "{role}".', { role: p.role, timeline: p.timeline })
+            : tr(p.timeline ? "I'd like to explore a possible career path: {role}, likely in {timeline}."
+                            : "I'd like to explore a possible career path: {role}.", { role: p.role, timeline: p.timeline })];
+        if (p.summary) bits.push(tr('My Career Futures put it like this: "{summary}"', { summary: p.summary }));
+        if (evidence.length) bits.push(tr('What points toward it: {evidence}.', { evidence: evidence.join(', ') }));
+        if (missing.length) bits.push(tr(isRisk ? 'What could change it: "{item}"' : 'An area to strengthen: "{item}"', { item: missing[0] }));
+        bits.push(tr(isRisk
             ? 'Can you help me understand whether this is really happening, and what I could do to change course?'
-            : 'Can you help me think through whether this path is right for me, and what my next steps could be?');
+            : 'Can you help me think through whether this path is right for me, and what my next steps could be?'));
         startNexaSession(p.role, bits.join(' '));
     }
 
@@ -1533,14 +1537,14 @@
     function renderFuturesEmpty(msg, needsChat) {
         clearFuturesExtras();
         $('futures-card').innerHTML = `<div class="daily-empty">
-            <p>${escHtml(msg)}</p>
+            <p>${escHtml(tr(msg))}</p>
             ${needsChat
-                ? `<button type="button" class="submit-btn" id="futures-chat"><img class="nexa-avatar" src="/static/nexa-avatar.png" alt="">Talk to Nexa <span aria-hidden="true">→</span></button>`
-                : `<button type="button" class="ghost-btn" id="futures-retry">Try again</button>`}
+                ? `<button type="button" class="submit-btn" id="futures-chat"><img class="nexa-avatar" src="/static/nexa-avatar.png" alt="">${escHtml(tr('Talk to Nexa'))} <span aria-hidden="true">→</span></button>`
+                : `<button type="button" class="ghost-btn" id="futures-retry">${escHtml(tr('Try again'))}</button>`}
         </div>`;
         if (needsChat) {
-            $('futures-chat').addEventListener('click', () => startNexaSession('Career',
-                "I'd like to talk about my work and career goals, so Nexa can map out my likely career paths."));
+            $('futures-chat').addEventListener('click', () => startNexaSession(tr('Career'),
+                tr("I'd like to talk about my work and career goals, so Nexa can map out my likely career paths.")));
         } else {
             $('futures-retry').addEventListener('click', () => loadFutures(true));
         }
@@ -1548,9 +1552,33 @@
 
     $('futures-refresh').addEventListener('click', () => loadFutures(true));
 
+    // Career Path is generated in the user's language and records it
+    // ('language'; older runs are English). When the user has since picked
+    // another language, /api/translate returns — and saves — a translated copy.
+    let lastFutures = null;
+    async function translateFuturesIfNeeded() {
+        const f = lastFutures;
+        if (!f || !f.calculated_at) return;            // freshly generated: already current
+        const target = NexaHeader.getLanguage();
+        if ((f.language || 'English') === target) return;
+        try {
+            const res = await fetch('/api/translate', {
+                method: 'POST', credentials: 'omit',
+                headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+                body: JSON.stringify({ report: 'career_futures', language: target }),
+            });
+            if (!res.ok) return;
+            const payload = await res.json();
+            // Drop a reply overtaken by a reload or another language pick.
+            if (!payload.ok || lastFutures !== f || NexaHeader.getLanguage() !== target) return;
+            lastFutures = payload.data;
+            renderFutures(lastFutures);
+        } catch (_) {}
+    }
+
     async function loadFutures(force) {
         clearFuturesExtras();
-        $('futures-card').innerHTML = `<div class="daily-empty"><div class="spinner"></div>Bulding your future paths…</div>`;
+        $('futures-card').innerHTML = `<div class="daily-empty"><div class="spinner"></div>${escHtml(tr('Building your future paths…'))}</div>`;
         $('futures-refresh').disabled = true;
         try {
             const res = await fetch(force ? '/api/career-futures/refresh' : '/api/career-futures', {
@@ -1559,7 +1587,9 @@
             });
             const data = await res.json();
             if (!res.ok) { renderFuturesEmpty(data.error || 'Could not load your career futures.', res.status === 400); return; }
-            renderFutures(data.futures || {});
+            lastFutures = data.futures || {};
+            renderFutures(lastFutures);
+            translateFuturesIfNeeded();
         } catch (e) {
             renderFuturesEmpty('Could not load your career futures. Please try again.');
         } finally {
@@ -1575,7 +1605,7 @@
         const raw = r.created_at || r.date;
         if (!raw) return '';
         const d = new Date(String(raw).replace(' ', 'T'));
-        return isNaN(d) ? '' : d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+        return isNaN(d) ? '' : d.toLocaleDateString(NexaI18n.locale, { day: 'numeric', month: 'short', year: 'numeric' });
     }
 
     function sitBody(r) {
@@ -1593,7 +1623,7 @@
             ${date ? `<div class="sit-date">${escHtml(date)}</div>` : ''}
             ${latest.situation ? `<div class="sit-asked">“${escHtml(latest.situation)}”</div>` : ''}
             ${sitBody(latest)}
-            <p class="sit-disclaimer">An astrological reading of tendencies, not a certainty.</p>
+            <p class="sit-disclaimer">${escHtml(tr('An astrological reading of tendencies, not a certainty.'))}</p>
         </div>`;
     }
 
@@ -1601,10 +1631,10 @@
         const text = $('sit-input').value.trim();
         const errEl = $('sit-error');
         errEl.textContent = '';
-        if (!text) { errEl.textContent = 'Please describe the situation first.'; return; }
+        if (!text) { errEl.textContent = tr('Please describe the situation first.'); return; }
         const btn = $('sit-submit');
         btn.disabled = true;
-        btn.textContent = 'Reading…';
+        btn.textContent = tr('Reading…');
         $('sit-pending').innerHTML = `<div class="sit-result">${skeletonSec()}</div>`;
         try {
             const res = await fetch('/api/career-horoscope/situation', {
@@ -1621,11 +1651,11 @@
             updateSitCount();
             sitExamples.forEach(o => o.classList.remove('active'));
         } catch (e) {
-            errEl.textContent = e.message || 'Could not read this situation. Please try again.';
+            errEl.textContent = tr(e.message || 'Could not read this situation. Please try again.');
         } finally {
             $('sit-pending').innerHTML = '';
             btn.disabled = false;
-            btn.textContent = 'Read my situation';
+            btn.textContent = tr('Read my situation');
         }
     }
 
@@ -1634,7 +1664,7 @@
     const sitExamples = document.querySelectorAll('.sit-example');
     sitExamples.forEach(b => b.addEventListener('click', () => {
         const input = $('sit-input');
-        input.value = b.dataset.example;
+        input.value = tr(b.dataset.example);
         updateSitCount();
         sitExamples.forEach(o => o.classList.toggle('active', o === b));
         input.focus();
@@ -1652,7 +1682,26 @@
     // moves the hash while already on this page.
     const tabFromHash = () => ({ '#reading': 'reading', '#futures': 'futures' }[location.hash] || 'daily');
     window.addEventListener('hashchange', () => showTab(tabFromHash()));
-    showTab(tabFromHash());
+    // The saved language may differ from this browser's cached one; a mismatch
+    // fires nexa:i18nchange below. Wait for the static dictionary (instant when
+    // cached) so the first paint is already in the right language.
+    NexaHeader.syncLanguage();
+    NexaI18n.ready.then(() => showTab(tabFromHash()));
+    // A language switch restates the heading and redraws Career Path.
+    window.addEventListener('nexa:i18nchange', () => {
+        const tab = tabFromHash();
+        const [headTitle, headSub] = TAB_HEADS[tab] || TAB_HEADS.daily;
+        $('horo-title').textContent = tr(headTitle);
+        $('horo-sub').textContent = tr(headSub);
+        if (lastFutures) { renderFutures(lastFutures); translateFuturesIfNeeded(); }
+        // Daily Horoscope: relabel the week row and the reading shown, and
+        // drop the notes fetched so far — the server returns each one in the
+        // new language (translating a cached note once) on the next load.
+        renderWeek();
+        renderSituations();
+        Object.keys(dailyNotes).forEach(k => delete dailyNotes[k]);
+        if (dailyLoaded) loadDaily(false);
+    });
 
     // When Career Reading is first opened, pick up any run already in progress
     // — or a previously saved reading — so a reload or a return visit lands the

@@ -7,6 +7,7 @@ from database import (
     get_all_org_slugs,
     get_user_dated_messages,
     get_user_insight_report,
+    get_user_language,
     get_user_sentiment_data,
     upsert_user_insight_report,
     upsert_user_sentiment,
@@ -161,6 +162,31 @@ describe the topic plainly and gently in the language they used themselves.
 
 Always answer with the JSON object the user turn asks for, and nothing else. If some part of the material \
 does not fit the requested shape, leave that field empty rather than replying with prose."""
+
+# Personal reports are written in the user's chosen coaching language, and the
+# report records that language (its 'language' slug) so My Insights can tell
+# when the user has since switched and ask /api/translate for a copy.
+from languages import DEFAULT_LANGUAGE as DEFAULT_REPORT_LANGUAGE, normalize_language, prompt_name
+
+
+def _report_language(user_id: str) -> str:
+    """The language a new personal report is written in — the user's preference."""
+    try:
+        return normalize_language(get_user_language(user_id))
+    except Exception:
+        return DEFAULT_REPORT_LANGUAGE
+
+
+def _language_rule(language: str) -> str:
+    name = prompt_name(language)
+    return (f"LANGUAGE: write every human-readable value in {name}. Keep JSON keys, the fixed "
+            "option values the format lists (e.g. momentum, sentiment, type, trajectory, "
+            "dimension, evidence_strength), dates and URLs exactly as specified. Anything "
+            "quoted as the person's own words stays verbatim, in the language they wrote it.")
+
+
+def _personal_system(language: str) -> str:
+    return _PERSONAL_SYSTEM + "\n\n" + _language_rule(language)
 
 _ORG_PROMPT = """You are a professional psycholinguistic analyst specialising in leadership psychology. \
 Analyse the following collection of questions and messages written by organisational leaders during AI coaching sessions.
@@ -920,6 +946,7 @@ def analyze_user_sentiment(user_id: str) -> dict | None:
         print("Personal sentiment: no API key configured.")
         return None
     client, ai_provider, ai_model = cfg
+    language = _report_language(user_id)
     messages = get_user_dated_messages(user_id, limit=None)
     if len(messages) < _MIN_SELF_MESSAGES:
         return None
@@ -933,7 +960,8 @@ def analyze_user_sentiment(user_id: str) -> dict | None:
 
     raw = None
     try:
-        raw = _call_llm(prompt, client, ai_provider, ai_model, max_tokens=_SELF_MAX_TOKENS)
+        raw = _call_llm(prompt, client, ai_provider, ai_model, max_tokens=_SELF_MAX_TOKENS,
+                        system=_language_rule(language))
         result = _extract_json(raw)
     except Exception as e:
         print(f"Personal sentiment analysis failed for {user_id}: {e}")
@@ -963,6 +991,7 @@ def analyze_user_sentiment(user_id: str) -> dict | None:
     insert_user_sentiment_scores(user_id, scores, run_ts)
 
     result['messages_analyzed'] = len(messages)
+    result['language'] = language
     upsert_user_sentiment(user_id, result)
     insert_user_sentiment_history(user_id, scores, result, len(messages), run_ts)
     return result
@@ -1006,6 +1035,7 @@ def detect_recurring_themes(user_id: str) -> dict | None:
         print("Recurring themes: no API key configured.")
         return None
     client, ai_provider, ai_model = cfg
+    language = _report_language(user_id)
 
     messages = get_user_dated_messages(user_id, limit=THEMES_MSG_LIMIT)
     if len(messages) < _MIN_THEME_MESSAGES:
@@ -1017,7 +1047,7 @@ def detect_recurring_themes(user_id: str) -> dict | None:
             _THEMES_PROMPT
                 .replace('{count}', str(_THEMES_COUNT))
                 .replace('{messages}', _dated_block(messages, _THEMES_MAX_CHARS, _THEMES_MSG_CHARS)),
-            client, ai_provider, ai_model, max_tokens=1024, system=_PERSONAL_SYSTEM,
+            client, ai_provider, ai_model, max_tokens=1024, system=_personal_system(language),
         )
         result = _extract_json(raw)
     except ReportUnavailable:
@@ -1059,6 +1089,7 @@ def detect_recurring_themes(user_id: str) -> dict | None:
         'overview': str(result.get('overview', ''))[:180],
         'messages_analyzed': len(messages),
     }
+    report['language'] = language
     upsert_user_insight_report(user_id, 'recurring_themes', report)
     return report
 
@@ -1073,6 +1104,7 @@ def generate_weekly_digest(user_id: str) -> dict | None:
         print("Weekly digest: no API key configured.")
         return None
     client, ai_provider, ai_model = cfg
+    language = _report_language(user_id)
 
     messages = get_user_dated_messages(user_id, limit=200, since_days=_DIGEST_DAYS)
     if len(messages) < _MIN_DIGEST_MESSAGES:
@@ -1083,7 +1115,7 @@ def generate_weekly_digest(user_id: str) -> dict | None:
         raw = _call_llm(
             _DIGEST_PROMPT.replace('{messages}',
                                    _dated_block(messages, _DIGEST_MAX_CHARS, _DIGEST_MSG_CHARS)),
-            client, ai_provider, ai_model, max_tokens=1024, system=_PERSONAL_SYSTEM,
+            client, ai_provider, ai_model, max_tokens=1024, system=_personal_system(language),
         )
         result = _extract_json(raw)
     except ReportUnavailable:
@@ -1115,6 +1147,7 @@ def generate_weekly_digest(user_id: str) -> dict | None:
     }
     if not report['summary'] and not report['headline']:
         return None
+    report['language'] = language
     upsert_user_insight_report(user_id, 'weekly_digest', report)
     return report
 
@@ -1156,6 +1189,7 @@ def generate_growth_snapshot(user_id: str) -> dict | None:
         print("Growth snapshot: no API key configured.")
         return None
     client, ai_provider, ai_model = cfg
+    language = _report_language(user_id)
 
     messages = get_user_dated_messages(user_id, limit=_GROWTH_MSG_LIMIT)
     if len(messages) < _MIN_GROWTH_MESSAGES:
@@ -1174,7 +1208,7 @@ def generate_growth_snapshot(user_id: str) -> dict | None:
                 .replace('{sessions}', str(sessions))
                 .replace('{dimensions}', dim_block)
                 .replace('{messages}', block),
-            client, ai_provider, ai_model, max_tokens=2048, system=_PERSONAL_SYSTEM,
+            client, ai_provider, ai_model, max_tokens=2048, system=_personal_system(language),
         )
         result = _extract_json(raw)
     except ReportUnavailable:
@@ -1259,6 +1293,7 @@ def generate_growth_snapshot(user_id: str) -> dict | None:
     }
     if not any(report[k] for k in ('strengths', 'growth_areas', 'opportunities', 'patterns')):
         return None
+    report['language'] = language
     upsert_user_insight_report(user_id, 'growth_snapshot', report)
     return report
 
@@ -1328,6 +1363,7 @@ def generate_recommendations(user_id: str) -> dict | None:
         print("Recommendations: no API key configured.")
         return None
     client, ai_provider, ai_model = cfg
+    language = _report_language(user_id)
 
     block, analyzed = _recs_input(user_id)
     if not block:
@@ -1344,10 +1380,10 @@ def generate_recommendations(user_id: str) -> dict | None:
     try:
         if can_search:
             raw = _call_llm_websearch(prompt, client, ai_model, max_tokens=4096,
-                                      system=_PERSONAL_SYSTEM)
+                                      system=_personal_system(language))
         else:
             raw = _call_llm(prompt, client, ai_provider, ai_model, max_tokens=3072,
-                            system=_PERSONAL_SYSTEM)
+                            system=_personal_system(language))
         result = _extract_json(raw)
     except ReportUnavailable:
         print(f"Recommendations unavailable for {user_id}")
@@ -1401,6 +1437,7 @@ def generate_recommendations(user_id: str) -> dict | None:
         'messages_analyzed': analyzed,
         'web_searched': can_search,
     }
+    report['language'] = language
     upsert_user_insight_report(user_id, 'recommendations', report)
     return report
 
@@ -1421,6 +1458,7 @@ def generate_tips(user_id: str) -> dict | None:
         print("Tips: no API key configured.")
         return None
     client, ai_provider, ai_model = cfg
+    language = _report_language(user_id)
 
     block, analyzed = _recs_input(user_id)
     if not block:
@@ -1437,7 +1475,7 @@ def generate_tips(user_id: str) -> dict | None:
     raw = None
     try:
         raw = _call_llm(prompt, client, ai_provider, ai_model, max_tokens=700,
-                        system=_PERSONAL_SYSTEM)
+                        system=_personal_system(language))
         result = _extract_json(raw)
     except ReportUnavailable:
         print(f"Tips unavailable for {user_id}")
@@ -1462,6 +1500,7 @@ def generate_tips(user_id: str) -> dict | None:
         'recent_headlines':  [h for h in ([headline] + previous) if h][:_TIPS_HISTORY],
         'messages_analyzed': analyzed,
     }
+    report['language'] = language
     upsert_user_insight_report(user_id, 'tip_of_day', report)
     return report
 

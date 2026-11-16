@@ -337,12 +337,12 @@
 <main class="today-page" id="today-page">
     <header class="today-head" id="today-head">
         <div id="today-head-text">
-            <h1 class="greeting" id="greeting">Hello, {{ first_name }}.</h1>
-            <p class="ask-title" id="ask-title">What would you like to work through today?</p>
+            <h1 class="greeting" id="greeting"></h1>
+            <p class="ask-title" id="ask-title" data-i18n>What would you like to work through today?</p>
         </div>
         <span class="private-pill" id="private-pill">
             <svg id="private-pill-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
-            Private to you
+            <span data-i18n>Private to you</span>
         </span>
     </header>
 
@@ -354,17 +354,18 @@
         <div class="today-col today-col-main" id="today-col-main">
             <section class="day-card ask-card" id="ask-card">
                 <div class="ask-card-head" id="ask-card-head">
-                    <h2 class="ask-card-title" id="ask-card-title"><img class="nexa-avatar" id="ask-card-avatar" src="/static/nexa-avatar.png" alt="">Chat with Nexa</h2>
-                    <a class="day-card-link" id="open-chat-link" href="/">Open full chat <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
+                    <h2 class="ask-card-title" id="ask-card-title"><img class="nexa-avatar" id="ask-card-avatar" src="/static/nexa-avatar.png" alt=""><span data-i18n>Chat with Nexa</span></h2>
+                    <a class="day-card-link" id="open-chat-link" href="/"><span data-i18n>Open full chat</span> <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
                 </div>
                 <form class="ask-box" id="ask-form" autocomplete="off">
-                    <input type="text" id="ask-input" placeholder="Ask Nexa anything..." aria-label="Ask Nexa anything">
-                    <button type="button" class="icon-btn" id="ask-mic" aria-label="Speak your question" hidden>
+                    <input type="text" id="ask-input" placeholder="Ask Nexa anything..." aria-label="Ask Nexa anything"
+                           data-i18n-placeholder="Ask Nexa anything..." data-i18n-aria="Ask Nexa anything">
+                    <button type="button" class="icon-btn" id="ask-mic" aria-label="Speak your question" data-i18n-aria="Speak your question" hidden>
                         <svg id="ask-mic-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                             <rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="18" x2="12" y2="22"/>
                         </svg>
                     </button>
-                    <button type="submit" class="icon-btn send-btn" id="ask-send" aria-label="Send">
+                    <button type="submit" class="icon-btn send-btn" id="ask-send" aria-label="Send" data-i18n-aria="Send">
                         <svg id="ask-send-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
                         </svg>
@@ -401,7 +402,7 @@
                     <div class="day-card-icon" id="resource-icon">
                         <svg id="resource-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
                     </div>
-                    <div class="day-card-kicker" id="resource-kicker">Recommended for you</div>
+                    <div class="day-card-kicker" id="resource-kicker" data-i18n>Recommended for you</div>
                 </div>
                 {# Filled by loadResource(): #resource-list (#resource-item-0, …), #resource-link #}
                 <div id="resource-body">
@@ -415,7 +416,7 @@
                     <div class="day-card-icon" id="themes-teaser-icon">
                         <svg id="themes-teaser-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
                     </div>
-                    <div class="day-card-kicker" id="themes-teaser-kicker">Recurring themes</div>
+                    <div class="day-card-kicker" id="themes-teaser-kicker" data-i18n>Recurring themes</div>
                 </div>
                 {# Filled by loadThemesTeaser() #}
                 <div class="teaser-body" id="themes-teaser-body">
@@ -429,7 +430,7 @@
                     <div class="day-card-icon" id="growth-teaser-icon">
                         <svg id="growth-teaser-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
                     </div>
-                    <div class="day-card-kicker" id="growth-teaser-kicker">Growth mirror</div>
+                    <div class="day-card-kicker" id="growth-teaser-kicker" data-i18n>Growth mirror</div>
                 </div>
                 {# Filled by loadGrowthTeaser() #}
                 <div class="teaser-body" id="growth-teaser-body">
@@ -453,7 +454,7 @@
                     <div class="day-card-icon" id="career-teaser-icon">
                         <svg id="career-teaser-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
                     </div>
-                    <div class="day-card-kicker" id="career-teaser-kicker">Career path</div>
+                    <div class="day-card-kicker" id="career-teaser-kicker" data-i18n>Career path</div>
                 </div>
                 {# Filled by loadCareerTeaser() #}
                 <div class="teaser-body" id="career-teaser-body">
@@ -466,7 +467,7 @@
                     <div class="day-card-icon" id="sentiment-teaser-icon">
                         <svg id="sentiment-teaser-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
                     </div>
-                    <div class="day-card-kicker" id="sentiment-teaser-kicker">Sentiment analysis</div>
+                    <div class="day-card-kicker" id="sentiment-teaser-kicker" data-i18n>Sentiment analysis</div>
                 </div>
                 {# Filled by loadSentimentTeaser() #}
                 <div class="teaser-body" id="sentiment-teaser-body">
@@ -479,7 +480,7 @@
                posted to /api/pulse. The state shown (form or done) is decided by
                /api/pulse/today, so it opens on the loader. #}
             <section class="day-card pulse-card" id="pulse-section">
-                <h2 class="pulse-title" id="pulse-title">How is your day going?</h2>
+                <h2 class="pulse-title" id="pulse-title" data-i18n>How is your day going?</h2>
 
                 <div class="pulse-loading" id="pulse-loading">
                     <span class="shimmer t" id="pulse-skeleton"></span>
@@ -489,7 +490,8 @@
                     <div class="mood-row" id="mood-row">
                         {% for m in moods %}
                         <button type="button" class="mood-btn" id="mood-btn-{{ m.value }}" data-mood="{{ m.value }}"
-                                aria-pressed="false" aria-label="{{ m.label }}" title="{{ m.label }}">
+                                aria-pressed="false" aria-label="{{ m.label }}" title="{{ m.label }}"
+                                data-i18n-aria="{{ m.label }}" data-i18n-title="{{ m.label }}">
                             <svg class="mood-face" id="mood-face-{{ m.value }}" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                  stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
                                 <circle cx="12" cy="12" r="9"/>
@@ -501,28 +503,29 @@
                                 {% elif m.value == 4 %}<path d="M8.7 14.4c.9.9 2 1.4 3.3 1.4s2.4-.5 3.3-1.4"/>
                                 {% else %}<path d="M8.2 13.8c1 1.6 2.2 2.4 3.8 2.4s2.8-.8 3.8-2.4"/>{% endif %}
                             </svg>
-                            <span class="mood-label" id="mood-label-{{ m.value }}">{{ m.label }}</span>
+                            <span class="mood-label" id="mood-label-{{ m.value }}" data-i18n>{{ m.label }}</span>
                         </button>
                         {% endfor %}
                     </div>
 
                     <div id="pulse-note-wrap">
                         <textarea id="pulse-note" class="note-input" maxlength="{{ note_max }}"
-                                  placeholder="What's working, what isn't, what would help. Write it the way you'd say it." hidden>
+                                  placeholder="What's working, what isn't, what would help. Write it the way you'd say it."
+                                  data-i18n-placeholder="What's working, what isn't, what would help. Write it the way you'd say it." hidden>
                         </textarea>
                         <div class="note-foot" id="pulse-note-foot" hidden>
                             <span class="note-count" id="note-count" hidden>0 / {{ note_max }}</span>
                         </div>
                         <div class="pulse-submit-row" id="pulse-submit-row">
                             <span class="submit-error" id="pulse-error"></span>
-                            <button type="button" class="pulse-submit" id="pulse-submit" disabled>Send anonymously</button>
+                            <button type="button" class="pulse-submit" id="pulse-submit" disabled data-i18n>Send anonymously</button>
                         </div>
                     </div>
                 </div>
 
                 <div class="pulse-done" id="pulse-done" hidden>
                     <svg id="pulse-done-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                    <span id="pulse-done-text">Thanks. Today's note is in.</span>
+                    <span id="pulse-done-text" data-i18n>Thanks. Today's note is in.</span>
                 </div>
             </section>
             {% endif %}
@@ -540,17 +543,71 @@
         return { 'Authorization': `Bearer ${token}` };
     }
 
+    // Fixed UI text comes from the static dictionaries (static/i18n.js);
+    // dates and times follow the same language.
+    const tr = (text, vars) => NexaI18n.t(text, vars);
+    const SPEECH_LOCALES = {
+        English: 'en-US', Hindi: 'hi-IN', Arabic: 'ar-SA', Spanish: 'es-ES',
+        Tamil: 'ta-IN', French: 'fr-FR', German: 'de-DE',
+    };
+
+    // Generated report text (themes, Growth Mirror, sentiment) is stored in the
+    // language it was written in. When that isn't the user's language now,
+    // /api/translate returns — and saves — a translated copy, as My Insights does.
+    async function inLanguage(report, data) {
+        if (!data || !data.calculated_at) return data;
+        const target = NexaHeader.getLanguage();
+        if ((data.language || 'English') === target) return data;
+        try {
+            const res = await fetch('/api/translate', {
+                method: 'POST', credentials: 'omit',
+                headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+                body: JSON.stringify({ report, language: target }),
+            });
+            if (!res.ok) return data;
+            const payload = await res.json();
+            return payload.ok && payload.data ? payload.data : data;
+        } catch (_) { return data; }
+    }
+
+    // Meeting dates and times come from the server as ISO; they are formatted
+    // here so they read in the user's language.
+    function meetingStart(m) {
+        const d = m && m.start ? new Date(m.start) : null;
+        return d && !isNaN(d) ? d : null;
+    }
+    function meetingDay(m) {
+        const d = meetingStart(m);
+        if (!d) return m.day || '';
+        const startOf = x => new Date(x.getFullYear(), x.getMonth(), x.getDate());
+        const delta = Math.round((startOf(d) - startOf(new Date())) / 86400000);
+        if (delta === 0) return tr('Today');
+        if (delta === 1) return tr('Tomorrow');
+        return d.toLocaleDateString(NexaI18n.locale,
+            delta < 7 ? { weekday: 'long' } : { weekday: 'short', day: 'numeric', month: 'short' });
+    }
+    function meetingTime(m) {
+        const d = meetingStart(m);
+        if (!d) return m.time || '';
+        return m.all_day ? '' : d.toLocaleTimeString(NexaI18n.locale, { hour: 'numeric', minute: '2-digit' });
+    }
+    function meetingDate(m, opts) {
+        const d = meetingStart(m);
+        return d ? d.toLocaleDateString(NexaI18n.locale, opts) : (m.date || '');
+    }
+
     function esc(str) {
         return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;')
             .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
     // Greeting by the viewer's own clock, not the server's.
-    (function greet() {
+    const FIRST_NAME = {{ (first_name or '')|tojson }};
+    function greet() {
         const h = new Date().getHours();
-        const part = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
-        document.getElementById('greeting').textContent = `${part}, {{ first_name|e }}.`;
-    })();
+        const part = h < 12 ? 'Good morning, {name}.' : h < 17 ? 'Good afternoon, {name}.' : 'Good evening, {name}.';
+        document.getElementById('greeting').textContent = tr(part, { name: FIRST_NAME });
+    }
 
     // ── Hand-off to the chat page ──────────────────────────────────────────
     // Same mechanism as My Insights' focus sessions: park the message for this
@@ -563,7 +620,7 @@
         if (!message) return;
         try {
             sessionStorage.setItem('we_ace_focus_session', JSON.stringify({
-                label: label || 'Today', message,
+                label: label || tr('Today'), message,
             }));
         } catch (_) { /* private mode — chat opens without the message */ }
         NexaHeader.markTabNav();
@@ -590,7 +647,7 @@
             if (rec) { rec.stop(); return; }
             rec = new Recognition();
             rec.interimResults = true;
-            rec.lang = navigator.language || 'en-US';
+            rec.lang = SPEECH_LOCALES[NexaHeader.getLanguage()] || navigator.language || 'en-US';
             const base = input.value ? input.value.trim() + ' ' : '';
             rec.onresult = ev => {
                 input.value = base + Array.from(ev.results).map(r => r[0].transcript).join('');
@@ -603,9 +660,11 @@
 
     // ── Nudges + calendar ──────────────────────────────────────────────────
     function prepMeeting(m) {
-        const when = [m.day.toLowerCase(), m.time && `at ${m.time}`].filter(Boolean).join(' ');
-        askNexa(`I have "${m.title}" ${when}. Help me prepare for it: what I want out of it, ` +
-                `what might come up, and how I should handle it.`, 'Meeting prep');
+        const time = meetingTime(m);
+        const day = meetingDay(m);
+        const when = time ? tr('{day} at {time}', { day, time }) : day;
+        askNexa(tr('I have "{title}" {when}. Help me prepare for it: what I want out of it, what might come up, and how I should handle it.',
+                   { title: m.title, when }), tr('Meeting prep'));
     }
 
     // With a meeting coming up, /api/today leads with its prep nudge, which
@@ -614,6 +673,12 @@
         const wrap = document.getElementById('nudges');
         wrap.innerHTML = '';
         list.forEach((text, i) => {
+            // The meeting nudge is rebuilt here so its date reads in the user's
+            // language; the fixed nudges are dictionary entries.
+            text = meeting && i === 0
+                ? tr('Prepare for {title}, {date}', { title: meeting.title,
+                     date: meetingDate(meeting, { day: 'numeric', month: 'short' }) })
+                : tr(text);
             const b = document.createElement('button');
             b.type = 'button';
             b.id = `nudge-${i}`;
@@ -633,24 +698,27 @@
         const kicker = document.getElementById('calendar-kicker');
         const body = document.getElementById('calendar-body');
         if (!m) {
-            kicker.textContent = 'Your calendar';
+            kicker.textContent = tr('Your calendar');
             // Nothing to show is often a calendar that isn't connected (or
             // isn't the right one), so offer the way to fix that.
-            body.innerHTML = `<h3 id="calendar-title">No upcoming meetings found</h3>
-                <p id="calendar-text">Connect or update your calendar so Nexa can help you prepare for the meetings that matter.</p>
-                <button type="button" class="day-card-link" id="calendar-settings-btn">Update Calendar Settings ${ARROW}</button>`;
+            body.innerHTML = `<h3 id="calendar-title">${esc(tr('No upcoming meetings found'))}</h3>
+                <p id="calendar-text">${esc(tr('Connect or update your calendar so Nexa can help you prepare for the meetings that matter.'))}</p>
+                <button type="button" class="day-card-link" id="calendar-settings-btn">${esc(tr('Update Calendar Settings'))} ${ARROW}</button>`;
             document.getElementById('calendar-settings-btn')
                 .addEventListener('click', () => NexaHeader.openCalendarSettings());
             return;
         }
-        kicker.textContent = ['Your calendar', m.date || m.day, m.time].filter(Boolean).join(' · ');
+        kicker.textContent = [tr('Your calendar'),
+            meetingDate(m, { weekday: 'long', day: 'numeric', month: 'short' }), meetingTime(m)]
+            .filter(Boolean).join(' · ');
         const names = (m.attendees || []).slice(0, 2);
         const who = names.length
-            ? `With ${names.join(', ')}${m.attendee_count > names.length ? ' and others' : ''}`
-            : 'Prepare for the conversation before you go in.';
+            ? tr(m.attendee_count > names.length ? 'With {names} and others' : 'With {names}',
+                 { names: names.join(', ') })
+            : tr('Prepare for the conversation before you go in.');
         body.innerHTML = `<h3 id="calendar-title">${esc(m.title)}</h3>
             <p id="calendar-text">${esc(who)}</p>
-            <button type="button" class="day-card-link" id="prep-btn"><img class="nexa-avatar" id="prep-btn-avatar" src="/static/nexa-avatar.png" alt="">Prepare with Nexa ${ARROW}</button>`;
+            <button type="button" class="day-card-link" id="prep-btn"><img class="nexa-avatar" id="prep-btn-avatar" src="/static/nexa-avatar.png" alt="">${esc(tr('Prepare with Nexa'))} ${ARROW}</button>`;
         document.getElementById('prep-btn').addEventListener('click', () => prepMeeting(m));
     }
 
@@ -674,13 +742,13 @@
         if (card.hidden) return;
         const body = document.getElementById('reading-body');
         const link = document.getElementById('reading-link');
-        const today = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
-        document.getElementById('reading-kicker').textContent = `Daily horoscope · ${today}`;
+        const today = new Date().toLocaleDateString(NexaI18n.locale, { weekday: 'long', day: 'numeric', month: 'long' });
+        document.getElementById('reading-kicker').textContent = tr('Daily horoscope') + ' · ' + today;
         const fill = (title, text, href, linkText) => {
             body.innerHTML = `<h3 id="reading-title">${esc(title)}</h3>
                 <p id="reading-text">${esc(text)}</p>`;
             link.href = href;
-            link.innerHTML = `${esc(linkText)} ${ARROW}`;
+            link.innerHTML = `${esc(tr(linkText))} ${ARROW}`;
             link.hidden = false;
         };
         try {
@@ -689,17 +757,17 @@
             const data = await res.json();
             if (res.status === 400) {
                 // No birth details on file yet — the first career reading collects them.
-                fill('Your daily reading is waiting',
-                     'Add your birth details once and Nexa will have a fresh career reading for you every day.',
+                fill(tr('Your daily reading is waiting'),
+                     tr('Add your birth details once and Nexa will have a fresh career reading for you every day.'),
                      '/career-horoscope#reading', 'Set up career reading');
                 return;
             }
             if (!res.ok || !data.daily) throw new Error(data.error || 'unavailable');
             const d = data.daily;
-            fill(d.headline || "Today's career outlook", d.guidance || d.focus || '',
+            fill(d.headline || tr("Today's career outlook"), d.guidance || d.focus || '',
                  '/career-horoscope#daily', 'Open daily horoscope');
         } catch (_) {
-            fill("Today's reading isn't ready", "We couldn't load it just now.",
+            fill(tr("Today's reading isn't ready"), tr("We couldn't load it just now."),
                  '/career-horoscope#daily', 'Open daily horoscope');
         }
     }
@@ -713,8 +781,8 @@
     async function loadResource() {
         const body = document.getElementById('resource-body');
         const empty = (text) => {
-            body.innerHTML = `<p class="teaser-empty" id="resource-empty">${esc(text)}</p>
-                <a class="day-card-link" id="resource-link" href="/my-insights#recs">Open Resources ${ARROW}</a>`;
+            body.innerHTML = `<p class="teaser-empty" id="resource-empty">${esc(tr(text))}</p>
+                <a class="day-card-link" id="resource-link" href="/my-insights#recs">${esc(tr('Open Resources'))} ${ARROW}</a>`;
         };
         try {
             const res = await fetch('/api/my-recommendations', { headers: authHeaders(), credentials: 'omit' });
@@ -726,14 +794,13 @@
                 return;
             }
             const items = pickRandom(list, REC_MAX).map((r, i) => {
-                const text = r.description || (r.author ? `By ${r.author}` : '');
-                return `<a class="teaser-item blue-item resource-item" id="resource-item-${i}" href="${esc(r.url)}" target="_blank" rel="noopener noreferrer">
-                    <div class="teaser-tag">${esc(REC_LABELS[r.type] || 'Resource')}</div>
+                    return `<a class="teaser-item blue-item resource-item" id="resource-item-${i}" href="${esc(r.url)}" target="_blank" rel="noopener noreferrer">
+                    <div class="teaser-tag">${esc(tr(REC_LABELS[r.type] || 'Resource'))}</div>
                     <div class="teaser-label">${esc(r.title)}</div>
                 </a>`;
             });
             body.innerHTML = `<div class="teaser-list resource-list" id="resource-list">${items.join('')}</div>
-                <a class="day-card-link" id="resource-link" href="/my-insights#recs">See all resources ${ARROW}</a>`;
+                <a class="day-card-link" id="resource-link" href="/my-insights#recs">${esc(tr('See all resources'))} ${ARROW}</a>`;
         } catch (_) {
             empty("We couldn't load your recommendations just now.");
         }
@@ -753,13 +820,13 @@
 
     function teaserHtml(key, items, href, linkText, extra = '') {
         return `<div class="teaser-list" id="${key}-teaser-list" style="display: block;">${items.join('')}</div>${extra}
-            <a class="day-card-link" id="${key}-teaser-link" href="${href}">${esc(linkText)} ${ARROW}</a>`;
+            <a class="day-card-link" id="${key}-teaser-link" href="${href}">${esc(tr(linkText))} ${ARROW}</a>`;
     }
 
     function teaserEmpty(key, text, href, linkText) {
         document.getElementById(`${key}-teaser-body`).innerHTML =
-            `<p class="teaser-empty" id="${key}-teaser-empty">${esc(text)}</p>
-            <a class="day-card-link" id="${key}-teaser-link" href="${href}">${esc(linkText)} ${ARROW}</a>`;
+            `<p class="teaser-empty" id="${key}-teaser-empty">${esc(tr(text))}</p>
+            <a class="day-card-link" id="${key}-teaser-link" href="${href}">${esc(tr(linkText))} ${ARROW}</a>`;
     }
 
     // Same bands, colours and 0-10 display as the full Sentiment Analysis
@@ -775,7 +842,7 @@
         try {
             const res = await fetch('/api/my-sentiment', { headers: authHeaders(), credentials: 'omit' });
             if (res.status === 401) { window.location.href = '/'; return; }
-            const data = await res.json();
+            const data = res.ok ? await inLanguage('sentiment', await res.json()) : await res.json();
             const list = (data.sentiments || []).filter(d => d.title && typeof d.score === 'number');
             if (!res.ok || !list.length) {
                 teaserEmpty('sentiment', 'Talk with Nexa a few more times and your sentiment picture will start to show here.',
@@ -787,7 +854,7 @@
                 const color = sentimentBandColor(score);
                 return `<div class="teaser-item" id="sentiment-teaser-item-${i}">
                     <div class="teaser-row">
-                        <div class="teaser-label">${esc(d.title)}</div>
+                        <div class="teaser-label">${esc(tr(d.title))}</div>
                         <span class="teaser-score" style="color:${color}">${(Math.round(score) / 10).toFixed(1)}</span>
                     </div>
                     <div class="teaser-bar"><span style="width:${score}%; background:${color}"></span></div>
@@ -807,7 +874,7 @@
         try {
             const res = await fetch('/api/my-themes', { headers: authHeaders(), credentials: 'omit' });
             if (res.status === 401) { window.location.href = '/'; return; }
-            const data = await res.json();
+            const data = res.ok ? await inLanguage('recurring_themes', await res.json()) : await res.json();
             const themes = (data.themes || []).filter(t => t && t.label).slice(0, 2);
             if (!res.ok || !themes.length) {
                 teaserEmpty('themes', (data && data.overview) ||
@@ -822,7 +889,7 @@
                 </div>`);
             document.getElementById('themes-teaser-body').innerHTML =
                 `<div class="teaser-list themes-list" id="themes-teaser-list">${items.join('')}</div>
-                <a class="day-card-link" id="themes-teaser-link" href="${href}">See your recurring themes ${ARROW}</a>`;
+                <a class="day-card-link" id="themes-teaser-link" href="${href}">${esc(tr('See your recurring themes'))} ${ARROW}</a>`;
         } catch (_) {
             teaserEmpty('themes', "We couldn't load your recurring themes just now.", href, 'Open Recurring Themes');
         }
@@ -838,7 +905,7 @@
         try {
             const res = await fetch('/api/my-growth', { headers: authHeaders(), credentials: 'omit' });
             if (res.status === 401) { window.location.href = '/'; return; }
-            const data = await res.json();
+            const data = res.ok ? await inLanguage('growth_snapshot', await res.json()) : await res.json();
             const list = GROWTH_KINDS.flatMap(([key, tag]) =>
                 (data[key] || []).filter(it => it && it.label).map(it => ({ ...it, tag })));
             if (!res.ok || !list.length) {
@@ -848,7 +915,7 @@
             }
             const items = pickRandom(list, 1).map((it, i) => `
                 <div class="teaser-item" id="growth-teaser-item-${i}">
-                    <div class="teaser-tag">${esc(it.tag)}</div>
+                    <div class="teaser-tag">${esc(tr(it.tag))}</div>
                     <div class="teaser-label">${esc(it.label)}</div>
                     ${it.summary ? `<div class="teaser-text">${esc(it.summary)}</div>` : ''}
                 </div>`);
@@ -888,7 +955,7 @@
                 </div>`;
             });
             const more = paths.length > top.length
-                ? `<p class="teaser-empty" id="career-teaser-more">+${paths.length - top.length} more path${paths.length - top.length > 1 ? 's' : ''} to explore</p>` : '';
+                ? `<p class="teaser-empty" id="career-teaser-more">${esc(tr(paths.length - top.length > 1 ? '+{n} more paths to explore' : '+{n} more path to explore', { n: paths.length - top.length }))}</p>` : '';
             document.getElementById('career-teaser-body').innerHTML =
                 teaserHtml('career', items, href, 'Explore your career paths', more);
         } catch (_) {
@@ -917,7 +984,7 @@
         }
         function syncSubmit() {
             els.submit.disabled = sending || mood === null || els.note.value.length > NOTE_MAX;
-            els.submit.textContent = sending ? 'Sending…' : 'Send anonymously';
+            els.submit.textContent = tr(sending ? 'Sending…' : 'Send anonymously');
         }
 
         section.querySelectorAll('.mood-btn').forEach(btn => {
@@ -955,10 +1022,10 @@
                     els.note.value = '';   // nothing of the note stays on the page
                     show('done');
                 } else {
-                    els.error.textContent = data.error || 'Could not send that. Try again.';
+                    els.error.textContent = tr(data.error || 'Could not send that. Try again.');
                 }
             } catch (_) {
-                els.error.textContent = 'Network trouble. Try again in a moment.';
+                els.error.textContent = tr('Network trouble. Try again in a moment.');
             } finally {
                 sending = false; syncSubmit();
             }
@@ -976,15 +1043,26 @@
         })();
     }
 
+    function loadAll() {
+        greet();
+        loadToday();
+        loadReading();
+        loadResource();
+        loadThemesTeaser();
+        loadSentimentTeaser();
+        loadGrowthTeaser();
+        loadCareerTeaser();
+    }
+
     NexaHeader.init();
+    // The saved language may differ from this browser's cached one (only the
+    // chat page calls /session); a mismatch fires nexa:i18nchange below.
+    NexaHeader.syncLanguage();
     initPulse();
-    loadToday();
-    loadReading();
-    loadResource();
-    loadThemesTeaser();
-    loadSentimentTeaser();
-    loadGrowthTeaser();
-    loadCareerTeaser();
+    // Wait for the static dictionary (instant when cached) so nothing is drawn
+    // in English first; on a language switch, redraw every card in the new one.
+    NexaI18n.ready.then(loadAll);
+    window.addEventListener('nexa:i18nchange', loadAll);
 })();
 </script>
 </body>
