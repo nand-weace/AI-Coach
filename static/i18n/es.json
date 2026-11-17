@@ -411,5 +411,22 @@
  "Generate your career horoscope first so we know your birth details.": "Crea primero tu horóscopo profesional para que conozcamos tus datos de nacimiento.",
  "The horoscope service is not available right now.": "El servicio de horóscopo no está disponible ahora mismo.",
  "Please describe the situation you want to know about.": "Describe la situación sobre la que quieres saber.",
- "Career is part of Nexa Pro. Talk to WeAce about upgrading your organisation.": "Carrera forma parte de Nexa Pro. Habla con WeAce para mejorar el plan de tu organización."
+ "Career is part of Nexa Pro. Talk to WeAce about upgrading your organisation.": "Carrera forma parte de Nexa Pro. Habla con WeAce para mejorar el plan de tu organización.",
+ "Day off": "Día libre",
+ "{m}m": "{m} min",
+ "{h}h {m}m": "{h} h {m} min",
+ "{h}h": "{h} h",
+ "longest free block {d}": "bloque libre más largo {d}",
+ "no real focus time": "sin tiempo real de concentración",
+ "{n} back-to-back": "{n} reunión seguida",
+ "{n} back-to-backs": "{n} reuniones seguidas",
+ "No meetings today — room for deep work.": "Sin reuniones hoy: espacio para trabajo profundo.",
+ "Free": "Libre",
+ "Slightly busy": "Algo ocupado",
+ "Very busy": "Muy ocupado",
+ "Over busy": "Sobrecargado",
+ "busy": "ocupado",
+ "{busy} busy of {total}": "{busy} ocupadas de {total}",
+ "This week: {pct} busy": "Esta semana: {pct} ocupado",
+ "busiest on {day} ({pct})": "más ocupado el {day} ({pct})"
 }

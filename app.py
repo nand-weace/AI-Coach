@@ -2617,11 +2617,12 @@ _TODAY_DEFAULT_NUDGES = [
 
 
 def _today_meeting(summary: dict | None) -> dict | None:
-    """The meeting worth preparing for: the next important one, else simply
-    the next one still to come today or this week."""
+    """The meeting worth preparing for: the important one today or tomorrow,
+    else the next important one later on, else simply the next one to come."""
     if not summary:
         return None
-    ev = summary.get('next_important') or next(iter(summary.get('upcoming') or []), None)
+    important = summary.get('soon_important') or summary.get('next_important')
+    ev = important or next(iter(summary.get('upcoming') or []), None)
     if not ev:
         return None
     now = summary['now']
@@ -2638,7 +2639,20 @@ def _today_meeting(summary: dict | None) -> dict | None:
         'all_day': ev['all_day'],
         'attendee_count': ev['attendee_count'],
         'attendees': ev['attendees'][:4],
-        'important': ev is summary.get('next_important'),
+        'important': ev is important,
+    }
+
+
+def _today_busy(summary: dict | None) -> dict | None:
+    """Today's and this week's busy percentage — busy hours ÷ working hours (see
+    calendar_context.busy_score). None when there's no calendar; today's part
+    is None on a day off."""
+    if not summary:
+        return None
+    week = summary.get('week_busy')
+    return {
+        'today': summary.get('today_busy'),
+        'week': dict(week, busiest_day=week['busiest_day'].isoformat()) if week else None,
     }
 
 
@@ -2651,8 +2665,11 @@ def api_today():
     if not g.user:
         return jsonify({'error': 'Session not initialised — call /session first'}), 401
     user_id = g.user['user_id']
+    busy = None
     try:
-        meeting = _today_meeting(_get_calendar_cached(user_id, g.access_token))
+        summary = _get_calendar_cached(user_id, g.access_token)
+        meeting = _today_meeting(summary)
+        busy = _today_busy(summary)
     except Exception:
         logger.warning('[today] calendar unavailable for user_id=%s', user_id, exc_info=True)
         meeting = None
@@ -2661,7 +2678,7 @@ def api_today():
     if meeting:
         nudges.append(f'Prepare for {meeting["title"]}, {meeting["short_date"]}')
     nudges += _TODAY_DEFAULT_NUDGES
-    return jsonify({'meeting': meeting, 'nudges': nudges[:4]})
+    return jsonify({'meeting': meeting, 'busy': busy, 'nudges': nudges[:4]})
 
 
 # Birth details are remembered per user, separate from any single reading, so

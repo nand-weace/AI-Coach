@@ -200,6 +200,27 @@
         .calendar-feature .day-card-link:hover { background: var(--icon-bg); text-decoration: none; }
         .calendar-feature .shimmer { background: rgba(255, 255, 255, 0.25); animation: none; }
 
+        /* Busy score: a meter under the meeting, on the accent card */
+        .busy {
+            display: flex; align-items: center; gap: 14px;
+            margin-top: 16px; padding-top: 14px; border-top: 1px solid rgba(255, 255, 255, 0.22);
+        }
+        .busy[hidden] { display: none; }
+        .busy-bee { flex: none; width: 64px; height: 64px; }
+        .busy-main { flex: 1; min-width: 0; }
+        .busy-kicker { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255, 255, 255, 0.85); }
+        .busy-score { margin-top: 2px; font-size: 20px; font-weight: 600; color: #fff; font-variant-numeric: tabular-nums; }
+        .busy-score small { font-size: 12px; font-weight: 400; color: rgba(255, 255, 255, 0.75); }
+        .busy-label {
+            display: inline-block; margin-left: 8px; padding: 2px 8px; border-radius: 999px;
+            font-size: 11px; font-weight: 500; vertical-align: 3px;
+            background: rgba(255, 255, 255, 0.18); color: #fff;
+        }
+        .busy-score > .busy-label:first-child { margin-left: 0; }
+        .busy-bar { margin-top: 8px; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.22); overflow: hidden; }
+        .busy-bar span { display: block; height: 100%; border-radius: 3px; background: #fff; transition: width 0.4s ease; }
+        .calendar-feature p.busy-detail { margin-top: 8px; font-size: 12.5px; -webkit-line-clamp: 2; }
+
         /* ── Daily Horoscope: one compact row under the ask box ── */
         .horoscope-card { display: flex; align-items: flex-start; gap: 14px; }
         .horoscope-main { flex: 1; min-width: 0; }
@@ -446,6 +467,8 @@
                 <div id="calendar-body">
                     <span class="shimmer h" id="calendar-skeleton-title"></span><span class="shimmer t" id="calendar-skeleton-line"></span>
                 </div>
+                {# Filled by renderBusy(): today's busy score from the calendar #}
+                <div class="busy" id="calendar-busy" hidden></div>
             </article>
 
             {# Career Path ships with Nexa Pro, like the reading card. #}
@@ -722,6 +745,76 @@
         document.getElementById('prep-btn').addEventListener('click', () => prepMeeting(m));
     }
 
+    // ── Busy Bee Index ─────────────────────────────────────────────────────
+    // Busy % = busy hours ÷ working hours (9h). The bee shows the band:
+    // 0–25 free, 25–50 slightly busy, 50–75 very busy, 75+ over busy.
+    const BEES = {
+        'free':          { src: "{{ asset('nexa-bee-free.svg') }}",          label: 'Free' },
+        'slightly-busy': { src: "{{ asset('nexa-bee-slightly-busy.svg') }}", label: 'Slightly busy' },
+        'very-busy':     { src: "{{ asset('nexa-bee-very-busy.svg') }}",     label: 'Very busy' },
+        'over-busy':     { src: "{{ asset('nexa-bee-over-busy.svg') }}",     label: 'Over busy' },
+    };
+
+    function fmtDuration(min) {
+        const h = Math.floor(min / 60), m = min % 60;
+        if (!h) return tr('{m}m', { m });
+        return m ? tr('{h}h {m}m', { h, m }) : tr('{h}h', { h });
+    }
+
+    // 5.5 -> "5.5h", 9 -> "9h", in the user's number format.
+    function fmtHours(h) {
+        return tr('{h}h', { h: Number(h).toLocaleString(NexaI18n.locale, { maximumFractionDigits: 1 }) });
+    }
+
+    function fmtPct(p) {
+        return (p / 100).toLocaleString(NexaI18n.locale, { style: 'percent', maximumFractionDigits: 0 });
+    }
+
+    function renderBusy(busy) {
+        const el = document.getElementById('calendar-busy');
+        const day = busy && busy.today;
+        const week = busy && busy.week;
+        if (!day && !week) { el.hidden = true; el.innerHTML = ''; return; }
+
+        // On a day off the bee is free; the label says why.
+        const bee = BEES[day ? day.label : 'free'] || BEES.free;
+        const beeLabel = day ? tr(bee.label) : tr('Day off');
+        let main = `<span class="busy-kicker">${esc(tr('Busy Bee Index'))}</span>`;
+        if (day) {
+            const details = [tr('{busy} busy of {total}',
+                                { busy: fmtHours(day.busy_hours), total: fmtHours(day.total_hours) })];
+            if (day.meeting_count) {
+                details.push(day.longest_free_min >= 30
+                    ? tr('longest free block {d}', { d: fmtDuration(day.longest_free_min) })
+                    : tr('no real focus time'));
+                if (day.back_to_back_count) {
+                    details.push(tr(day.back_to_back_count === 1 ? '{n} back-to-back' : '{n} back-to-backs',
+                                    { n: day.back_to_back_count }));
+                }
+            } else if (!day.busy_hours) {
+                details.splice(0, 1, tr('No meetings today — room for deep work.'));
+            }
+            main += `<div class="busy-score">${esc(fmtPct(day.busy_pct))}<small> ${esc(tr('busy'))}</small><span class="busy-label">${esc(beeLabel)}</span></div>
+                <div class="busy-bar" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.min(100, day.busy_pct)}"
+                     aria-label="${esc(tr('Busy Bee Index'))}"><span style="width:${Math.max(2, Math.min(100, day.busy_pct))}%"></span></div>
+                <p class="busy-detail">${esc(details.join(' · '))}</p>`;
+        } else {
+            main += `<div class="busy-score"><span class="busy-label">${esc(beeLabel)}</span></div>`;
+        }
+        if (week) {
+            const busiest = new Date(week.busiest_day + 'T00:00:00')
+                .toLocaleDateString(NexaI18n.locale, { weekday: 'long' });
+            const weekText = tr('This week: {pct} busy', { pct: fmtPct(week.busy_pct) });
+            // Flag the busiest day when it's very busy or worse and busier than today.
+            const peakText = week.busiest_pct >= 50 && (!day || week.busiest_pct > day.busy_pct)
+                ? ' · ' + tr('busiest on {day} ({pct})', { day: busiest, pct: fmtPct(week.busiest_pct) }) : '';
+            main += `<p class="busy-detail">${esc(weekText + peakText)}</p>`;
+        }
+        el.innerHTML = `<img class="busy-bee" src="${bee.src}" alt="${esc(beeLabel)}" width="64" height="64">
+            <div class="busy-main">${main}</div>`;
+        el.hidden = false;
+    }
+
     async function loadToday() {
         try {
             const res = await fetch('/api/today', { headers: authHeaders(), credentials: 'omit' });
@@ -729,6 +822,7 @@
             const data = await res.json();
             renderNudges(data.nudges || [], data.meeting);
             renderMeeting(data.meeting);
+            renderBusy(data.busy);
         } catch (_) {
             renderNudges(['Difficult conversation with a stakeholder', 'Give feedback to my team',
                           'Think through a career move']);

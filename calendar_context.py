@@ -303,6 +303,149 @@ def _load_label(day_hours: float, day_count: int) -> str:
     return 'light'
 
 
+# --- free time -----------------------------------------------------------------
+#
+# How busy the day is: busy hours ÷ the working day's hours (9 by default),
+# as a percentage — 0–25 free, 25–50 slightly busy, 50–75 very busy, 75+ over
+# busy. Any timed event (meetings and holds like focus time or lunch) counts;
+# overlapping events are merged first so a double-booking isn't counted twice. Calendar-only, so it measures meeting
+# load, not total workload.
+
+WORK_START = int(os.getenv('CALENDAR_WORK_START', '9'))   # hour, local
+WORK_END = int(os.getenv('CALENDAR_WORK_END', '18'))
+_B2B_GAP_MIN = 10
+
+_HOLD_TERMS = (
+    'focus time', 'focus block', 'blocked', 'hold', 'lunch', 'commute', 'gym',
+    'no meeting', 'dnd', 'do not disturb', 'busy',
+)
+_OFF_TERMS = ('ooo', 'out of office', 'on leave', 'leave', 'holiday', 'vacation', 'pto')
+
+
+def _is_hold(ev: dict) -> bool:
+    t = ev['title'].lower()
+    return any(term in t for term in _HOLD_TERMS)
+
+
+def _is_day_off(events: list) -> bool:
+    """An all-day out-of-office / leave / holiday event means the day isn't a
+    working day, which is different from a clear one."""
+    return any(e['all_day'] and any(term in e['title'].lower() for term in _OFF_TERMS)
+               for e in events)
+
+
+def _merge(intervals: list) -> list:
+    merged = []
+    for s, e in sorted(intervals):
+        if merged and s <= merged[-1][1]:
+            merged[-1][1] = max(merged[-1][1], e)
+        else:
+            merged.append([s, e])
+    return merged
+
+
+def _minutes(a: datetime, b: datetime) -> float:
+    return max(0.0, (b - a).total_seconds() / 60)
+
+
+def busy_label(busy_pct: float) -> str:
+    """The bee for a busy percentage (static/nexa-bee-<label>.svg)."""
+    if busy_pct >= 75:
+        return 'over-busy'
+    if busy_pct >= 50:
+        return 'very-busy'
+    if busy_pct >= 25:
+        return 'slightly-busy'
+    return 'available'
+
+
+def _busy_pct(busy_min: float, total_min: float) -> int:
+    # Busy time over the working day's length. Not capped: meetings outside
+    # the window count too, so a long day can go past 100%.
+    return round(100 * busy_min / total_min) if total_min else 0
+
+
+def busy_score(day_events: list, day: date, tz) -> dict | None:
+    """Free hours out of working hours for one day. None on a day off."""
+    if _is_day_off(day_events):
+        return None
+    ws = datetime(day.year, day.month, day.day, WORK_START, tzinfo=tz)
+    we = datetime(day.year, day.month, day.day, WORK_END, tzinfo=tz)
+    total_min = _minutes(ws, we)
+
+    timed = [e for e in day_events if not e['all_day']]
+    meetings = [e for e in timed if not _is_hold(e)]
+    meeting_min = sum(_minutes(s, e) for s, e in _merge([(e['start'], e['end']) for e in meetings]))
+
+    # Free stretches inside the working window, around every timed event.
+    gaps, cursor = [], ws
+    for s, e in _merge([(e['start'], e['end']) for e in timed]):
+        s, e = max(s, ws), min(e, we)
+        if e <= cursor:
+            continue
+        if s > cursor:
+            gaps.append(_minutes(cursor, s))
+        cursor = max(cursor, e)
+    if cursor < we:
+        gaps.append(_minutes(cursor, we))
+    free_min = sum(gaps)
+    # Every timed event counts, inside the window or not (an evening call is
+    # still a busy hour).
+    busy_min = sum(_minutes(s, e) for s, e in _merge([(e['start'], e['end']) for e in timed]))
+    busy_pct = _busy_pct(busy_min, total_min)
+
+    # Back-to-backs between individual meetings (merging would fuse them into
+    # one block). An overlap is a clash, not a transition.
+    b2b_count, running_end = 0, None
+    for e in sorted(meetings, key=lambda e: e['start']):
+        if running_end is not None and running_end <= e['start'] \
+                and _minutes(running_end, e['start']) < _B2B_GAP_MIN:
+            b2b_count += 1
+        running_end = e['end'] if running_end is None else max(running_end, e['end'])
+
+    return {
+        'busy_pct': busy_pct,
+        'busy_hours': round(busy_min / 60, 1),
+        'free_hours': round(free_min / 60, 1),
+        'total_hours': round(total_min / 60, 1),
+        'label': busy_label(busy_pct),
+        'meeting_count': len(meetings),
+        'meeting_hours': round(meeting_min / 60, 1),
+        'longest_free_min': int(max(gaps, default=0.0)),
+        'back_to_back_count': b2b_count,
+    }
+
+
+def week_busy_score(events: list, today: date, tz, days: int = 7) -> dict | None:
+    """Busy hours over working hours, summed across the working days from
+    today on (days off and empty weekends skipped)."""
+    by_day: dict = {}
+    for e in events:
+        by_day.setdefault(e['start'].date(), []).append(e)
+    scored = []
+    for i in range(days):
+        d = today + timedelta(days=i)
+        if d.weekday() >= 5 and d not in by_day:
+            continue  # an empty weekend isn't a free working day
+        s = busy_score(by_day.get(d, []), d, tz)
+        if s is not None:
+            scored.append((d, s))
+    if not scored:
+        return None
+    busy = sum(s['busy_hours'] for _, s in scored)
+    total = sum(s['total_hours'] for _, s in scored)
+    pct = _busy_pct(busy, total)
+    busiest_day, busiest = max(scored, key=lambda ds: ds[1]['busy_pct'])
+    return {
+        'busy_pct': pct,
+        'busy_hours': round(busy, 1),
+        'total_hours': round(total, 1),
+        'label': busy_label(pct),
+        'busiest_day': busiest_day,
+        'busiest_pct': busiest['busy_pct'],
+    }
+
+
 def summarise(events: list, now: datetime | None = None) -> dict | None:
     """The calendar reduced to what the opener needs. None when there's nothing."""
     if not events:
@@ -335,6 +478,9 @@ def summarise(events: list, now: datetime | None = None) -> dict | None:
         return scored[0][1]
 
     next_important = pick(upcoming)
+    # The important meeting that's imminent — today or tomorrow — which beats a
+    # higher-scoring one later in the week when deciding what to prepare for.
+    soon_important = pick([e for e in upcoming if e['start'].date() <= today + timedelta(days=1)])
     recent_important = pick(past, reverse=True)
 
     day_hours = _hours(todays)
@@ -347,6 +493,8 @@ def summarise(events: list, now: datetime | None = None) -> dict | None:
         'today_remaining': len(remaining_today),
         'today_load': _load_label(day_hours, len(todays)),
         'today_events': todays,
+        'today_busy': busy_score(todays, today, tz),
+        'week_busy': week_busy_score(events, today, tz),
         'week_count': len(week_ahead),
         'week_hours': week_hours,
         # Averaged over a working week so a single stacked day doesn't read as
@@ -355,6 +503,7 @@ def summarise(events: list, now: datetime | None = None) -> dict | None:
         'busiest_day': busiest[0] if busiest else None,
         'busiest_day_hours': _hours(busiest[1]) if busiest else 0,
         'next_important': next_important,
+        'soon_important': soon_important,
         'recent_important': recent_important,
         'upcoming': upcoming[:12],
         'past': past[-8:],

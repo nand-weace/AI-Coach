@@ -411,5 +411,22 @@
  "Generate your career horoscope first so we know your birth details.": "உங்கள் பிறப்பு விவரங்கள் எங்களுக்குத் தெரிய, முதலில் உங்கள் தொழில் ராசிபலனை உருவாக்குங்கள்.",
  "The horoscope service is not available right now.": "ராசிபலன் சேவை இப்போது கிடைக்கவில்லை.",
  "Please describe the situation you want to know about.": "நீங்கள் தெரிந்துகொள்ள விரும்பும் சூழ்நிலையை விவரிக்கவும்.",
- "Career is part of Nexa Pro. Talk to WeAce about upgrading your organisation.": "தொழில் என்பது Nexa Pro-வின் ஒரு பகுதி. உங்கள் நிறுவனத்தை மேம்படுத்த WeAce உடன் பேசுங்கள்."
+ "Career is part of Nexa Pro. Talk to WeAce about upgrading your organisation.": "தொழில் என்பது Nexa Pro-வின் ஒரு பகுதி. உங்கள் நிறுவனத்தை மேம்படுத்த WeAce உடன் பேசுங்கள்.",
+ "Day off": "விடுமுறை நாள்",
+ "{m}m": "{m} நி",
+ "{h}h {m}m": "{h} ம {m} நி",
+ "{h}h": "{h} ம",
+ "longest free block {d}": "நீண்ட இலவச நேரம் {d}",
+ "no real focus time": "கவனம் செலுத்த நேரமில்லை",
+ "{n} back-to-back": "{n} தொடர் கூட்டம்",
+ "{n} back-to-backs": "{n} தொடர் கூட்டங்கள்",
+ "No meetings today — room for deep work.": "இன்று கூட்டங்கள் இல்லை — ஆழ்ந்த பணிக்கு நேரம்.",
+ "Free": "இலவசம்",
+ "Slightly busy": "சற்று பரபரப்பு",
+ "Very busy": "மிகவும் பரபரப்பு",
+ "Over busy": "அளவுக்கு மீறிய பரபரப்பு",
+ "busy": "பரபரப்பு",
+ "{busy} busy of {total}": "{total} இல் {busy} பரபரப்பு",
+ "This week: {pct} busy": "இந்த வாரம்: {pct} பரபரப்பு",
+ "busiest on {day} ({pct})": "அதிக பரபரப்பு {day} ({pct})"
 }

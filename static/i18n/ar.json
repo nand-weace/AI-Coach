@@ -411,5 +411,22 @@
  "Generate your career horoscope first so we know your birth details.": "أنشئ برجك المهني أولًا حتى نعرف بيانات ميلادك.",
  "The horoscope service is not available right now.": "خدمة الأبراج غير متاحة حاليًا.",
  "Please describe the situation you want to know about.": "يرجى وصف الموقف الذي تريد معرفة المزيد عنه.",
- "Career is part of Nexa Pro. Talk to WeAce about upgrading your organisation.": "المسار المهني جزء من Nexa Pro. تحدّث مع WeAce بشأن ترقية مؤسستك."
+ "Career is part of Nexa Pro. Talk to WeAce about upgrading your organisation.": "المسار المهني جزء من Nexa Pro. تحدّث مع WeAce بشأن ترقية مؤسستك.",
+ "Day off": "يوم إجازة",
+ "{m}m": "{m} د",
+ "{h}h {m}m": "{h} س {m} د",
+ "{h}h": "{h} س",
+ "longest free block {d}": "أطول فترة فراغ {d}",
+ "no real focus time": "لا وقت حقيقي للتركيز",
+ "{n} back-to-back": "{n} اجتماع متتالٍ",
+ "{n} back-to-backs": "{n} اجتماعات متتالية",
+ "No meetings today — room for deep work.": "لا اجتماعات اليوم — وقت للعمل العميق.",
+ "Free": "متاح",
+ "Slightly busy": "مشغول قليلًا",
+ "Very busy": "مشغول جدًا",
+ "Over busy": "مشغول أكثر من اللازم",
+ "busy": "مشغول",
+ "{busy} busy of {total}": "{busy} مشغولة من {total}",
+ "This week: {pct} busy": "هذا الأسبوع: {pct} مشغول",
+ "busiest on {day} ({pct})": "الأكثر انشغالًا يوم {day} ({pct})"
 }

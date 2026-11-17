@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200" role="img" aria-label="Very busy"><title>Very busy</title>
+<defs><clipPath id="body-very-busy"><ellipse cx="100" cy="110" rx="62" ry="58"/></clipPath></defs>
+<ellipse cx="100" cy="190" rx="44" ry="6" fill="#1E2235" opacity="0.12"/>
+<g stroke="#1E2235" stroke-width="4" stroke-linecap="round" fill="none"><path d="M14 72h14M6 88h20M14 104h12"/><path d="M186 72h-14M194 88h-20M186 104h-12"/></g>
+<g><animateTransform attributeName="transform" type="translate" values="0 0;0 -6;0 0" dur="0.9s" repeatCount="indefinite"/>
+<g transform="rotate(-35 62 50)"><ellipse cx="62" cy="50" rx="22" ry="32" fill="#EAF4FF" stroke="#1E2235" stroke-width="4"><animateTransform attributeName="transform" type="rotate" values="0 72 76;-18 72 76;0 72 76" dur="0.12s" repeatCount="indefinite"/></ellipse></g>
+<g transform="rotate(35 138 50)"><ellipse cx="138" cy="50" rx="22" ry="32" fill="#EAF4FF" stroke="#1E2235" stroke-width="4"><animateTransform attributeName="transform" type="rotate" values="0 128 76;18 128 76;0 128 76" dur="0.12s" repeatCount="indefinite"/></ellipse></g>
+<path d="M88 58Q82 34 70 22M112 58Q118 34 130 22" stroke="#1E2235" stroke-width="4" stroke-linecap="round" fill="none"/>
+<circle cx="70" cy="22" r="7" fill="#FFC23D" stroke="#1E2235" stroke-width="4"/><circle cx="130" cy="22" r="7" fill="#FFC23D" stroke="#1E2235" stroke-width="4"/>
+<path d="M93 163l7 14l7-14z" fill="#1E2235" stroke="#1E2235" stroke-width="3" stroke-linejoin="round"/>
+<ellipse cx="100" cy="110" rx="62" ry="58" fill="#FFC23D"/>
+<g clip-path="url(#body-very-busy)" fill="#1E2235"><rect x="0" y="138" width="200" height="12"/><rect x="0" y="158" width="200" height="12"/></g>
+<ellipse cx="100" cy="110" rx="62" ry="58" fill="none" stroke="#1E2235" stroke-width="5"/>
+<ellipse cx="68" cy="114" rx="8" ry="5" fill="#FF8A8A" opacity="0.6"/><ellipse cx="132" cy="114" rx="8" ry="5" fill="#FF8A8A" opacity="0.6"/>
+<path d="M73 98a7 9 0 1 0 14 0a7 9 0 1 0 -14 0" fill="#1E2235" stroke="#1E2235" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M113 98a7 9 0 1 0 14 0a7 9 0 1 0 -14 0" fill="#1E2235" stroke="#1E2235" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="82.5" cy="94" r="2.6" fill="#FFFFFF"/><circle cx="122.5" cy="94" r="2.6" fill="#FFFFFF"/>
+<path d="M70 82l16 6M130 82l-16 6" fill="none" stroke="#1E2235" stroke-width="4" stroke-linecap="round"/>
+<path d="M92 117h16" fill="none" stroke="#1E2235" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M46 100Q100 -12 154 100" stroke="#1E2235" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M44 112Q46 134 78 132" stroke="#1E2235" stroke-width="4" fill="none" stroke-linecap="round"/>
+<rect x="34" y="88" width="16" height="26" rx="7" fill="#4F5BD5" stroke="#1E2235" stroke-width="4"/><rect x="150" y="88" width="16" height="26" rx="7" fill="#4F5BD5" stroke="#1E2235" stroke-width="4"/><circle cx="82" cy="132" r="5.5" fill="#4F5BD5" stroke="#1E2235" stroke-width="3"/>
+</g>
+<path d="M152 56q-8 11 0 15q8-4 0-15z" fill="#7CC8FF" stroke="#1E2235" stroke-width="3" stroke-linejoin="round"/>
+<circle cx="168" cy="168" r="16" fill="#E8701A" stroke="#FFFFFF" stroke-width="5"/>
+</svg>
