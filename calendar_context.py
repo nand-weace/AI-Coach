@@ -61,30 +61,38 @@ _NOISE_TERMS = (
 
 # --- fetching ------------------------------------------------------------------
 
+class EventList(list):
+    """The fetched events, plus whether the calendar API answered at all — so
+    an empty calendar (a free week) can be told apart from an unreachable one."""
+    reachable = False
+
+
 def fetch_events(base_url: str, token: str, user_id: str, today: date | None = None,
-                 days_back: int = DAYS_BACK, days_ahead: int = DAYS_AHEAD) -> list:
+                 days_back: int = DAYS_BACK, days_ahead: int = DAYS_AHEAD) -> EventList:
     """Every event in the window, normalised and sorted by start time.
 
     Failures on individual days are logged and skipped — a partial calendar is
     still useful, and a calendar outage must never break login.
     """
     if not token or not user_id:
-        return []
+        return EventList()
     today = today or datetime.now(ZoneInfo(DEFAULT_TZ)).date()
     days = [today + timedelta(days=d) for d in range(-days_back, days_ahead + 1)]
 
-    raw_events = []
+    raw_events, answered = [], 0
     with ThreadPoolExecutor(max_workers=_MAX_WORKERS) as pool:
         futures = {pool.submit(_fetch_day, base_url, token, user_id, d): d for d in days}
         for fut in as_completed(futures):
             try:
                 raw_events.extend(fut.result())
+                answered += 1
             except Exception as e:
                 logger.warning("[calendar] fetch failed for user_id=%s date=%s: %s",
                                user_id, futures[fut], e)
 
     seen = set()
-    events = []
+    events = EventList()
+    events.reachable = answered > 0
     for raw in raw_events:
         ev = normalise_event(raw)
         if not ev:
@@ -108,9 +116,9 @@ def _fetch_day(base_url: str, token: str, user_id: str, day: date) -> list:
         timeout=_PER_DAY_TIMEOUT,
     )
     if not resp.ok:
-        logger.warning("[calendar] primary-events status=%s date=%s body=%r",
-                       resp.status_code, day, resp.text[:200])
-        return []
+        # Raised (and logged by fetch_events) so a failing API isn't mistaken
+        # for an empty day.
+        raise RuntimeError(f'primary-events status={resp.status_code} body={resp.text[:200]!r}')
     return _collect_events(resp.json())
 
 

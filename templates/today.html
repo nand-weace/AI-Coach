@@ -361,10 +361,6 @@
             <h1 class="greeting" id="greeting"></h1>
             <p class="ask-title" id="ask-title" data-i18n>What would you like to work through today?</p>
         </div>
-        <span class="private-pill" id="private-pill">
-            <svg id="private-pill-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
-            <span data-i18n>Private to you</span>
-        </span>
     </header>
 
     {# Two independent columns, each card as tall as its content. On one column
@@ -749,10 +745,10 @@
     // Busy % = busy hours ÷ working hours (9h). The bee shows the band:
     // 0–25 free, 25–50 slightly busy, 50–75 very busy, 75+ over busy.
     const BEES = {
-        'free':          { src: "{{ asset('nexa-bee-free.svg') }}",          label: 'Free' },
+        'available':     { src: "{{ asset('nexa-bee-free.svg') }}",     label: 'Available' },
         'slightly-busy': { src: "{{ asset('nexa-bee-slightly-busy.svg') }}", label: 'Slightly busy' },
         'very-busy':     { src: "{{ asset('nexa-bee-very-busy.svg') }}",     label: 'Very busy' },
-        'over-busy':     { src: "{{ asset('nexa-bee-over-busy.svg') }}",     label: 'Over busy' },
+        'over-busy':     { src: "{{ asset('nexa-bee-over-busy.svg') }}",     label: 'Over loaded' },
     };
 
     function fmtDuration(min) {
@@ -777,7 +773,7 @@
         if (!day && !week) { el.hidden = true; el.innerHTML = ''; return; }
 
         // On a day off the bee is free; the label says why.
-        const bee = BEES[day ? day.label : 'free'] || BEES.free;
+        const bee = BEES[day ? day.label : 'available'] || BEES.available;
         const beeLabel = day ? tr(bee.label) : tr('Day off');
         let main = `<span class="busy-kicker">${esc(tr('Busy Bee Index'))}</span>`;
         if (day) {

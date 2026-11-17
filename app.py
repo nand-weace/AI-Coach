@@ -989,6 +989,10 @@ CALENDAR_WELCOME_WAIT = float(os.getenv('CALENDAR_WELCOME_WAIT', '8'))
 # every turn — cache the summary per user.
 _CALENDAR_TTL = 900  # seconds
 _calendar_cache: dict = {}  # user_id -> (expires_at, summary)
+# user_id -> whether the calendar API answered on the last fetch. With no
+# events the summary is None either way; this tells a free calendar (show a
+# 0% busy day) from an unreachable one (show nothing).
+_calendar_reachable: dict = {}
 
 
 def _load_calendar(user_id: str, token: str) -> dict | None:
@@ -997,6 +1001,7 @@ def _load_calendar(user_id: str, token: str) -> dict | None:
         t0 = time.perf_counter()
         events = calendar_context.fetch_events(WEACE_API_URL, token, user_id)
         summary = calendar_context.summarise(events)
+        _calendar_reachable[user_id] = getattr(events, 'reachable', bool(events))
         _calendar_cache[user_id] = (time.time() + _CALENDAR_TTL, summary)
         logger.info("[calendar] user_id=%s events=%s next_important=%r recent_important=%r in %s",
                     user_id, len(events),
@@ -1006,6 +1011,7 @@ def _load_calendar(user_id: str, token: str) -> dict | None:
         return summary
     except Exception as e:
         logger.error("[calendar] load failed for user_id=%s: %s", user_id, e)
+        _calendar_reachable[user_id] = False
         _calendar_cache[user_id] = (time.time() + 60, None)  # don't hammer a broken API
         return None
 
@@ -2643,12 +2649,20 @@ def _today_meeting(summary: dict | None) -> dict | None:
     }
 
 
-def _today_busy(summary: dict | None) -> dict | None:
+def _today_busy(summary: dict | None, reachable: bool = False) -> dict | None:
     """Today's and this week's busy percentage — busy hours ÷ working hours (see
     calendar_context.busy_score). None when there's no calendar; today's part
-    is None on a day off."""
+    is None on a day off. A calendar that answered with no events at all is a
+    free day and a free week, not a missing calendar."""
     if not summary:
-        return None
+        if not reachable:
+            return None
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        tz = ZoneInfo(calendar_context.DEFAULT_TZ)
+        today = datetime.now(tz).date()
+        summary = {'today_busy': calendar_context.busy_score([], today, tz),
+                   'week_busy': calendar_context.week_busy_score([], today, tz)}
     week = summary.get('week_busy')
     return {
         'today': summary.get('today_busy'),
@@ -2669,7 +2683,7 @@ def api_today():
     try:
         summary = _get_calendar_cached(user_id, g.access_token)
         meeting = _today_meeting(summary)
-        busy = _today_busy(summary)
+        busy = _today_busy(summary, _calendar_reachable.get(user_id, False))
     except Exception:
         logger.warning('[today] calendar unavailable for user_id=%s', user_id, exc_info=True)
         meeting = None
