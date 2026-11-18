@@ -9,6 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('header.css') }}">
     <link rel="stylesheet" href="{{ asset('word-cloud.css') }}">
+    <link rel="stylesheet" href="{{ asset('org-recommendations.css') }}">
     <link rel="stylesheet" href="{{ asset('pulse-dashboard.css') }}">
     <link rel="icon" id="app-favicon" href="{{ branding.favicon_url }}">
     <style>
@@ -1007,6 +1008,11 @@
          above; "All organisations" shows a prompt to pick one. -->
     <div id="word-cloud"></div>
 
+    <!-- Recommended programmes (static/org-recommendations.js) for the
+         organisation picked above — the corporate dashboard's card, read-only:
+         shows which ones the org asked WeAce to reach out about. -->
+    <div id="org-recommendations"></div>
+
     <!-- Pulse Dashboard (static/pulse-dashboard.js) — the same view a corporate
          super admin gets on /pulse, for the organisation picked above. Shown
          only when that organisation has at least one check-in (see loadPulseSection). -->
@@ -1051,6 +1057,7 @@
 <script src="{{ asset('header.js') }}"></script>
 <script src="{{ asset('usage-chart.js') }}"></script>
 <script src="{{ asset('word-cloud.js') }}"></script>
+<script src="{{ asset('org-recommendations.js') }}"></script>
 <script src="{{ asset('pulse-dashboard.js') }}"></script>
 <script>
     let allUsers = [];
@@ -2441,6 +2448,7 @@
             const payload = await res.json();
             if (payload.ok && payload.data) {
                 renderSentiment(payload.data);
+                orgRecs.load();   // a new sentiment run makes them stale
             } else {
                 document.getElementById('combo-body').innerHTML =
                     `<div class="sentiment-no-data">${escHtml(payload.error || 'Calculation failed. Try again later.')}</div>`;
@@ -2458,6 +2466,12 @@
         mount: document.getElementById('word-cloud'),
         headers: getAuthHeaders,
         orgSlug: () => (currentOrgSlug === ALL_ORGS ? null : currentOrgSlug),
+    });
+    const orgRecs = NexaOrgRecommendations.create({
+        mount: document.getElementById('org-recommendations'),
+        headers: getAuthHeaders,
+        orgSlug: () => (currentOrgSlug === ALL_ORGS ? null : currentOrgSlug),
+        readOnly: true,
     });
     const PULSE_DAYS = 90;   // the Pulse Dashboard's window, also used by loadPulseSection
     const pulseDashboard = NexaPulseDashboard.create({
@@ -2480,6 +2494,7 @@
         trendsStale = false;
         loadSentiment();
         wordCloud.load();
+        orgRecs.load();
         loadPulseSection();
     }
 

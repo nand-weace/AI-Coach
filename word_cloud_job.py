@@ -267,8 +267,8 @@ if __name__ == '__main__':
     from datetime import date
     from database import get_all_org_slugs, claim_word_cloud_run, finish_word_cloud_run
 
-    # Pre-builds today's cloud so the first admin of the day doesn't wait for it.
-    # A claim that fails means a run for that org is already going.
+    # Manual build from the command line (clouds are otherwise built only when
+    # an admin clicks Refresh). A claim that fails means a run is already going.
     today = date.today()
     for slug in sys.argv[1:] or get_all_org_slugs():
         if not claim_word_cloud_run(slug, today):

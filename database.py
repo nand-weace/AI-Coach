@@ -389,6 +389,37 @@ def init_db():
                     PRIMARY KEY (org_slug, cloud_date)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """)
+            # Programmes HR could run (coaching, mentoring, workshops,
+            # training), one cached report per org (org_recommendations_job.py).
+            # `based_on` fingerprints the sentiment run and theme cloud it was
+            # built from, so a newer one of either triggers a rebuild.
+            _execute(cur,"""
+                CREATE TABLE IF NOT EXISTS org_recommendations (
+                    org_slug VARCHAR(255) PRIMARY KEY,
+                    report JSON NOT NULL,
+                    based_on VARCHAR(255) NOT NULL DEFAULT '',
+                    calculated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """)
+            # A corporate admin's "I'm interested" on a recommended programme —
+            # a lead for the WeAce team to follow up. One per org per programme.
+            _execute(cur,"""
+                CREATE TABLE IF NOT EXISTS org_programme_interest (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    org_slug VARCHAR(255) NOT NULL,
+                    org_name VARCHAR(255) DEFAULT NULL,
+                    programme_type VARCHAR(32) NOT NULL,
+                    programme_title VARCHAR(255) NOT NULL,
+                    programme JSON DEFAULT NULL,
+                    user_id VARCHAR(64) DEFAULT NULL,
+                    user_name VARCHAR(255) DEFAULT NULL,
+                    user_email VARCHAR(255) DEFAULT NULL,
+                    status VARCHAR(32) NOT NULL DEFAULT 'new',
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE KEY uq_org_programme (org_slug, programme_title),
+                    INDEX idx_status (status)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """)
             # The theme cloud came after the table did.
             _execute(cur,
                 "SELECT COUNT(*) AS cnt FROM information_schema.COLUMNS "
@@ -1158,6 +1189,118 @@ def get_word_cloud(org_slug: str, cloud_date) -> dict | None:
         'error': error,
         'calculated_at': row['calculated_at'].isoformat() if row['calculated_at'] else None,
     }
+
+
+def get_latest_theme_cloud(org_slug: str) -> dict | None:
+    """The newest finished theme cloud: {themes, date, calculated_at}, or None."""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur,
+                "SELECT themes, cloud_date, calculated_at FROM org_word_clouds "
+                "WHERE org_slug = %s AND themes IS NOT NULL AND calculated_at IS NOT NULL "
+                "ORDER BY cloud_date DESC LIMIT 1",
+                (org_slug,),
+            )
+            row = cur.fetchone()
+    finally:
+        conn.close()
+    if not row:
+        return None
+    themes = json.loads(row['themes']) if isinstance(row['themes'], str) else row['themes']
+    return {
+        'themes': themes or [],
+        'date': row['cloud_date'].isoformat(),
+        'calculated_at': row['calculated_at'].isoformat(),
+    }
+
+
+def get_org_recommendations(org_slug: str) -> dict | None:
+    """The cached report plus its based_on fingerprint and calculated_at."""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur,
+                "SELECT report, based_on, calculated_at FROM org_recommendations WHERE org_slug = %s",
+                (org_slug,),
+            )
+            row = cur.fetchone()
+    finally:
+        conn.close()
+    if not row:
+        return None
+    report = json.loads(row['report']) if isinstance(row['report'], str) else row['report']
+    report['based_on'] = row['based_on']
+    report['calculated_at'] = row['calculated_at'].isoformat() if row['calculated_at'] else None
+    return report
+
+
+def upsert_org_recommendations(org_slug: str, report: dict, based_on: str):
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur,
+                """
+                INSERT INTO org_recommendations (org_slug, report, based_on, calculated_at)
+                VALUES (%s, %s, %s, NOW())
+                ON DUPLICATE KEY UPDATE
+                    report = VALUES(report), based_on = VALUES(based_on), calculated_at = NOW()
+                """,
+                (org_slug, json.dumps(report), based_on[:255]),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def add_programme_interest(org_slug: str, programme: dict, user: dict, org_name: str = None) -> bool:
+    """Records the org's interest in one programme. False if it was already recorded."""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            n = _execute(cur,
+                """
+                INSERT IGNORE INTO org_programme_interest
+                    (org_slug, org_name, programme_type, programme_title, programme,
+                     user_id, user_name, user_email)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                (org_slug, org_name, programme.get('type', '')[:32], programme['title'][:255],
+                 json.dumps(programme), user.get('user_id'), user.get('user_name'), user.get('email')),
+            )
+        conn.commit()
+        return bool(n)
+    finally:
+        conn.close()
+
+
+def get_programme_interest_titles(org_slug: str) -> set:
+    """Lower-cased titles of the programmes this org has registered interest in."""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur,
+                "SELECT programme_title FROM org_programme_interest WHERE org_slug = %s",
+                (org_slug,),
+            )
+            return {row['programme_title'].lower() for row in cur.fetchall()}
+    finally:
+        conn.close()
+
+
+def get_latest_word_cloud_date(org_slug: str):
+    """The newest day the org has a cloud row for (finished, running or failed), or None."""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur,
+                "SELECT MAX(cloud_date) AS d FROM org_word_clouds WHERE org_slug = %s",
+                (org_slug,),
+            )
+            row = cur.fetchone()
+            return row['d'] if row else None
+    finally:
+        conn.close()
 
 
 def get_word_cloud_dates(org_slug: str, limit: int = 30) -> list:

@@ -4,7 +4,7 @@
   LLM grouped the chats into on the right (see word_cloud_job.py).
 
   Always shows the latest pair, built from the org's chats across all time.
-  It's rebuilt server-side on the day's first view or on Refresh; while that
+  It's only rebuilt on demand, when someone clicks Refresh; while that
   runs the card long-polls /api/word-cloud/status, which holds each request up
   to 20s and answers as soon as the run settles.
 
@@ -132,6 +132,8 @@ const NexaWordCloud = (() => {
                     + (note ? `<div class="wc-note${data.status === 'error' ? ' is-error' : ''}">${esc(note)}</div>` : '');
             } else if (data.status === 'error') {
                 body.innerHTML = `<div class="sentiment-no-data">${esc(note)}</div>`;
+            } else if (data.status === 'none') {
+                body.innerHTML = '<div class="sentiment-no-data">No word cloud yet — click Refresh to build one from your team\'s chats.</div>';
             } else {
                 body.innerHTML = '<div class="sentiment-no-data">Not enough conversation yet — keep encouraging your team to chat with Nexa.</div>';
             }
@@ -139,7 +141,8 @@ const NexaWordCloud = (() => {
             const parts = [];
             if (data.calculated_at) {
                 const at = new Date(data.calculated_at);
-                parts.push('Updated ' + at.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }));
+                parts.push('Updated ' + at.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+                    + ', ' + at.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }));
             }
             if (data.message_count) {
                 parts.push(`${data.message_count.toLocaleString('en-GB')} messages · ${data.user_count} people`);

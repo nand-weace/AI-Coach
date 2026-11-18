@@ -9,6 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('header.css') }}">
     <link rel="stylesheet" href="{{ asset('word-cloud.css') }}">
+    <link rel="stylesheet" href="{{ asset('org-recommendations.css') }}">
     <link rel="icon" id="app-favicon" href="{{ branding.favicon_url }}">
     <style>
         :root {
@@ -943,6 +944,11 @@
              it ignores the date/cohort filters. Inside the gated section, so it
              only builds once the org has enough users to stay anonymous. -->
         <div id="word-cloud"></div>
+
+        <!-- Recommended coaching / mentoring / workshops / training, built from
+             the sentiment report and theme cloud above (static/org-recommendations.js).
+             Org-wide like the cloud, so it ignores the filters too. -->
+        <div id="org-recommendations"></div>
     </div>
 
     <!-- Team Pulse moved to its own page — a corporate super admin now finds
@@ -977,6 +983,7 @@
 
 <script src="{{ asset('header.js') }}"></script>
 <script src="{{ asset('word-cloud.js') }}"></script>
+<script src="{{ asset('org-recommendations.js') }}"></script>
 <script>
     // Sentiment Intelligence only opens up once an org is big enough and talkative
     // enough for the analysis to mean something — strictly more than these, so 20
@@ -988,6 +995,7 @@
     let allUsers = [];
     let defaultsApplied = false;
     let wordCloud = null;
+    let orgRecs = null;
     const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
     function getAuthHeaders(extra) {
@@ -1125,6 +1133,12 @@
                     mount: document.getElementById('word-cloud'), headers: getAuthHeaders,
                 });
                 wordCloud.load();
+            }
+            if (!orgRecs) {
+                orgRecs = NexaOrgRecommendations.create({
+                    mount: document.getElementById('org-recommendations'), headers: getAuthHeaders,
+                });
+                orgRecs.load();
             }
             return;
         }
@@ -2007,6 +2021,9 @@
             const payload = await res.json();
             if (payload.ok && payload.data) {
                 renderSentiment(payload.data);
+                // A new sentiment run makes the cached recommendations stale;
+                // the GET rebuilds them from it.
+                if (orgRecs) orgRecs.load();
             } else {
                 document.getElementById('combo-body').innerHTML =
                     `<div class="sentiment-no-data">${escHtml(payload.error || 'Calculation failed. Try again later.')}</div>`;

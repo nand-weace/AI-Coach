@@ -37,6 +37,9 @@ from database import (
     get_org_filter_options,
     upsert_org_sentiment,
     get_org_sentiment_data,
+    get_org_recommendations,
+    add_programme_interest,
+    get_programme_interest_titles,
     get_user_sentiment,
     get_user_sentiment_data,
     get_user_insight_report,
@@ -77,6 +80,7 @@ from database import (
     finish_word_cloud_run,
     fail_word_cloud_run,
     get_word_cloud,
+    get_latest_word_cloud_date,
     get_word_cloud_dates,
 )
 import linkedin
@@ -2426,8 +2430,8 @@ def sentiment_refresh():
 
 # ── Org word cloud ──────────────────────────────────────────────────────────
 # The words people across an org bring to Nexa most, filler removed, and the
-# themes an LLM groups their chats into (see word_cloud_job.py). One cloud is saved per org per day: the first admin view
-# of the day builds it, Refresh rebuilds it, and earlier days stay viewable.
+# themes an LLM groups their chats into (see word_cloud_job.py). Built only on demand:
+# Refresh builds one (saved under that day), and the page shows the latest one built.
 #
 # Building one reads the org's whole chat history, which can outlast a request,
 # so it runs on a background thread. Run state lives in org_word_clouds rather
@@ -2454,11 +2458,28 @@ def _word_cloud_org():
     return org_slug, None
 
 
-def _word_cloud_date():
-    """The requested day, or today. Raises ValueError on a malformed date."""
+def _word_cloud_date(default='today'):
+    """The requested day, else today (or None with default=None). Raises
+    ValueError on a malformed date."""
     from datetime import date
     raw = (request.args.get('date') or '').strip()
-    return date.fromisoformat(raw) if raw else date.today()
+    if raw:
+        return date.fromisoformat(raw)
+    return date.today() if default == 'today' else None
+
+
+def _cloud_with_fallback(org_slug: str, cloud_date) -> dict | None:
+    """The day's cloud; while a refresh of it is running or after one failed,
+    with the last finished clouds filled in so the page keeps showing them."""
+    cloud = get_word_cloud(org_slug, cloud_date)
+    if cloud and cloud['status'] != 'done' and not cloud.get('words'):
+        prev_date = next((d for d in get_word_cloud_dates(org_slug) if d != cloud_date.isoformat()), None)
+        if prev_date:
+            from datetime import date
+            prev = get_word_cloud(org_slug, date.fromisoformat(prev_date)) or {}
+            for k in ('words', 'themes', 'message_count', 'user_count', 'calculated_at'):
+                cloud[k] = prev.get(k)
+    return cloud
 
 
 def _run_word_cloud_job(org_slug: str, cloud_date):
@@ -2493,26 +2514,24 @@ def _word_cloud_payload(org_slug: str, cloud_date, cloud: dict | None) -> dict:
 @app.route('/api/word-cloud')
 @require_weace_token
 def word_cloud():
-    """The org's word cloud for one day (?date=YYYY-MM-DD, default today).
+    """The org's latest word cloud, or one day's with ?date=YYYY-MM-DD.
 
-    Today's cloud is built on its first view of the day, so this can come back
-    'running' — the page then long-polls /api/word-cloud/status. Past days are
-    only ever read.
-    """
+    Read-only: clouds are built on demand (POST /api/word-cloud/refresh), never
+    by viewing. A latest cloud still 'running' means a refresh is in flight —
+    the page then long-polls /api/word-cloud/status."""
     org_slug, err = _word_cloud_org()
     if err:
         return err
     try:
-        cloud_date = _word_cloud_date()
+        cloud_date = _word_cloud_date(default=None)
     except ValueError:
         return jsonify({'error': 'date must be YYYY-MM-DD'}), 400
     try:
         from datetime import date
-        cloud = get_word_cloud(org_slug, cloud_date)
-        if cloud is None and cloud_date == date.today():
-            _start_word_cloud_job(org_slug, cloud_date)
-            cloud = get_word_cloud(org_slug, cloud_date)
-        return jsonify(_word_cloud_payload(org_slug, cloud_date, cloud))
+        if cloud_date is None:
+            cloud_date = get_latest_word_cloud_date(org_slug) or date.today()
+            return jsonify(_word_cloud_payload(org_slug, cloud_date, _cloud_with_fallback(org_slug, cloud_date)))
+        return jsonify(_word_cloud_payload(org_slug, cloud_date, get_word_cloud(org_slug, cloud_date)))
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -2554,7 +2573,82 @@ def word_cloud_status():
         while cloud and cloud['status'] == 'running' and time.monotonic() < deadline:
             time.sleep(1)
             cloud = get_word_cloud(org_slug, cloud_date)
-        return jsonify(_word_cloud_payload(org_slug, cloud_date, cloud))
+        return jsonify(_word_cloud_payload(org_slug, cloud_date, _cloud_with_fallback(org_slug, cloud_date)))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ── Recommended programmes ──────────────────────────────────────────────────
+# Coaching, mentoring, workshops and training the org should offer, drawn from
+# its sentiment report and theme cloud (see org_recommendations_job.py). Cached
+# per org; a GET rebuilds only when either input has moved on since, so at most
+# one model call per org per day in normal use.
+@app.route('/api/org-recommendations')
+@require_weace_token
+def org_recommendations():
+    org_slug, err = _word_cloud_org()
+    if err:
+        return err
+    try:
+        from org_recommendations_job import get_or_build
+        return jsonify(_with_interest(org_slug, get_or_build(org_slug) or {'recommendations': []}))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/org-recommendations/refresh', methods=['POST'])
+@require_weace_token
+def org_recommendations_refresh():
+    org_slug, err = _word_cloud_org()
+    if err:
+        return err
+    try:
+        from org_recommendations_job import generate_org_recommendations
+        report = generate_org_recommendations(org_slug)
+        if not report:
+            return jsonify({'error': 'Could not build recommendations right now. Please try again.'}), 502
+        return jsonify(_with_interest(org_slug, report))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+def _with_interest(org_slug: str, report: dict) -> dict:
+    """Flags each programme the org has already asked WeAce about."""
+    titles = get_programme_interest_titles(org_slug)
+    for rec in report.get('recommendations') or []:
+        rec['interested'] = rec.get('title', '').lower() in titles
+    return report
+
+
+@app.route('/api/org-recommendations/interest', methods=['POST'])
+@require_weace_token
+def org_recommendations_interest():
+    """Registers the org's interest in one recommended programme so a WeAce
+    representative can follow up. The programme is looked up in the org's own
+    cached report by title — the client's copy of it is never stored."""
+    # The organisation's own request — WeAce admins see it, but don't make it.
+    if not _has_role(g.user.get('role') if g.user else None, 'corporate_super_admin'):
+        return jsonify({'error': 'Only the organisation\'s admin can request this.'}), 403
+    org_slug, err = _word_cloud_org()
+    if err:
+        return err
+    title = ((request.get_json(silent=True) or {}).get('title') or '').strip()
+    if not title:
+        return jsonify({'error': 'title is required'}), 400
+    try:
+        report = get_org_recommendations(org_slug) or {}
+        programme = next((r for r in report.get('recommendations') or []
+                          if r.get('title', '').lower() == title.lower()), None)
+        if not programme:
+            return jsonify({'error': 'That programme is no longer recommended. Please reload.'}), 404
+        u = g.user
+        full_name = ' '.join(p for p in (u.get('first_name'), u.get('last_name')) if p) or u.get('user_name')
+        add_programme_interest(org_slug, programme,
+                               {'user_id': u.get('user_id'), 'user_name': full_name, 'email': u.get('email')},
+                               org_name=session.get('org_name'))
+        logger.info('[org-recs] interest registered org=%s programme=%r', org_slug, programme['title'])
+        return jsonify({'ok': True, 'title': programme['title'],
+                        'message': 'Thanks — a WeAce representative will reach out to you shortly.'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
