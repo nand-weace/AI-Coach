@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexa - Coaches</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ asset('header.css') }}">
+    <link rel="icon" id="app-favicon" href="{{ branding.favicon_url }}">
+    <!-- Coaches: the experts the user's organisation works with, from the WeAce
+         coaching service (via /api/coaches). Palette matches users.html. -->
+    <style>
+        :root {
+            --bg-color: #E3DEFF;
+            --bg-gradient: linear-gradient(110deg, #DDEEFF 0%, #E3DEFF 48%, #D9EEFF 100%);
+            --glass-bg: rgba(255, 255, 255, 0.78);
+            --glass-border: rgba(59, 89, 138, 0.14);
+            --primary-color: #1461F9;
+            --primary-hover: #215ab6;
+            --text-main: #1b2433;
+            --text-muted: #566274;
+            --primary-soft: rgba(40, 108, 217, 0.09);
+            --primary-ring: rgba(40, 108, 217, 0.30);
+            --surface: rgba(255, 255, 255, 0.92);
+            --card-shadow: 0 12px 32px -14px rgba(32, 62, 110, 0.30);
+            --success: #1f8a4c;
+            --success-soft: rgba(31, 138, 76, 0.10);
+            --danger: #c0392b;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Poppins',system-ui,-apple-system,'Segoe UI',sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            background-image: var(--bg-gradient);
+            background-attachment: fixed;
+        }
+
+        .page { max-width: 1120px; margin: 0 auto; padding: 32px 24px 64px; }
+
+        .page-head {
+            display: flex; align-items: flex-end; justify-content: space-between;
+            gap: 16px; flex-wrap: wrap; margin-bottom: 20px;
+        }
+        .page-head h2 { font-size: 1.4rem; font-weight: 600; letter-spacing: -0.02em; }
+        .page-head p { margin-top: 4px; color: var(--text-muted); font-size: 0.9rem; max-width: 560px; }
+
+        .coach-search {
+            width: 260px; max-width: 100%;
+            padding: 9px 14px;
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            background: var(--surface);
+            font: inherit; font-size: 0.88rem; color: var(--text-main);
+        }
+        .coach-search:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 3px var(--primary-ring); }
+
+        .notice {
+            display: none;
+            margin-bottom: 16px; padding: 10px 14px;
+            border-radius: 10px; font-size: 0.88rem;
+        }
+        .notice.visible { display: block; }
+        .notice.ok { background: var(--success-soft); color: var(--success); }
+        .notice.err { background: rgba(192, 57, 43, 0.08); color: var(--danger); }
+
+        .coach-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 16px;
+        }
+        .coach-card {
+            display: flex; flex-direction: column; align-items: center; text-align: center;
+            padding: 24px 20px 20px;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            box-shadow: var(--card-shadow);
+            backdrop-filter: blur(12px);
+            min-width: 0;
+        }
+        .coach-avatar {
+            width: 64px; height: 64px; border-radius: 50%;
+            display: grid; place-items: center;
+            font-size: 1.25rem; font-weight: 600; color: #fff;
+            margin-bottom: 12px;
+            position: relative; overflow: hidden;
+        }
+        /* The photo sits over the initials; if it fails to load it removes
+           itself and the initials show through. */
+        .coach-avatar img {
+            position: absolute; inset: 0; width: 100%; height: 100%;
+            object-fit: cover; background: var(--surface);
+        }
+        .coach-name { font-size: 1rem; font-weight: 600; overflow-wrap: anywhere; }
+        .coach-role { margin-top: 2px; font-size: 0.82rem; color: var(--primary-color); overflow-wrap: anywhere; }
+        .coach-action { margin-top: auto; padding-top: 16px; width: 100%; }
+        .interest-btn {
+            width: 100%;
+            padding: 9px 14px;
+            border: none; border-radius: 10px;
+            background: var(--primary-color); color: #fff;
+            font: inherit; font-size: 0.88rem; font-weight: 500;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .interest-btn:hover:not(:disabled) { background: var(--primary-hover); }
+        .interest-btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--primary-ring); }
+        .interest-btn:disabled { cursor: default; opacity: 0.7; }
+        .interest-btn.done {
+            background: var(--success-soft); color: var(--success); opacity: 1;
+        }
+
+        /* AI best match — a wide card above the grid. */
+        .match-slot { margin-bottom: 20px; }
+        .match-slot:empty { display: none; }
+        .match-card {
+            display: flex; align-items: center; gap: 24px;
+            padding: 24px;
+            background: var(--surface);
+            border: 1.5px solid var(--primary-ring);
+            border-radius: 18px;
+            box-shadow: var(--card-shadow);
+        }
+        .match-card .coach-avatar { width: 88px; height: 88px; font-size: 1.6rem; margin: 0; flex-shrink: 0; }
+        .match-body { flex: 1; min-width: 0; }
+        .match-badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 3px 10px; margin-bottom: 8px;
+            border-radius: 999px; background: var(--primary-soft);
+            color: var(--primary-color); font-size: 0.75rem; font-weight: 600;
+        }
+        .match-card .coach-name { font-size: 1.1rem; }
+        .match-reason { margin-top: 10px; font-size: 0.9rem; line-height: 1.5; color: var(--text-main); }
+        .match-focus { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+        .match-focus span {
+            padding: 3px 10px; border-radius: 999px;
+            border: 1px solid var(--glass-border); background: var(--glass-bg);
+            font-size: 0.78rem; color: var(--text-muted);
+        }
+        .match-card .coach-action { margin: 0; padding: 0; width: 200px; flex-shrink: 0; }
+        .match-loading {
+            display: flex; align-items: center; gap: 12px;
+            padding: 18px 22px; border-radius: 18px;
+            border: 1px dashed var(--primary-ring); background: var(--glass-bg);
+            color: var(--text-muted); font-size: 0.88rem;
+        }
+        .match-spinner {
+            width: 16px; height: 16px; border-radius: 50%;
+            border: 2px solid var(--primary-ring); border-top-color: var(--primary-color);
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @media (max-width: 720px) {
+            .match-card { flex-direction: column; text-align: center; }
+            .match-focus { justify-content: center; }
+            .match-card .coach-action { width: 100%; }
+        }
+
+        .skeleton-card { height: 230px; }
+        .skeleton {
+            background: linear-gradient(90deg, rgba(255,255,255,0.5) 25%, rgba(255,255,255,0.85) 50%, rgba(255,255,255,0.5) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.4s infinite;
+        }
+        @keyframes shimmer { to { background-position: -200% 0; } }
+
+        .empty-state {
+            grid-column: 1 / -1;
+            padding: 48px 20px; text-align: center;
+            background: var(--glass-bg); border: 1px solid var(--glass-border);
+            border-radius: 16px; color: var(--text-muted); font-size: 0.92rem;
+        }
+        .empty-state button {
+            margin-top: 12px; padding: 7px 16px;
+            border: 1px solid var(--glass-border); border-radius: 8px;
+            background: var(--surface); font: inherit; font-size: 0.85rem; cursor: pointer;
+        }
+
+        @media (max-width: 600px) {
+            .page { padding: 20px 16px 48px; }
+            .coach-search { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+{% include '_header.html' %}
+
+<div class="page">
+    <div class="notice" id="coach-notice" role="status"></div>
+
+    <div class="match-slot" id="coach-match" aria-live="polite"></div>
+
+    <div class="coach-grid" id="coach-grid" aria-live="polite">
+        <div class="coach-card skeleton skeleton-card"></div>
+        <div class="coach-card skeleton skeleton-card"></div>
+        <div class="coach-card skeleton skeleton-card"></div>
+    </div>
+</div>
+
+<script src="{{ asset('header.js') }}"></script>
+<script>
+    NexaHeader.init();
+
+    const tr = (s, v) => (window.NexaI18n ? NexaI18n.t(s, v) : s.replace(/\{(\w+)\}/g, (_, k) => (v || {})[k] ?? ''));
+
+    function getAuthHeaders(extra) {
+        const token = localStorage.getItem('we_ace_access_token') || '';
+        return Object.assign({ 'Authorization': `Bearer ${token}` }, extra || {});
+    }
+
+    function escHtml(str) {
+        return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // A stable colour per coach, so the same person keeps the same avatar.
+    const AVATAR_COLOURS = ['#1461F9', '#7C4DFF', '#0E9F8E', '#E07A2E', '#C2417A', '#3B6FB6'];
+    function avatarColour(id) {
+        let h = 0;
+        for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+        return AVATAR_COLOURS[h % AVATAR_COLOURS.length];
+    }
+    function initialsOf(name) {
+        return String(name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('') || '?';
+    }
+
+    let coaches = [];
+    let match = null;         // {coach_id, reason, focus} from /api/coaches/match
+    let matching = false;
+    const grid = document.getElementById('coach-grid');
+    const matchSlot = document.getElementById('coach-match');
+    // Optional — the page works without a search box.
+    const search = document.getElementById('coach-search');
+
+    function avatarHtml(c) {
+        return `<div class="coach-avatar" style="background:${avatarColour(c.id)}" aria-hidden="true">${escHtml(initialsOf(c.name))}${
+            c.photo ? `<img src="${escHtml(c.photo)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ''}</div>`;
+    }
+    function roleHtml(c) {
+        return c.role || c.company ? `<div class="coach-role">${escHtml(
+            c.role && c.company ? tr('{role} at {company}', { role: c.role, company: c.company }) : (c.role || c.company))}</div>` : '';
+    }
+    function matchedCoach() {
+        return match ? coaches.find(c => c.id === match.coach_id) || null : null;
+    }
+
+    function renderMatch() {
+        if (matching) {
+            matchSlot.innerHTML = `<div class="match-loading"><span class="match-spinner"></span>${
+                escHtml(tr('Finding the best coach for you…'))}</div>`;
+            return;
+        }
+        const c = matchedCoach();
+        matchSlot.innerHTML = c ? `
+            <article class="match-card">
+                ${avatarHtml(c)}
+                <div class="match-body">
+                    <div class="match-badge">✦ ${escHtml(tr('Best match for you'))}</div>
+                    <div class="coach-name">${escHtml(c.name)}</div>
+                    ${roleHtml(c)}
+                    ${match.reason ? `<p class="match-reason">${escHtml(match.reason)}</p>` : ''}
+                    ${(match.focus || []).length ? `<div class="match-focus">${
+                        match.focus.map(f => `<span>${escHtml(f)}</span>`).join('')}</div>` : ''}
+                </div>
+                <div class="coach-action">${buttonHtml(c)}</div>
+            </article>` : '';
+    }
+
+    async function loadMatch() {
+        matching = true;
+        renderMatch();
+        try {
+            const res = await fetch('/api/coaches/match', { headers: getAuthHeaders(), credentials: 'omit' });
+            const data = await res.json().catch(() => ({}));
+            match = res.ok ? data.match || null : null;
+        } catch (_) {
+            match = null;   // the list still works without a match
+        }
+        matching = false;
+        renderMatch();
+        render();
+    }
+
+    function showNotice(msg, kind) {
+        const el = document.getElementById('coach-notice');
+        el.textContent = msg || '';
+        el.className = 'notice' + (msg ? ` visible ${kind || 'ok'}` : '');
+    }
+
+    function buttonHtml(c) {
+        return c.interested
+            ? `<button class="interest-btn done" disabled>✓ ${escHtml(tr('Interest shared'))}</button>`
+            : `<button class="interest-btn" data-coach-id="${escHtml(c.id)}">${escHtml(tr("I'm interested"))}</button>`;
+    }
+
+    // At most this many coaches on the page, the best-match card included.
+    const MAX_SHOWN = 10;
+
+    // Every coach, most relevant first: the AI's ranking when there is one,
+    // then everyone else in the server's (alphabetical) order.
+    function orderedCoaches() {
+        const byId = new Map(coaches.map(c => [c.id, c]));
+        const ranked = ((match && match.ranked) || []).map(id => byId.get(id)).filter(Boolean);
+        const seen = new Set(ranked);
+        return ranked.concat(coaches.filter(c => !seen.has(c)));
+    }
+
+    function render() {
+        const q = search ? search.value.trim().toLowerCase() : '';
+        const best = matchedCoach();
+        const list = (q
+            ? orderedCoaches().filter(c => [c.name, c.role, c.company].some(v => (v || '').toLowerCase().includes(q)))
+            : orderedCoaches()
+        ).filter(c => c !== best)    // the best match has its own card above
+         .slice(0, best ? MAX_SHOWN - 1 : MAX_SHOWN);
+        if (best && !list.length && !q) { grid.innerHTML = ''; return; }
+        if (!coaches.length) {
+            grid.innerHTML = `<div class="empty-state">${escHtml(tr('No coaches are available for your organisation yet.'))}</div>`;
+            return;
+        }
+        if (!list.length) {
+            grid.innerHTML = `<div class="empty-state">${escHtml(tr('No coaches match your search.'))}</div>`;
+            return;
+        }
+        grid.innerHTML = list.map(c => `
+            <article class="coach-card">
+                ${avatarHtml(c)}
+                <div class="coach-name">${escHtml(c.name)}</div>
+                ${roleHtml(c)}
+                <div class="coach-action">${buttonHtml(c)}</div>
+            </article>`).join('');
+    }
+
+    async function loadCoaches() {
+        showNotice('');
+        try {
+            const res = await fetch('/api/coaches', { headers: getAuthHeaders(), credentials: 'omit' });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || tr('Could not load coaches.'));
+            coaches = data.coaches || [];
+            render();
+            if (coaches.length) loadMatch();
+        } catch (e) {
+            grid.innerHTML = `<div class="empty-state">${escHtml(e.message)}<br>
+                <button type="button" id="coach-retry">${escHtml(tr('Try again'))}</button></div>`;
+        }
+    }
+
+    async function registerInterest(btn) {
+        const id = btn.dataset.coachId;
+        btn.disabled = true;
+        btn.textContent = tr('Sending…');
+        showNotice('');
+        try {
+            const res = await fetch('/api/coaches/interest', {
+                method: 'POST',
+                headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+                credentials: 'omit',
+                body: JSON.stringify({ coach_id: id }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || tr('Could not register your interest.'));
+            const coach = coaches.find(c => c.id === id);
+            if (coach) coach.interested = true;
+            btn.outerHTML = buttonHtml({ interested: true });
+            showNotice(coach ? tr("Thanks — we'll let you know about next steps with {name}.", { name: coach.name })
+                             : (data.message || ''), 'ok');
+        } catch (e) {
+            btn.disabled = false;
+            btn.textContent = tr("I'm interested");
+            showNotice(e.message, 'err');
+        }
+    }
+
+    function onCardClick(e) {
+        const btn = e.target.closest('button[data-coach-id]');
+        if (btn) registerInterest(btn);
+        else if (e.target.id === 'coach-retry') loadCoaches();
+    }
+    grid.addEventListener('click', onCardClick);
+    matchSlot.addEventListener('click', onCardClick);
+    if (search) search.addEventListener('input', render);
+    // Re-render script-set labels after a language switch. The match's reason
+    // is written in the language the user had when it was made; a reload after
+    // switching fetches it again in the new one.
+    window.addEventListener('nexa:i18nchange', () => { if (coaches.length) { renderMatch(); render(); } });
+
+    loadCoaches();
+</script>
+</body>
+</html>

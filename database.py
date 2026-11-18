@@ -420,6 +420,37 @@ def init_db():
                     INDEX idx_status (status)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """)
+            # A coachee's "I'm interested" on one of their organisation's coaches
+            # (the Coaches page) — a lead for the WeAce team to match them.
+            # One per coachee per coach.
+            _execute(cur,"""
+                CREATE TABLE IF NOT EXISTS coach_interest (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    org_slug VARCHAR(255) NOT NULL,
+                    org_name VARCHAR(255) DEFAULT NULL,
+                    user_id VARCHAR(64) NOT NULL,
+                    user_name VARCHAR(255) DEFAULT NULL,
+                    user_email VARCHAR(255) DEFAULT NULL,
+                    coach_user_id VARCHAR(64) NOT NULL,
+                    coach_name VARCHAR(255) DEFAULT NULL,
+                    coach_email VARCHAR(255) DEFAULT NULL,
+                    status VARCHAR(32) NOT NULL DEFAULT 'new',
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE KEY uq_user_coach (user_id, coach_user_id),
+                    INDEX idx_org_status (org_slug, status)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """)
+            # The AI's pick of the best-fit coach for one coachee (coach_match.py).
+            # based_on fingerprints the coach list and the coachee context it was
+            # made from, so it is only re-run when one of them changes.
+            _execute(cur,"""
+                CREATE TABLE IF NOT EXISTS coach_matches (
+                    user_id VARCHAR(64) PRIMARY KEY,
+                    based_on VARCHAR(64) NOT NULL,
+                    match_data JSON DEFAULT NULL,
+                    calculated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """)
             # The theme cloud came after the table did.
             _execute(cur,
                 "SELECT COUNT(*) AS cnt FROM information_schema.COLUMNS "
@@ -673,16 +704,21 @@ def get_recent_user_messages(user_id: str, limit: int = 600) -> list:
 
 def get_user_history_before(user_id: str, before_id: int, limit: int = 20) -> list:
     """Page older messages for infinite scroll: up to `limit` messages with an
-    id lower than `before_id`, returned oldest-first."""
+    id lower than `before_id`, returned oldest-first. Each row carries the
+    user's thumbs rating as `feedback` (0 if none), fetched in the same query
+    so paging costs one round trip."""
     conn = get_connection()
     try:
         with conn.cursor() as cur:
             _execute(cur,
                 """
-                SELECT id, role, content, language, created_at
-                FROM ai_coach_messages
-                WHERE user_id = %s AND id < %s
-                ORDER BY id DESC
+                SELECT m.id, m.role, m.content, m.language, m.created_at,
+                       COALESCE(f.rating, 0) AS feedback
+                FROM ai_coach_messages m
+                LEFT JOIN ai_coach_message_feedback f
+                       ON f.message_id = m.id AND f.user_id = m.user_id
+                WHERE m.user_id = %s AND m.id < %s
+                ORDER BY m.id DESC
                 LIMIT %s
                 """,
                 (user_id, before_id, limit),
@@ -1284,6 +1320,83 @@ def get_programme_interest_titles(org_slug: str) -> set:
                 (org_slug,),
             )
             return {row['programme_title'].lower() for row in cur.fetchall()}
+    finally:
+        conn.close()
+
+
+def add_coach_interest(org_slug: str, coach: dict, user: dict, org_name: str = None) -> bool:
+    """Records a coachee's interest in one coach. False if it was already recorded."""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            n = _execute(cur,
+                """
+                INSERT IGNORE INTO coach_interest
+                    (org_slug, org_name, user_id, user_name, user_email,
+                     coach_user_id, coach_name, coach_email)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                (org_slug, org_name, user['user_id'], user.get('user_name'), user.get('email'),
+                 coach['id'], (coach.get('name') or '')[:255] or None, coach.get('email')),
+            )
+        conn.commit()
+        return bool(n)
+    finally:
+        conn.close()
+
+
+def get_coach_interest_ids(user_id: str) -> set:
+    """Coach user ids this coachee has already registered interest in."""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur,
+                "SELECT coach_user_id FROM coach_interest WHERE user_id = %s",
+                (user_id,),
+            )
+            return {row['coach_user_id'] for row in cur.fetchall()}
+    finally:
+        conn.close()
+
+
+def get_coach_match(user_id: str) -> dict | None:
+    """The cached coach match {based_on, match} for one coachee, or None.
+    match itself is None when the last run found nothing to go on."""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur,
+                "SELECT based_on, match_data FROM coach_matches WHERE user_id = %s",
+                (user_id,),
+            )
+            row = cur.fetchone()
+        if not row:
+            return None
+        data = row['match_data']
+        if isinstance(data, str):
+            try:
+                data = json.loads(data)
+            except (json.JSONDecodeError, ValueError):
+                data = None
+        return {'based_on': row['based_on'], 'match': data if isinstance(data, dict) else None}
+    finally:
+        conn.close()
+
+
+def upsert_coach_match(user_id: str, based_on: str, match: dict | None):
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            _execute(cur,
+                """
+                INSERT INTO coach_matches (user_id, based_on, match_data, calculated_at)
+                VALUES (%s, %s, %s, NOW())
+                ON DUPLICATE KEY UPDATE based_on = VALUES(based_on),
+                    match_data = VALUES(match_data), calculated_at = NOW()
+                """,
+                (user_id, based_on, json.dumps(match) if match else None),
+            )
+        conn.commit()
     finally:
         conn.close()
 

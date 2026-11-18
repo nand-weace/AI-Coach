@@ -504,6 +504,7 @@ const NexaHeader = (() => {
         // A corporate super admin works from the org-wide views, so the
         // personal My Insights and Career tabs are hidden for them too.
         show('my-insights-link', !isWeaceAdmin && !isOrgAdmin);
+        show('coaches-link', !isWeaceAdmin && !isOrgAdmin);
         // Career Horoscope ships with Nexa Pro, same as Daily Pulse.
         show('career-horoscope-link', !isWeaceAdmin && !isOrgAdmin && hasPulse);
         show('career-subnav', !isWeaceAdmin && !isOrgAdmin && hasPulse);

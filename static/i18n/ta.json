@@ -428,5 +428,19 @@
  "busy": "பரபரப்பு",
  "{busy} busy of {total}": "{total} இல் {busy} பரபரப்பு",
  "This week: {pct} busy": "இந்த வாரம்: {pct} பரபரப்பு",
- "busiest on {day} ({pct})": "அதிக பரபரப்பு {day} ({pct})"
+ "busiest on {day} ({pct})": "அதிக பரபரப்பு {day} ({pct})",
+ "Coaches": "பயிற்சியாளர்கள்",
+ "Experts available through your organisation. Tell us who you'd like to work with and we'll help set it up.": "உங்கள் நிறுவனத்தின் மூலம் கிடைக்கும் நிபுணர்கள். யாருடன் பணியாற்ற விரும்புகிறீர்கள் என்று சொல்லுங்கள், நாங்கள் ஏற்பாடு செய்ய உதவுவோம்.",
+ "Search coaches…": "பயிற்சியாளர்களைத் தேடுங்கள்…",
+ "Search coaches": "பயிற்சியாளர்களைத் தேடுங்கள்",
+ "I'm interested": "எனக்கு ஆர்வம் உள்ளது",
+ "Interest shared": "ஆர்வம் பகிரப்பட்டது",
+ "No coaches are available for your organisation yet.": "உங்கள் நிறுவனத்திற்கு இன்னும் பயிற்சியாளர்கள் இல்லை.",
+ "No coaches match your search.": "உங்கள் தேடலுக்குப் பொருந்தும் பயிற்சியாளர்கள் இல்லை.",
+ "Could not load coaches.": "பயிற்சியாளர்களை ஏற்ற முடியவில்லை.",
+ "Could not register your interest.": "உங்கள் ஆர்வத்தைப் பதிவு செய்ய முடியவில்லை.",
+ "Thanks — we'll let you know about next steps with {name}.": "நன்றி — {name} உடனான அடுத்த படிகள் குறித்து உங்களுக்குத் தெரிவிப்போம்.",
+ "{role} at {company}": "{company} இல் {role}",
+ "Finding the best coach for you…": "உங்களுக்கான சிறந்த பயிற்சியாளரைத் தேடுகிறோம்…",
+ "Best match for you": "உங்களுக்கு மிகப் பொருத்தமானவர்"
 }

@@ -40,6 +40,8 @@ from database import (
     get_org_recommendations,
     add_programme_interest,
     get_programme_interest_titles,
+    add_coach_interest,
+    get_coach_interest_ids,
     get_user_sentiment,
     get_user_sentiment_data,
     get_user_insight_report,
@@ -112,10 +114,15 @@ def _language_list() -> list[dict]:
 
 def _serialize_messages(user_id: str, rows: list) -> list[dict]:
     """Shape history rows for the client, including any thumbs the user already
-    left on Nexa's replies so restored messages render in the rated state."""
-    ratings = get_message_feedback(
-        user_id, [r['id'] for r in rows if r['role'] == 'assistant']
-    )
+    left on Nexa's replies so restored messages render in the rated state.
+    Rows that already carry `feedback` (joined in by the query) skip the
+    separate ratings lookup."""
+    if rows and all('feedback' in r for r in rows):
+        ratings = {r['id']: r['feedback'] for r in rows}
+    else:
+        ratings = get_message_feedback(
+            user_id, [r['id'] for r in rows if r['role'] == 'assistant']
+        )
     return [
         {'id': r['id'], 'role': r['role'], 'content': r['content'],
          'language': r.get('language') or DEFAULT_LANGUAGE,
@@ -476,6 +483,16 @@ def _has_role(role_val, *slugs) -> bool:
     return any(s in user_slugs for s in slugs)
 
 
+# Verifying a token is a round trip to the we-ace API (~0.5s), and it was paid
+# on every request. A token that verified recently is trusted for a short while
+# instead — so a revoked or logged-out token can keep working for up to this
+# long. Keep it short.
+_TOKEN_CACHE_TTL = 60  # seconds
+_verified_tokens: dict = {}  # token -> (expires_at monotonic, token_data)
+# One pooled session so cache misses reuse the TLS connection to the API.
+_weace_http = http_requests.Session()
+
+
 def require_weace_token(f):
     """
     Decorator that reads the Bearer token from the Authorization header,
@@ -490,23 +507,35 @@ def require_weace_token(f):
         token = _get_bearer_token()
         if not token:
             return jsonify({'error': 'Authorization: Bearer token required'}), 401
-        try:
-            resp = http_requests.get(
-                f'{WEACE_API_URL}/api/v1/users/profile',
-                headers={'accept': '*/*', 'Authorization': f'Bearer {token}'},
-                timeout=10,
-            )
-            if not resp.ok:
-                logger.warning("[auth] token rejected by verify-token API: status=%s", resp.status_code)
-                return jsonify({'error': 'Invalid or expired token'}), 401
-        except Exception as e:
-            logger.error("[auth] verify-token API unreachable: %s", e)
-            return jsonify({'error': 'Token verification service unavailable'}), 502
+        now = time.monotonic()
+        cached = _verified_tokens.get(token)
+        if cached and cached[0] > now:
+            token_data = cached[1]
+        else:
+            try:
+                resp = _weace_http.get(
+                    f'{WEACE_API_URL}/api/v1/users/profile',
+                    headers={'accept': '*/*', 'Authorization': f'Bearer {token}'},
+                    timeout=10,
+                )
+                if not resp.ok:
+                    logger.warning("[auth] token rejected by verify-token API: status=%s", resp.status_code)
+                    _verified_tokens.pop(token, None)
+                    return jsonify({'error': 'Invalid or expired token'}), 401
+            except Exception as e:
+                logger.error("[auth] verify-token API unreachable: %s", e)
+                return jsonify({'error': 'Token verification service unavailable'}), 502
+            try:
+                token_data = resp.json()
+            except Exception:
+                token_data = {}
+            if len(_verified_tokens) > 5000:
+                for k, v in list(_verified_tokens.items()):
+                    if v[0] <= now:
+                        _verified_tokens.pop(k, None)
+            _verified_tokens[token] = (now + _TOKEN_CACHE_TTL, token_data)
         g.access_token = token
-        try:
-            g.token_data = resp.json()
-        except Exception:
-            g.token_data = {}
+        g.token_data = token_data
         user_data = g.token_data.get('data') or {}
         raw_roles = user_data.get('roles') or []
         roles_arr = raw_roles if isinstance(raw_roles, list) else [raw_roles]
@@ -2649,6 +2678,177 @@ def org_recommendations_interest():
         logger.info('[org-recs] interest registered org=%s programme=%r', org_slug, programme['title'])
         return jsonify({'ok': True, 'title': programme['title'],
                         'message': 'Thanks — a WeAce representative will reach out to you shortly.'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/coaches')
+def coaches_page():
+    """Coaches — the experts the coachee's organisation works with, each with an
+    "I'm interested" button. The grid fills in from /api/coaches."""
+    if 'user_id' not in session:
+        return redirect('/')
+    if _has_role(session.get('role'), 'weace_super_admin'):
+        return redirect('/admin')
+    if _has_role(session.get('role'), 'corporate_super_admin'):
+        return redirect('/dashboard')
+    name = session['user_name']
+    initials = ''.join(w[0].upper() for w in name.split()[:2])
+    return render_template('coaches.html',
+        user_name=name,
+        initials=initials,
+        profile_image=session.get('profile_image', ''),
+        org_name=session.get('org_name', 'Organisation'),
+        refresh_token=session.get('refresh_token', ''),
+        # shared header (_header.html)
+        active_tab='coaches',
+        show_pulse=_has_pulse(session.get('org_slug')),
+        show_org_tabs=False,
+        show_admin=False,
+    )
+
+
+# The whole roster is read, so the AI match can pick from every coach; the page
+# itself shows at most 10 of them (MAX_SHOWN in coaches.html).
+_COACH_LIMIT = 'all'
+
+
+def _fetch_org_coaches(org_id: str, token: str) -> list:
+    """The organisation's coaches from the WeAce coaching service, as
+    [{id, name, email, role, company, photo}]. Raises on an upstream failure.
+
+    A coach row looks like {id, coachId, coachName, email, corporateId,
+    corporateName, currentRole, currentCompany, profilePicture}; the older
+    {userId, firstName, lastName, status} shape is still read as a fallback."""
+    resp = http_requests.get(
+        f'{WEACE_API_URL}/api/v1/coaching/corporate-coaches',
+        params={'corporateId': org_id, 'page': 1, 'limit': _COACH_LIMIT},
+        headers={'accept': '*/*', 'Authorization': f'Bearer {token}'},
+        timeout=10,
+    )
+    if not resp.ok:
+        raise RuntimeError(f'coaching service returned {resp.status_code}')
+    payload = resp.json() or {}
+    # A bare list, the service result as is ({data, pagination}), or that
+    # wrapped once more in the gateway's own {data: ...} envelope.
+    if isinstance(payload, list):
+        rows = payload
+    else:
+        body = payload.get('data') if isinstance(payload.get('data'), dict) else payload
+        rows = body.get('data') if isinstance(body.get('data'), list) else []
+    coaches, seen = [], set()
+    for r in rows:
+        if not isinstance(r, dict) or str(r.get('status', 1)) == '0':
+            continue  # 0 = inactive relationship (when the field is sent)
+        # coachId is the coach's user id — stable across re-added
+        # relationships, unlike the row's own numeric id.
+        cid = str(r.get('coachId') or r.get('userId') or '').strip()
+        if not cid or cid in seen:
+            continue
+        seen.add(cid)
+        name = (r.get('coachName') or ' '.join(
+            p for p in (r.get('firstName'), r.get('lastName')) if p) or '').strip()
+        photo = (r.get('profilePicture') or '').strip()
+        coaches.append({
+            'id': cid,
+            'name': name or r.get('email') or 'Coach',
+            'email': r.get('email') or '',
+            'role': (r.get('currentRole') or '').strip(),
+            'company': (r.get('currentCompany') or '').strip(),
+            # Only an https image URL goes into an <img src>.
+            'photo': photo if photo.startswith('https://') else '',
+        })
+    coaches.sort(key=lambda c: c['name'].lower())
+    return coaches
+
+
+def _coachee_org():
+    """(org_id, None) for a coachee's organisation, or (None, error response)."""
+    if not g.user:
+        return None, (jsonify({'error': 'Session not initialised — call /session first'}), 401)
+    if _has_role(g.user.get('role'), 'weace_super_admin', 'corporate_super_admin'):
+        return None, (jsonify({'error': 'Coaches are for coachees.'}), 403)
+    org_id = (g.user.get('org_id') or '').strip()
+    if not org_id:
+        return None, (jsonify({'error': 'No organisation associated with this account'}), 400)
+    return org_id, None
+
+
+@app.route('/api/coaches')
+@require_weace_token
+def coaches_list():
+    """The coachee's organisation's active coaches, plus the ids of the ones
+    this coachee has already said they're interested in. Coach emails are kept
+    server-side (they go on the interest lead) and never sent to the browser."""
+    org_id, err = _coachee_org()
+    if err:
+        return err
+    try:
+        coaches = _fetch_org_coaches(org_id, g.access_token)
+    except Exception as e:
+        logger.warning('[coaches] list failed org=%s: %s', org_id, e)
+        return jsonify({'error': 'Could not load coaches right now. Please try again shortly.'}), 502
+    try:
+        interested = get_coach_interest_ids(g.user['user_id'])
+    except Exception as e:
+        logger.warning('[coaches] interest lookup failed: %s', e)
+        interested = set()
+    return jsonify({'coaches': [
+        {**{k: v for k, v in c.items() if k != 'email'}, 'interested': c['id'] in interested}
+        for c in coaches
+    ]})
+
+
+@app.route('/api/coaches/match')
+@require_weace_token
+def coaches_match():
+    """The AI's pick of the best-fit coach for this coachee from their org's
+    list: {match: {coach_id, reason, focus} | null}. Cached per coachee (see
+    coach_match.py), so only a changed list or context costs a model call."""
+    org_id, err = _coachee_org()
+    if err:
+        return err
+    try:
+        coaches = _fetch_org_coaches(org_id, g.access_token)
+    except Exception as e:
+        logger.warning('[coaches] match: list failed org=%s: %s', org_id, e)
+        return jsonify({'error': 'Could not load coaches right now.'}), 502
+    try:
+        from coach_match import get_or_build
+        match = get_or_build(g.user['user_id'], coaches)
+    except Exception as e:
+        logger.error('[coaches] match failed user=%s: %s', g.user.get('user_id'), e)
+        match = None
+    return jsonify({'match': match})
+
+
+@app.route('/api/coaches/interest', methods=['POST'])
+@require_weace_token
+def coaches_interest():
+    """Registers the coachee's interest in one coach. The coach is looked up in
+    the org's own roster by id — the client's copy of them is never stored."""
+    org_id, err = _coachee_org()
+    if err:
+        return err
+    coach_id = str((request.get_json(silent=True) or {}).get('coach_id') or '').strip()
+    if not coach_id:
+        return jsonify({'error': 'coach_id is required'}), 400
+    try:
+        coach = next((c for c in _fetch_org_coaches(org_id, g.access_token) if c['id'] == coach_id), None)
+    except Exception as e:
+        logger.warning('[coaches] roster lookup failed org=%s: %s', org_id, e)
+        return jsonify({'error': 'Could not reach the coaching service. Please try again.'}), 502
+    if not coach:
+        return jsonify({'error': 'That coach is no longer available. Please reload.'}), 404
+    try:
+        u = g.user
+        full_name = ' '.join(p for p in (u.get('first_name'), u.get('last_name')) if p) or u.get('user_name')
+        add_coach_interest(org_id, coach,
+                           {'user_id': u['user_id'], 'user_name': full_name, 'email': u.get('email')},
+                           org_name=session.get('org_name'))
+        logger.info('[coaches] interest registered org=%s user=%s coach=%s', org_id, u['user_id'], coach_id)
+        return jsonify({'ok': True, 'coach_id': coach_id,
+                        'message': f"Thanks — we'll let you know about next steps with {coach['name']}."})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

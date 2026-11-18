@@ -428,5 +428,19 @@
  "busy": "occupé",
  "{busy} busy of {total}": "{busy} occupées sur {total}",
  "This week: {pct} busy": "Cette semaine : {pct} occupé",
- "busiest on {day} ({pct})": "plus chargé le {day} ({pct})"
+ "busiest on {day} ({pct})": "plus chargé le {day} ({pct})",
+ "Coaches": "Coachs",
+ "Experts available through your organisation. Tell us who you'd like to work with and we'll help set it up.": "Des experts disponibles via votre organisation. Dites-nous avec qui vous aimeriez travailler et nous vous aiderons à l'organiser.",
+ "Search coaches…": "Rechercher des coachs…",
+ "Search coaches": "Rechercher des coachs",
+ "I'm interested": "Ça m'intéresse",
+ "Interest shared": "Intérêt envoyé",
+ "No coaches are available for your organisation yet.": "Aucun coach n'est encore disponible pour votre organisation.",
+ "No coaches match your search.": "Aucun coach ne correspond à votre recherche.",
+ "Could not load coaches.": "Impossible de charger les coachs.",
+ "Could not register your interest.": "Impossible d'enregistrer votre intérêt.",
+ "Thanks — we'll let you know about next steps with {name}.": "Merci — nous vous tiendrons informé des prochaines étapes avec {name}.",
+ "{role} at {company}": "{role} chez {company}",
+ "Finding the best coach for you…": "Recherche du coach le plus adapté pour vous…",
+ "Best match for you": "Le plus adapté pour vous"
 }

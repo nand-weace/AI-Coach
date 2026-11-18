@@ -428,5 +428,19 @@
  "busy": "व्यस्त",
  "{busy} busy of {total}": "{total} में से {busy} व्यस्त",
  "This week: {pct} busy": "इस सप्ताह: {pct} व्यस्त",
- "busiest on {day} ({pct})": "सबसे व्यस्त {day} ({pct})"
+ "busiest on {day} ({pct})": "सबसे व्यस्त {day} ({pct})",
+ "Coaches": "कोच",
+ "Experts available through your organisation. Tell us who you'd like to work with and we'll help set it up.": "आपके संगठन के माध्यम से उपलब्ध विशेषज्ञ। हमें बताएं कि आप किसके साथ काम करना चाहेंगे और हम इसे व्यवस्थित करने में मदद करेंगे।",
+ "Search coaches…": "कोच खोजें…",
+ "Search coaches": "कोच खोजें",
+ "I'm interested": "मुझे रुचि है",
+ "Interest shared": "रुचि साझा की गई",
+ "No coaches are available for your organisation yet.": "आपके संगठन के लिए अभी कोई कोच उपलब्ध नहीं है।",
+ "No coaches match your search.": "आपकी खोज से कोई कोच मेल नहीं खाता।",
+ "Could not load coaches.": "कोच लोड नहीं हो सके।",
+ "Could not register your interest.": "आपकी रुचि दर्ज नहीं हो सकी।",
+ "Thanks — we'll let you know about next steps with {name}.": "धन्यवाद — हम आपको {name} के साथ अगले कदमों के बारे में बताएंगे।",
+ "{role} at {company}": "{company} में {role}",
+ "Finding the best coach for you…": "आपके लिए सबसे उपयुक्त कोच खोजा जा रहा है…",
+ "Best match for you": "आपके लिए सबसे उपयुक्त"
 }
