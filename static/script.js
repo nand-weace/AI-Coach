@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let oldestMessageId = null;   // id of the topmost loaded message
     let hasMoreHistory = false;   // whether older messages may still exist
     let loadingHistory = false;   // guards against overlapping fetches
+    let historyScrollArmed = false; // set once the initial scroll-to-bottom is done
     let historyAnchor = null;     // node above which older messages are inserted
 
     // ── Voice state ──────────────────────────────────────────────────────────
@@ -1118,6 +1119,56 @@ document.addEventListener('DOMContentLoaded', async () => {
         el.textContent = tr(key, { name: name || '' });
     }
 
+    function applyFallbackWelcome(el, returning, name) {
+        if (returning) {
+            setFallbackWelcome(el, "Welcome back, {name}. Ready to continue your leadership journey? What's on your mind today?", name);
+        } else {
+            setFallbackWelcome(el, "Welcome to your Executive Leadership Coaching Session, {name}. I'm Nexa, here to help you navigate complex professional challenges, enhance your leadership skills, and drive strategic impact. What would you like to focus on today?", name);
+        }
+    }
+
+    // /session answers before the LLM has written the opener (welcome_pending);
+    // the bubble shows typing dots until /session/welcome hands it over.
+    async function loadPendingWelcome(welcomeEl, { userName, returning, nexaAccess, speakBtn }) {
+        let message = '';
+        let suggestions = [];
+        try {
+            const accessToken = localStorage.getItem('we_ace_access_token') || '';
+            const res = await fetch('/session/welcome', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
+                },
+                body: JSON.stringify({
+                    sessionUuid: localStorage.getItem('we_ace_session_uuid') || '',
+                }),
+            });
+            if (res.ok) {
+                const data = await res.json();
+                message = (data.welcome_message || '').trim();
+                suggestions = data.welcome_suggestions || [];
+            }
+        } catch (_) { /* fall back to the built-in greeting */ }
+
+        delete welcomeEl.dataset.welcomeKey;
+        if (message) welcomeEl.textContent = message;
+        else applyFallbackWelcome(welcomeEl, returning, userName);
+        // The opener is taller than the typing dots it replaces.
+        scrollToBottom();
+
+        // If the user already started talking, the opener has been overtaken —
+        // fill it in quietly, without reading it aloud or offering nudges.
+        const wrappers = chatContainer.querySelectorAll('.message-wrapper');
+        const stillLatest = wrappers[wrappers.length - 1] === welcomeEl.closest('.message-wrapper');
+        if (!stillLatest) return;
+        if (autoSpeak && speakBtn) speak(welcomeEl.textContent, speakBtn);
+        if (nexaAccess && Array.isArray(suggestions) && suggestions.length > 0) {
+            renderSuggestions(suggestions);
+        }
+        scrollToBottom();
+    }
+
     function showApp(sessionData) {
         const {
             user_name: userName,
@@ -1129,6 +1180,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             pulse_access: pulseAccess,
             welcome_message: welcomeMessage,
             welcome_suggestions: welcomeSuggestions,
+            welcome_pending: welcomePending,
             // Same chat session as before the page load (came back from another
             // page) — pick up where the conversation left off.
             resumed,
@@ -1197,14 +1249,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Resuming: no fresh greeting and no "previous conversation" break —
         // the replayed messages are this same, still-running conversation.
+        const hasWelcome = !!(welcomeMessage && welcomeMessage.trim());
+        const pendingWelcome = !resumed && !hasWelcome && !!welcomePending;
         if (resumed) {
             if (welcomeWrapper) welcomeWrapper.remove();
-        } else if (welcomeMessage && welcomeMessage.trim()) {
+        } else if (hasWelcome) {
             welcomeEl.textContent = welcomeMessage.trim();
-        } else if (returning) {
-            setFallbackWelcome(welcomeEl, "Welcome back, {name}. Ready to continue your leadership journey? What's on your mind today?", userName);
+        } else if (pendingWelcome) {
+            welcomeEl.innerHTML = '<div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>';
         } else {
-            setFallbackWelcome(welcomeEl, "Welcome to your Executive Leadership Coaching Session, {name}. I'm Nexa, here to help you navigate complex professional challenges, enhance your leadership skills, and drive strategic impact. What would you like to focus on today?", userName);
+            applyFallbackWelcome(welcomeEl, returning, userName);
         }
         // The greeting (or nothing, on a resume) is in place — drop the spinner.
         document.documentElement.classList.remove('nexa-shell');
@@ -1213,14 +1267,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         // aloud straight away when auto-speak is on. Browsers that require a
         // user gesture before audio simply stay silent until the first reply.
         const welcomeBody = welcomeEl.parentNode;
+        let welcomeSpeakBtn = null;
         if (!resumed && ttsSupported && welcomeBody &&
                 welcomeBody.classList.contains('message-body')) {
             const actions = document.createElement('div');
             actions.className = 'message-feedback';
-            const speakBtn = makeSpeakButton(() => welcomeEl.textContent);
-            actions.appendChild(speakBtn);
+            welcomeSpeakBtn = makeSpeakButton(() => welcomeEl.textContent);
+            actions.appendChild(welcomeSpeakBtn);
             welcomeBody.appendChild(actions);
-            if (autoSpeak) speak(welcomeEl.textContent, speakBtn);
+            // A pending opener is read aloud once it arrives (loadPendingWelcome).
+            if (autoSpeak && !pendingWelcome) speak(welcomeEl.textContent, welcomeSpeakBtn);
         }
 
         if (recentMessages.length > 0) {
@@ -1258,6 +1314,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!nexaAccess) {
             showNexaAccessDenied();
         }
+
+        if (pendingWelcome) {
+            loadPendingWelcome(welcomeEl, {
+                userName, returning, nexaAccess, speakBtn: welcomeSpeakBtn,
+            });
+        }
+
+        // Land on the newest message. Once now, and again after the next paint:
+        // the container has only just been shown (display/fade-in), so its
+        // scrollHeight isn't final until layout has run.
+        scrollToBottom();
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+            scrollToBottom();
+            historyScrollArmed = true;
+        }));
 
         consumeFocusIntent();
     }
@@ -1568,8 +1639,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (el) el.remove();
     }
 
+    // Programmatic scrolls jump instead of animating. The container has
+    // scroll-behavior: smooth, and a smooth scroll down from the top crosses
+    // the infinite-scroll trigger zone, firing a /history load nobody asked for.
+    function setScrollTop(top) {
+        chatContainer.style.scrollBehavior = 'auto';
+        chatContainer.scrollTop = top;
+        chatContainer.style.scrollBehavior = '';
+    }
+
     function scrollToBottom() {
-        chatContainer.scrollTop = chatContainer.scrollHeight;
+        setScrollTop(chatContainer.scrollHeight);
     }
 
     // Fetch the previous 20 messages and prepend them, preserving scroll position.
@@ -1610,7 +1690,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
             hasMoreHistory = !!data.has_more;
 
-            chatContainer.scrollTop = prevTop + (chatContainer.scrollHeight - prevHeight);
+            setScrollTop(prevTop + (chatContainer.scrollHeight - prevHeight));
         } catch (err) {
             console.error('[history] load failed:', err);
         } finally {
@@ -1620,7 +1700,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // Trigger a page load when the user scrolls near the top of the chat.
+    // Armed only once showApp has landed on the newest message, so laying out
+    // the /session messages can't trigger it.
     chatContainer.addEventListener('scroll', () => {
-        if (chatContainer.scrollTop <= 60) loadOlderMessages();
+        if (historyScrollArmed && chatContainer.scrollTop <= 60) loadOlderMessages();
     });
 });

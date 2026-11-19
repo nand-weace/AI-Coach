@@ -4,6 +4,7 @@ import time
 import uuid
 import logging
 import threading
+from concurrent.futures import ThreadPoolExecutor
 import requests as http_requests
 from datetime import timezone
 from functools import wraps
@@ -104,9 +105,11 @@ MODES = {
 DEFAULT_MODE = 'mentoring'
 
 
-def _elapsed(since: float) -> str:
-    """Human-readable duration since a time.perf_counter() mark, for logging."""
-    return f"{(time.perf_counter() - since) * 1000:.0f}ms"
+def _elapsed(since: float, until: float | None = None) -> str:
+    """Human-readable duration since a time.perf_counter() mark (up to `until`,
+    or now), for logging."""
+    end = time.perf_counter() if until is None else until
+    return f"{(end - since) * 1000:.0f}ms"
 
 
 def _language_list() -> list[dict]:
@@ -415,6 +418,7 @@ def _claude_reply(system: str | list, messages: list, max_tokens: int,
     response = None
     pauses = rounds = 0
     while True:
+        t0 = time.perf_counter()
         response = client.messages.create(
             model=AI_MODEL,
             max_tokens=max_tokens,
@@ -422,6 +426,19 @@ def _claude_reply(system: str | list, messages: list, max_tokens: int,
             messages=convo,
             tools=WEB_TOOLS + CLIENT_TOOLS,
         )
+        # Per-call timing and token usage — whether the history was served from
+        # the prompt cache (cache_read) or re-processed (input/cache_write) is
+        # most of what decides how long a reply takes to start.
+        u = getattr(response, 'usage', None)
+        server_tools = getattr(u, 'server_tool_use', None)
+        logger.info("[claude] call in %s: stop=%s input=%s cache_read=%s cache_write=%s output=%s "
+                    "web_searches=%s",
+                    _elapsed(t0), response.stop_reason,
+                    getattr(u, 'input_tokens', None),
+                    getattr(u, 'cache_read_input_tokens', None),
+                    getattr(u, 'cache_creation_input_tokens', None),
+                    getattr(u, 'output_tokens', None),
+                    getattr(server_tools, 'web_search_requests', 0) if server_tools else 0)
         if response.stop_reason == "pause_turn" and pauses < MAX_PAUSE_RESUMES:
             pauses += 1
             convo.append({"role": "assistant", "content": response.content})
@@ -465,6 +482,10 @@ auth_tokens: dict[str, dict] = {}
 # tab hop back to a session nobody has spoken in yet can show it again rather
 # than paying for a fresh one. (message, suggestions); lost on restart.
 welcome_cache: dict[str, tuple] = {}
+
+# Runs /session's independent upstream calls (user-config, …) alongside each
+# other instead of one after another.
+_session_pool = ThreadPoolExecutor(max_workers=32, thread_name_prefix='session')
 
 
 def _get_bearer_token() -> str | None:
@@ -1066,7 +1087,7 @@ def _linkedin_directive(user_id: str | None, user_name: str) -> str:
 # How long session creation waits for the calendar before generating the
 # welcome without it. The fetch is a handful of parallel one-day calls, so it
 # normally lands well inside this.
-CALENDAR_WELCOME_WAIT = float(os.getenv('CALENDAR_WELCOME_WAIT', '8'))
+CALENDAR_WELCOME_WAIT = float(os.getenv('CALENDAR_WELCOME_WAIT', '3'))
 
 # A calendar changes rarely within a coaching session, but /chat wants it on
 # every turn — cache the summary per user.
@@ -1113,17 +1134,45 @@ def _kickoff_calendar_fetch(user_id: str, token: str):
     return thread
 
 
+# A /chat turn never waits for the full calendar fetch (11 calls, up to the
+# per-call timeout). A stale summary is served while a refresh runs in the
+# background — unless it's so old its "now"/"today" labels would mislead, in
+# which case the turn waits briefly for the refresh and otherwise goes without.
+CALENDAR_INLINE_WAIT = float(os.getenv('CALENDAR_INLINE_WAIT', '1.5'))
+_CALENDAR_MAX_STALE = 3600  # seconds past expiry a summary may still be served
+_calendar_inflight: dict = {}  # user_id -> refresh Thread
+_calendar_lock = threading.Lock()
+
+
+def _refresh_calendar_async(user_id: str, token: str) -> threading.Thread:
+    with _calendar_lock:
+        thread = _calendar_inflight.get(user_id)
+        if thread and thread.is_alive():
+            return thread
+        thread = threading.Thread(target=_load_calendar, args=(user_id, token),
+                                  name=f'calendar-{user_id[:8]}', daemon=True)
+        _calendar_inflight[user_id] = thread
+        thread.start()
+        return thread
+
+
 def _get_calendar_cached(user_id: str | None, token: str | None = None) -> dict | None:
-    """Cached calendar summary; refetched inline (bounded) when stale and a
-    token is available."""
+    """Cached calendar summary. When stale and a token is available, refreshed in
+    the background (stale-while-revalidate) rather than inline."""
     if not user_id:
         return None
+    now = time.time()
     cached = _calendar_cache.get(user_id)
-    if cached and cached[0] > time.time():
+    if cached and cached[0] > now:
         return cached[1]
-    if token:
-        return _load_calendar(user_id, token)
-    return cached[1] if cached else None
+    if not token:
+        return cached[1] if cached else None
+    thread = _refresh_calendar_async(user_id, token)
+    if cached and now - cached[0] < _CALENDAR_MAX_STALE:
+        return cached[1]
+    thread.join(timeout=CALENDAR_INLINE_WAIT)
+    fresh = _calendar_cache.get(user_id)
+    return fresh[1] if fresh and fresh[0] > now else None
 
 
 def _calendar_directive(user_id: str | None, user_name: str, token: str | None = None) -> str:
@@ -1314,6 +1363,81 @@ def _generate_welcome(user_name: str, highlights: list, profile_context: dict = 
         return fallback_msg, []
 
 
+# --- Welcome off the request path -----------------------------------------------
+#
+# The opener is an LLM call (plus a short wait for the calendar), which used to
+# hold /session open for several seconds. /session now starts it in the
+# background and answers straight away with welcome_pending; the page then asks
+# /session/welcome, which hands back the result once it's ready. A sign-in that
+# lands on Today never waits for it at all — it's cached by the time the user
+# opens chat.
+
+# How long /session/welcome waits on a generation already in flight.
+WELCOME_AWAIT_TIMEOUT = float(os.getenv('WELCOME_AWAIT_TIMEOUT', '30'))
+
+_welcome_inflight: dict = {}  # session_uuid -> Future[(message, suggestions)]
+_welcome_lock = threading.Lock()
+
+
+def _start_welcome(session_uuid: str, user_id: str, user_name: str, profile_context: dict,
+                   token: str | None, calendar_thread=None, prepare=None):
+    """The welcome's Future — started now unless one is cached or already running.
+
+    `prepare` runs first, in the same background task — /session uses it for
+    the LinkedIn setup and system prompt the welcome reads. Returns None when
+    the welcome is already cached.
+    """
+    with _welcome_lock:
+        if session_uuid in welcome_cache:
+            return None
+        fut = _welcome_inflight.get(session_uuid)
+        if fut:
+            return fut
+
+        def run():
+            started = time.perf_counter()
+            if prepare:
+                prepare()
+            cal_thread = calendar_thread
+            cached_cal = _calendar_cache.get(user_id)
+            if cal_thread is None and token and not (cached_cal and cached_cal[0] > time.time()):
+                cal_thread = _refresh_calendar_async(user_id, token)
+            if cal_thread and CALENDAR_WELCOME_WAIT > 0:
+                t_cal = time.perf_counter()
+                cal_thread.join(timeout=CALENDAR_WELCOME_WAIT)
+                logger.info("[calendar] waited %s for the fetch (finished=%s)",
+                            _elapsed(t_cal), not cal_thread.is_alive())
+            calendar = _get_calendar_cached(user_id)
+            returning = has_previous_sessions(user_id)
+            highlights = get_session_highlights(user_id) if returning else []
+            language = normalize_language(get_user_language(user_id))
+            mode = get_user_mode(user_id) or DEFAULT_MODE
+            result = _generate_welcome(user_name, highlights, profile_context, returning,
+                                       language, user_id, mode, calendar)
+            welcome_cache[session_uuid] = result
+            logger.info("[welcome] generated in background for session_uuid=%s in %s: "
+                        "chars=%s suggestions=%s", session_uuid, _elapsed(started),
+                        len(result[0] or ''), len(result[1] or []))
+            return result
+
+        fut = _session_pool.submit(run)
+        _welcome_inflight[session_uuid] = fut
+    fut.add_done_callback(lambda _f: _welcome_inflight.pop(session_uuid, None))
+    return fut
+
+
+def _await_welcome(session_uuid: str, fut) -> tuple:
+    """(message, suggestions) for the session. ('', []) on failure or timeout —
+    the page then shows its built-in greeting."""
+    if fut is None:
+        return welcome_cache.get(session_uuid) or ('', [])
+    try:
+        return fut.result(timeout=WELCOME_AWAIT_TIMEOUT)
+    except Exception as e:
+        logger.warning("[welcome] not ready for session_uuid=%s: %r", session_uuid, e)
+        return '', []
+
+
 @app.route('/')
 def index():
     # A WeAce super admin manages the platform rather than using the coaching
@@ -1377,6 +1501,21 @@ def create_session():
     if not client_user_id:
         logger.warning("[create_session] verified token carried no user id ip=%s", ip)
         return jsonify({'error': 'Failed to fetch user profile'}), 401
+
+    # Everything that only needs the user id + token starts now, so it runs
+    # alongside the personal-info fetch below instead of after it.
+    calendar_thread = _kickoff_calendar_fetch(client_user_id, access_token)
+    nexa_future = None
+    if not _has_role(g.user.get('role'), 'weace_super_admin', 'corporate_super_admin'):
+        nexa_future = _session_pool.submit(_fetch_nexa_access, access_token)
+    client_session_uuid = (data.get('sessionUuid') or '').strip()
+    returning_f = _session_pool.submit(has_previous_sessions, client_user_id)
+    language_f = _session_pool.submit(get_user_language, client_user_id)
+    mode_f = _session_pool.submit(get_user_mode, client_user_id)
+    history_f = _session_pool.submit(
+        lambda: _serialize_messages(client_user_id, get_user_history(client_user_id, 15)))
+    resumable_f = _session_pool.submit(is_resumable_session, client_session_uuid, client_user_id)
+
     try:
         t0 = time.perf_counter()
         profile_resp = http_requests.get(
@@ -1421,7 +1560,9 @@ def create_session():
     org_slug = (profile.get('organizationId') or '').strip()
     # The organisation id is what the corporate-settings API is keyed on; the
     # auth profile's parentId is the same organisation on older accounts.
-    branding = _get_branding_cached(org_slug or g.user.get('org_id'), access_token)
+    branding_f = _session_pool.submit(_get_branding_cached,
+                                      org_slug or g.user.get('org_id'), access_token)
+    pulse_f = _session_pool.submit(_has_pulse, org_slug)
     cohort_id = (profile.get('cohortId') or '').strip() or None
     cohort_name = (profile.get('cohortName') or '').strip() or None
     country = (profile.get('countryName') or '').strip() or None
@@ -1456,38 +1597,12 @@ def create_session():
         'industry_types': industry_types,
     }
 
-    # Public LinkedIn background, scraped once per user and then reused from the
-    # database. Kicked off here — as early as the user id is known — so it has the
-    # longest possible head start on the welcome message.
-    linkedin_thread = None
     try:
-        linkedin_url = _extract_linkedin_url(profile)
-        logger.info("[linkedin] user_id=%s linkedin_url=%s", user_id, linkedin_url or 'none')
-        if linkedin_url and set_user_linkedin_url(user_id, linkedin_url):
-            _linkedin_cache.pop(user_id, None)  # URL changed — drop the stale block
-        linkedin_thread = _kickoff_linkedin_scrape(user_id, linkedin_url)
-        if linkedin_thread:
-            logger.info("[linkedin] background scrape started for user_id=%s", user_id)
-    except Exception as e:
-        logger.error("[linkedin] setup failed for user_id=%s: %s", user_id, e)
-
-    # The user's calendar — a few parallel one-day API calls, started now so it
-    # is usually back by the time the welcome message is generated.
-    calendar_thread = _kickoff_calendar_fetch(user_id, access_token)
-
-    try:
-        t0 = time.perf_counter()
-        returning = has_previous_sessions(user_id)
-        highlights = get_session_highlights(user_id) if returning else []
-        logger.info("[create_session] history lookup: returning=%s highlights=%s in %s",
-                    returning, len(highlights), _elapsed(t0))
-
         # Tab switches resume through /session/resume, so the client normally
         # sends no sessionUuid here and this opens a new conversation. Honoured
         # when it is sent, for older clients and direct API callers.
-        client_session_uuid = (data.get('sessionUuid') or '').strip()
-        resumed = is_resumable_session(client_session_uuid, user_id)
-
+        resumed = resumable_f.result()
+        create_f = None
         if resumed:
             session_uuid = client_session_uuid
             logger.info("[create_session] resuming chat session: session_uuid=%s user_id=%s",
@@ -1498,50 +1613,89 @@ def create_session():
                             "unknown, or older than the resume window) — starting a new session",
                             client_session_uuid)
             session_uuid = str(uuid.uuid4())
-            create_chat_session(session_uuid, user_id, user_name, email, org_name, org_slug, cohort_id)
-            logger.info("[create_session] chat session created: session_uuid=%s user_id=%s returning=%s",
-                        session_uuid, user_id, returning)
+            # Must land before the response: /session/welcome and /chat look the
+            # session up by id.
+            create_f = _session_pool.submit(create_chat_session, session_uuid, user_id, user_name,
+                                            email, org_name, org_slug, cohort_id)
 
-        # Optionally hold here so a first-ever session still opens with LinkedIn
-        # context, at the cost of a slower login. Off unless configured.
-        if linkedin_thread and LINKEDIN_WELCOME_WAIT > 0:
-            t0 = time.perf_counter()
-            linkedin_thread.join(timeout=LINKEDIN_WELCOME_WAIT)
-            logger.info("[linkedin] waited %s for the scrape (finished=%s)",
-                        _elapsed(t0), not linkedin_thread.is_alive())
+        # Super admins always have Nexa access; everyone else is decided by the
+        # user-config API (started at the top of the request) and recorded in
+        # user_settings, which also hands back the access window.
+        is_super_admin = nexa_future is None or \
+            _has_role(role, 'weace_super_admin', 'corporate_super_admin')
 
-        # Only the system prompt is cached here — a resumed session's turns are
-        # replayed from the DB on each /chat request.
-        if session_uuid not in sessions_cache:
-            prompt = _build_personalized_prompt(user_name, highlights, profile_context, user_id)
-            sessions_cache[session_uuid] = [{"role": "system", "content": prompt}]
-            logger.info("[create_session] seeded system prompt: session_uuid=%s prompt_chars=%s "
-                        "cached_sessions=%s", session_uuid, len(prompt), len(sessions_cache))
-        else:
-            logger.info("[create_session] reusing cached system prompt: session_uuid=%s",
-                        session_uuid)
+        def resolve_access():
+            nexa = True if is_super_admin else nexa_future.result()
+            settings = upsert_user_login(
+                user_id,
+                first_name=first, last_name=last, email=email,
+                org_id=org_slug, org_name=org_name, cohort_id=cohort_id,
+                cohort_name=cohort_name, country=country,
+                level_name=level_name, gender=gender,
+                functional_areas=functional_areas, industry_types=industry_types,
+                nexa_access=nexa,
+            )
+            return nexa, settings['access_last_date']
+        access_f = _session_pool.submit(resolve_access)
 
-        language = normalize_language(get_user_language(user_id))
-        mode = get_user_mode(user_id) or DEFAULT_MODE
-        logger.info("[create_session] language for user_id=%s: %s (mode=%s)",
-                    user_id, language, mode)
+        # Not needed for the response — LinkedIn setup and the session's system
+        # prompt are done in the background, ahead of the welcome (which reads
+        # both). /chat rebuilds the prompt itself if it gets there first.
+        def prepare_context():
+            linkedin_thread = None
+            try:
+                linkedin_url = _extract_linkedin_url(profile)
+                logger.info("[linkedin] user_id=%s linkedin_url=%s", user_id, linkedin_url or 'none')
+                if linkedin_url and set_user_linkedin_url(user_id, linkedin_url):
+                    _linkedin_cache.pop(user_id, None)  # URL changed — drop the stale block
+                linkedin_thread = _kickoff_linkedin_scrape(user_id, linkedin_url)
+                if linkedin_thread:
+                    logger.info("[linkedin] background scrape started for user_id=%s", user_id)
+            except Exception as e:
+                logger.error("[linkedin] setup failed for user_id=%s: %s", user_id, e)
+            # Optionally hold so a first-ever session still opens with LinkedIn
+            # context. Off unless configured; only delays the welcome now.
+            if linkedin_thread and LINKEDIN_WELCOME_WAIT > 0:
+                t0 = time.perf_counter()
+                linkedin_thread.join(timeout=LINKEDIN_WELCOME_WAIT)
+                logger.info("[linkedin] waited %s for the scrape (finished=%s)",
+                            _elapsed(t0), not linkedin_thread.is_alive())
+            try:
+                prompt = _system_prompt_for(session_uuid, user_id, user_name, profile_context)
+                logger.info("[create_session] seeded system prompt: session_uuid=%s prompt_chars=%s",
+                            session_uuid, len(prompt))
+            except Exception as e:
+                logger.error("[create_session] system prompt seeding failed for session_uuid=%s: %s",
+                             session_uuid, e)
+
+        # The welcome is generated in the background; the page fetches it from
+        # /session/welcome, so this response doesn't wait on the LLM.
+        welcome_message, welcome_suggestions = '', []
+        welcome_pending = False
         if resumed:
-            welcome_message, welcome_suggestions = '', []
+            _session_pool.submit(prepare_context)
             logger.info("[create_session] resumed session — skipping welcome generation")
         else:
-            if calendar_thread and CALENDAR_WELCOME_WAIT > 0:
-                t0 = time.perf_counter()
-                calendar_thread.join(timeout=CALENDAR_WELCOME_WAIT)
-                logger.info("[calendar] waited %s for the fetch (finished=%s)",
-                            _elapsed(t0), not calendar_thread.is_alive())
-            calendar = _get_calendar_cached(user_id)
-            t0 = time.perf_counter()
-            welcome_message, welcome_suggestions = _generate_welcome(
-                user_name, highlights, profile_context, returning, language, user_id, mode,
-                calendar)
-            logger.info("[create_session] welcome generated in %s: chars=%s suggestions=%s",
-                        _elapsed(t0), len(welcome_message or ''), len(welcome_suggestions or []))
-            welcome_cache[session_uuid] = (welcome_message, welcome_suggestions)
+            _start_welcome(session_uuid, user_id, user_name, profile_context, access_token,
+                           calendar_thread, prepare=prepare_context)
+            welcome_pending = True
+            logger.info("[create_session] welcome generation started in background")
+
+        # Collect what the response needs; these have been running in parallel.
+        t0 = time.perf_counter()
+        returning = returning_f.result()
+        language = normalize_language(language_f.result())
+        mode = mode_f.result() or DEFAULT_MODE
+        recent_messages = history_f.result()
+        branding = branding_f.result()
+        pulse_access = pulse_f.result()
+        if create_f:
+            create_f.result()
+        nexa_access, access_last_date = access_f.result()
+        logger.info("[create_session] parallel lookups collected in %s: returning=%s language=%s "
+                    "mode=%s messages=%s nexa_access=%s access_last_date=%s",
+                    _elapsed(t0), returning, language, mode, len(recent_messages),
+                    nexa_access, access_last_date)
 
         # Evict any stale auth_tokens entry for this user (token rotation)
         stale = [t for t, d in auth_tokens.items() if d.get('user_id') == user_id]
@@ -1566,29 +1720,7 @@ def create_session():
         session['cohort_id'] = cohort_id
         session['profile_context'] = profile_context
         session['branding'] = branding
-
-        # Super admins always have Nexa access; everyone else is decided by the
-        # user-config API at login and cached for the admin dashboard.
-        is_super_admin = _has_role(role, 'weace_super_admin', 'corporate_super_admin')
-        t0 = time.perf_counter()
-        nexa_access = True if is_super_admin else _fetch_nexa_access(g.access_token)
-        logger.info("[create_session] nexa_access=%s (source=%s) resolved in %s",
-                    nexa_access, 'super_admin_role' if is_super_admin else 'user-config API',
-                    _elapsed(t0))
         session['nexa_access'] = nexa_access
-        t0 = time.perf_counter()
-        settings = upsert_user_login(
-            user_id,
-            first_name=first, last_name=last, email=email,
-            org_id=org_slug, org_name=org_name, cohort_id=cohort_id,
-            cohort_name=cohort_name, country=country,
-            level_name=level_name, gender=gender,
-            functional_areas=functional_areas, industry_types=industry_types,
-            nexa_access=nexa_access,
-        )
-        access_last_date = settings['access_last_date']
-        logger.info("[create_session] user_settings upserted in %s: access_last_date=%s",
-                    _elapsed(t0), access_last_date)
 
         auth_tokens[g.access_token] = {
             'user_id': user_id,
@@ -1611,10 +1743,6 @@ def create_session():
                     user_id, user_name, nexa_access)
 
         initials = ''.join(w[0].upper() for w in user_name.split()[:2])
-        t0 = time.perf_counter()
-        recent_messages = _serialize_messages(user_id, get_user_history(user_id, 15))
-        logger.info("[create_session] replaying %s recent message(s) loaded in %s",
-                    len(recent_messages), _elapsed(t0))
         logger.info("[create_session] responding to user_id=%s: session_uuid=%s resumed=%s "
                     "returning=%s nexa_access=%s language=%s messages=%s suggestions=%s total=%s",
                     user_id, session_uuid, resumed, returning, nexa_access, language,
@@ -1631,12 +1759,13 @@ def create_session():
             'nexa_access': nexa_access,
             # Daily Pulse is a Nexa Pro feature — the header hides the tab when
             # this org isn't on it.
-            'pulse_access': _has_pulse(org_slug),
+            'pulse_access': pulse_access,
             'branding': branding,
             'access_last_date': access_last_date,
             'recent_messages': recent_messages,
             'welcome_message': welcome_message,
             'welcome_suggestions': welcome_suggestions,
+            'welcome_pending': welcome_pending,
             'language': language,
             'mode': mode,
             'profile_context': profile_context,
@@ -1769,6 +1898,7 @@ def resume_session():
         # than a bare history replay. resumed=False tells the page to lay it out
         # that way — greeting below a "Previous conversation" divider.
         welcome_message, welcome_suggestions = '', []
+        welcome_pending = False
         returning = True
         fresh = not session_has_messages(session_uuid)
         if fresh:
@@ -1776,14 +1906,11 @@ def resume_session():
             if session_uuid in welcome_cache:
                 welcome_message, welcome_suggestions = welcome_cache[session_uuid]
             else:
-                t0 = time.perf_counter()
-                highlights = get_session_highlights(user_id) if returning else []
-                welcome_message, welcome_suggestions = _generate_welcome(
-                    user_name, highlights, profile_context, returning, language, user_id, mode,
-                    _get_calendar_cached(user_id, g.access_token))
-                welcome_cache[session_uuid] = (welcome_message, welcome_suggestions)
-                logger.info("[resume_session] welcome generated in %s for empty session_uuid=%s",
-                            _elapsed(t0), session_uuid)
+                # Still generating (signed in moments ago), or this worker never
+                # saw it — the page picks it up from /session/welcome.
+                _start_welcome(session_uuid, user_id, user_name, profile_context,
+                               g.access_token)
+                welcome_pending = True
 
         logger.info("[resume_session] resumed session_uuid=%s user_id=%s messages=%s fresh=%s in %s",
                     session_uuid, user_id, len(recent_messages), fresh, _elapsed(started))
@@ -1805,6 +1932,7 @@ def resume_session():
             'recent_messages': recent_messages,
             'welcome_message': welcome_message,
             'welcome_suggestions': welcome_suggestions,
+            'welcome_pending': welcome_pending,
             'language': language,
             'mode': mode,
             'profile_context': profile_context,
@@ -1816,6 +1944,42 @@ def resume_session():
         logger.exception("[resume_session] failed for user_id=%s after %s: %s",
                          user_id, _elapsed(started), e)
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/session/welcome', methods=['POST'])
+@require_weace_token
+def session_welcome():
+    """The opening message for a session /session (or /session/resume) answered
+    with welcome_pending. Waits for the background generation if it's still
+    running; generates it here when this worker never started one."""
+    started = time.perf_counter()
+    data = request.json or {}
+    session_uuid = (data.get('sessionUuid') or '').strip()
+    user_id = (g.user.get('user_id') or '').strip()
+    if not session_uuid or not user_id or not is_resumable_session(session_uuid, user_id):
+        return jsonify({'error': 'Unknown session'}), 404
+
+    fut = None
+    if session_uuid not in welcome_cache and session_uuid not in _welcome_inflight:
+        # Another worker handled /session — rebuild what the welcome needs.
+        cached = auth_tokens.get(g.access_token) or {}
+        user_name = cached.get('user_name')
+        profile_context = cached.get('profile_context')
+        if not user_name:
+            identity = get_user_identity(user_id)
+            user_name = ' '.join(p for p in [(identity.get('first_name') or '').strip(),
+                                             (identity.get('last_name') or '').strip()] if p) \
+                or g.user.get('user_name') or (g.user.get('email') or '').split('@')[0]
+        if profile_context is None:
+            profile_context = get_user_profile_context(user_id)
+        fut = _start_welcome(session_uuid, user_id, user_name, profile_context, g.access_token)
+    else:
+        fut = _welcome_inflight.get(session_uuid)
+
+    message, suggestions = _await_welcome(session_uuid, fut)
+    logger.info("[session_welcome] session_uuid=%s chars=%s suggestions=%s in %s",
+                session_uuid, len(message or ''), len(suggestions or []), _elapsed(started))
+    return jsonify({'welcome_message': message, 'welcome_suggestions': suggestions})
 
 
 @app.route('/new-session', methods=['POST'])
@@ -2111,9 +2275,11 @@ def chat():
     # Client-supplied profile first, then whatever /session resolved at login.
     profile_context = data.get('profile_context') or g.user.get('profile_context') or {}
 
+    started = time.perf_counter()
     conversation_history = _get_or_rebuild_history(
         session_uuid, user_id, user_name, profile_context
     )
+    t_history = time.perf_counter()
 
     # The cached system prompt is language-neutral; the directive is applied per
     # request so a mid-session language switch takes effect immediately.
@@ -2161,6 +2327,8 @@ def chat():
             + calendar_context.tool_hint() \
             + _mode_directive(mode) + _language_directive(language)
 
+        t_prompt = time.perf_counter()
+
         def run_tool(name: str, args: dict) -> str:
             if name == 'get_calendar':
                 logger.info("[calendar] lookup requested by model: user_id=%s args=%s", user_id, args)
@@ -2200,9 +2368,15 @@ def chat():
             )
             reply = response.choices[0].message.content
 
+        t_llm = time.perf_counter()
         reply, suggestions = _extract_suggestions(reply)
 
         message_id = save_message(session_uuid, user_id, 'assistant', reply, language=language)
+        logger.info("[chat] user_id=%s session_uuid=%s history_msgs=%s reply_chars=%s | "
+                    "history=%s prompt=%s llm=%s save=%s total=%s",
+                    user_id, session_uuid, len(conversation_history) - 1, len(reply or ''),
+                    _elapsed(started, t_history), _elapsed(t_history, t_prompt),
+                    _elapsed(t_prompt, t_llm), _elapsed(t_llm), _elapsed(started))
         return jsonify({'response': reply, 'suggestions': suggestions,
                         'message_id': message_id})
 

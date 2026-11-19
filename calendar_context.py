@@ -34,7 +34,9 @@ DAYS_AHEAD = int(os.getenv('CALENDAR_DAYS_AHEAD', '7'))
 DEFAULT_TZ = os.getenv('CALENDAR_TZ', 'Asia/Kolkata')
 
 _PER_DAY_TIMEOUT = float(os.getenv('CALENDAR_FETCH_TIMEOUT', '6'))
-_MAX_WORKERS = 5
+# One worker per day in the window, so the whole fetch is a single round trip
+# instead of several waves (11 days on 5 workers was 3 sequential waves).
+_MAX_WORKERS = int(os.getenv('CALENDAR_MAX_WORKERS', '16'))
 
 # Meetings that tend to carry weight for a leader — used to score importance
 # alongside attendee count and duration. Lower-cased substring matches.

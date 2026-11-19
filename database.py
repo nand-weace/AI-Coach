@@ -1,10 +1,14 @@
 import json
 import logging
 import os
+import queue
+import threading
+import time
 import uuid
 from datetime import datetime, timedelta
 import pymysql
 import pymysql.cursors
+from pymysql.constants import SERVER_STATUS
 
 logger = logging.getLogger(__name__)
 
@@ -85,9 +89,9 @@ _SENTIMENT_SEEDS = [
 ]
 
 
-def get_connection():
+def _connect(host: str):
     return pymysql.connect(
-        host=os.environ.get('DB_HOST', 'localhost'),
+        host=host,
         port=int(os.environ.get('DB_PORT', '3306')),
         user=os.environ.get('DB_USER', 'root'),
         password=os.environ.get('DB_PASSWORD', ''),
@@ -98,6 +102,98 @@ def get_connection():
         # default; the API tags created_at as UTC on the way out.
         init_command="SET time_zone = '+00:00'",
     )
+
+
+# --- Connection pool -----------------------------------------------------------
+#
+# Opening a MySQL connection to RDS (TCP + TLS + auth) costs ~300ms, against
+# ~45ms for the query itself, and every helper here opens its own — a login
+# makes a dozen of them. Connections are kept and reused instead. Callers don't
+# change: they still `conn = get_connection()` ... `conn.close()`, and close()
+# hands the connection back rather than dropping it.
+
+_POOL_SIZE = int(os.environ.get('DB_POOL_SIZE', '16'))
+# A connection idle this long is pinged before reuse, in case the server (or a
+# NAT/proxy in between) has dropped it.
+_POOL_PING_AFTER = float(os.environ.get('DB_POOL_PING_AFTER', '30'))
+_pools: dict = {}  # (pid, host) -> LifoQueue[(conn, last_used)]
+_pools_lock = threading.Lock()
+
+
+def _pool_for(host: str) -> queue.LifoQueue:
+    # Keyed by pid too: a forked process (gunicorn worker, job runner) must not
+    # share sockets with its parent.
+    key = (os.getpid(), host)
+    pool = _pools.get(key)
+    if pool is None:
+        with _pools_lock:
+            pool = _pools.setdefault(key, queue.LifoQueue(maxsize=_POOL_SIZE))
+    return pool
+
+
+class _PooledConnection:
+    """A pymysql connection whose close() returns it to the pool."""
+
+    def __init__(self, conn, pool):
+        self._conn = conn
+        self._pool = pool
+        self._released = False
+
+    def __getattr__(self, name):
+        return getattr(self._conn, name)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
+
+    def close(self):
+        if self._released:
+            return
+        self._released = True
+        conn = self._conn
+        try:
+            # End any open transaction, so the next borrower doesn't inherit
+            # uncommitted writes or a stale REPEATABLE READ snapshot.
+            if conn.open and conn.server_status & SERVER_STATUS.SERVER_STATUS_IN_TRANS:
+                conn.rollback()
+        except Exception:
+            _close_quietly(conn)
+            return
+        if not conn.open:
+            return
+        try:
+            self._pool.put_nowait((conn, time.monotonic()))
+        except queue.Full:
+            _close_quietly(conn)
+
+
+def _close_quietly(conn):
+    try:
+        conn.close()
+    except Exception:
+        pass
+
+
+def _checkout(host: str) -> _PooledConnection:
+    pool = _pool_for(host)
+    while True:
+        try:
+            conn, last_used = pool.get_nowait()
+        except queue.Empty:
+            return _PooledConnection(_connect(host), pool)
+        if time.monotonic() - last_used > _POOL_PING_AFTER:
+            try:
+                conn.ping(reconnect=False)
+            except Exception:
+                _close_quietly(conn)
+                continue
+        return _PooledConnection(conn, pool)
+
+
+def get_connection():
+    return _checkout(os.environ.get('DB_HOST', 'localhost'))
 
 
 def get_reader_connection():
@@ -107,18 +203,7 @@ def get_reader_connection():
     the primary, so anything that reads back a row it has just written stays on
     get_connection().
     """
-    return pymysql.connect(
-        host=os.environ.get('DB_READER_HOST') or os.environ.get('DB_HOST', 'localhost'),
-        port=int(os.environ.get('DB_PORT', '3306')),
-        user=os.environ.get('DB_USER', 'root'),
-        password=os.environ.get('DB_PASSWORD', ''),
-        database=os.environ.get('DB_NAME', 'ai_coach'),
-        charset='utf8mb4',
-        cursorclass=pymysql.cursors.DictCursor,
-        # Store and compare every DATETIME in UTC regardless of the server's
-        # default; the API tags created_at as UTC on the way out.
-        init_command="SET time_zone = '+00:00'",
-    )
+    return _checkout(os.environ.get('DB_READER_HOST') or os.environ.get('DB_HOST', 'localhost'))
 
 
 def init_db():
