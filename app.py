@@ -91,6 +91,7 @@ import birth_chart
 
 # Languages Nexa can coach in — see languages.py.
 from languages import SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE, normalize_language
+from coach_match import coach_background
 
 # How Nexa shows up: 'coaching' draws the answer out of the user, 'mentoring'
 # gives direct advice from experience. Toggled from the chat window; the prompt
@@ -637,6 +638,9 @@ DEFAULT_BRANDING = {
     'favicon_url': '/static/favicon-wit.png',
     'name': 'Nexa',
     'white_label': False,
+    # True when the org's moduleAccess is just ["nexa"] — no WeAce coaching,
+    # training or mentoring, so the "WeAce Platform" link has nowhere to go.
+    'nexa_only': False,
 }
 
 _BRANDING_TTL = 900  # seconds
@@ -674,6 +678,18 @@ def _find_key(node, names: tuple, depth: int = 0):
     return None
 
 
+def _is_nexa_only(data: dict) -> bool:
+    """True when corporate-settings' moduleAccess lists only "nexa".
+    Missing or malformed → False, so the platform link stays as before."""
+    if not isinstance(data, dict):
+        return False
+    modules = next((v for k, v in data.items() if k.lower() == 'moduleaccess'), None)
+    if not isinstance(modules, list) or not modules:
+        return False
+    names = {str(m).strip().lower() for m in modules if str(m).strip()}
+    return names == {'nexa'}
+
+
 def _parse_branding(payload: dict) -> dict:
     """Tenant branding from the corporate-settings payload, defaults filled in.
 
@@ -703,9 +719,11 @@ def _parse_branding(payload: dict) -> dict:
     flag = _find_key(data, _FLAG_KEYS)
     branding['white_label'] = bool(flag) if isinstance(flag, bool) else \
         branding['logo_url'] != DEFAULT_BRANDING['logo_url']
+    nexa_only = _is_nexa_only(data)
     if not branding['white_label']:
         # Flag explicitly off — show Nexa as Nexa regardless of what's set.
-        return dict(DEFAULT_BRANDING)
+        return dict(DEFAULT_BRANDING, nexa_only=nexa_only)
+    branding['nexa_only'] = nexa_only
     return branding
 
 
@@ -725,8 +743,8 @@ def _fetch_branding(org_id: str, token: str) -> dict:
         logger.info("[branding] corporate-settings keys for org=%s: %s", org_id,
                     sorted((data if isinstance(data, dict) else payload).keys())[:40])
         branding = _parse_branding(payload)
-        logger.info("[branding] org=%s white_label=%s logo=%s favicon=%s name=%r", org_id,
-                    branding['white_label'], branding['logo_url'][:80],
+        logger.info("[branding] org=%s white_label=%s nexa_only=%s logo=%s favicon=%s name=%r", org_id,
+                    branding['white_label'], branding['nexa_only'], branding['logo_url'][:80],
                     branding['favicon_url'][:80], branding['name'])
         return branding
     except Exception as e:
@@ -2749,14 +2767,18 @@ def _fetch_org_coaches(org_id: str, token: str) -> list:
         name = (r.get('coachName') or ' '.join(
             p for p in (r.get('firstName'), r.get('lastName')) if p) or '').strip()
         photo = (r.get('profilePicture') or '').strip()
+        about, linkedin = coach_background(r)
         coaches.append({
             'id': cid,
-            'name': name or r.get('email') or 'Coach',
+            'name': name or 'Coach',
             'email': r.get('email') or '',
             'role': (r.get('currentRole') or '').strip(),
             'company': (r.get('currentCompany') or '').strip(),
             # Only an https image URL goes into an <img src>.
             'photo': photo if photo.startswith('https://') else '',
+            # Trimmed aboutMyself / linkedinJson, for the AI match only.
+            'about': about,
+            'linkedin': linkedin,
         })
     coaches.sort(key=lambda c: c['name'].lower())
     return coaches
@@ -2774,52 +2796,38 @@ def _coachee_org():
     return org_id, None
 
 
-@app.route('/api/coaches')
-@require_weace_token
-def coaches_list():
-    """The coachee's organisation's active coaches, plus the ids of the ones
-    this coachee has already said they're interested in. Coach emails are kept
-    server-side (they go on the interest lead) and never sent to the browser."""
-    org_id, err = _coachee_org()
-    if err:
-        return err
-    try:
-        coaches = _fetch_org_coaches(org_id, g.access_token)
-    except Exception as e:
-        logger.warning('[coaches] list failed org=%s: %s', org_id, e)
-        return jsonify({'error': 'Could not load coaches right now. Please try again shortly.'}), 502
-    try:
-        interested = get_coach_interest_ids(g.user['user_id'])
-    except Exception as e:
-        logger.warning('[coaches] interest lookup failed: %s', e)
-        interested = set()
-    return jsonify({'coaches': [
-        {**{k: v for k, v in c.items() if k != 'email'}, 'interested': c['id'] in interested}
-        for c in coaches
-    ]})
-
-
 @app.route('/api/coaches/match')
 @require_weace_token
 def coaches_match():
-    """The AI's pick of the best-fit coach for this coachee from their org's
-    list: {match: {coach_id, reason, focus} | null}. Cached per coachee (see
-    coach_match.py), so only a changed list or context costs a model call."""
+    """Everything the Coaches page shows, in one call: the AI's best-fit coach
+    for this coachee and the coaches to list (at most 10, most relevant first),
+    each flagged with whether this coachee has said they're interested.
+
+    {match: {coach_id, reason, focus, ranked} | null, coaches: [...],
+     calculated_at, refresh_failed?}
+
+    Served from the saved result (coach_match.py) — no coach-service or model
+    call — unless it has expired; ?refresh=1 (the Refresh button) rebuilds it.
+    Coach emails and LinkedIn details never leave the server."""
     org_id, err = _coachee_org()
     if err:
         return err
-    try:
-        coaches = _fetch_org_coaches(org_id, g.access_token)
-    except Exception as e:
-        logger.warning('[coaches] match: list failed org=%s: %s', org_id, e)
-        return jsonify({'error': 'Could not load coaches right now.'}), 502
+    force = request.args.get('refresh') in ('1', 'true')
+    user_id = g.user['user_id']
     try:
         from coach_match import get_or_build
-        match = get_or_build(g.user['user_id'], coaches)
+        result = get_or_build(user_id, lambda: _fetch_org_coaches(org_id, g.access_token), force=force)
     except Exception as e:
-        logger.error('[coaches] match failed user=%s: %s', g.user.get('user_id'), e)
-        match = None
-    return jsonify({'match': match})
+        logger.warning('[coaches] match failed user=%s org=%s: %s', user_id, org_id, e)
+        return jsonify({'error': 'Could not load coaches right now. Please try again shortly.'}), 502
+    try:
+        interested = get_coach_interest_ids(user_id)
+    except Exception as e:
+        logger.warning('[coaches] interest lookup failed: %s', e)
+        interested = set()
+    for c in result['coaches']:
+        c['interested'] = c['id'] in interested
+    return jsonify(result)
 
 
 @app.route('/api/coaches/interest', methods=['POST'])
@@ -4417,6 +4425,9 @@ def pulse_page():
     if not _has_pulse(session.get('org_slug')):
         return redirect('/')
     is_org_admin = _has_role(session.get('role'), 'corporate_super_admin')
+    if is_org_admin:
+        # The org-wide Pulse Dashboard now lives on Nexa Insights.
+        return redirect('/dashboard#pulse-section')
     name = session['user_name']
     initials = ''.join(w[0].upper() for w in name.split()[:2])
     return render_template('pulse.html',

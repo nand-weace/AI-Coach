@@ -442,5 +442,8 @@
  "Thanks — we'll let you know about next steps with {name}.": "شكرًا — سنُطلعك على الخطوات التالية مع {name}.",
  "{role} at {company}": "{role} في {company}",
  "Finding the best coach for you…": "جارٍ العثور على أنسب مدرب لك…",
- "Best match for you": "الأنسب لك"
+ "Best match for you": "الأنسب لك",
+ "Refresh recommendations": "تحديث التوصيات",
+ "Updated {date}": "تم التحديث في {date}",
+ "Couldn't refresh your recommendations just now — showing the last ones.": "تعذّر تحديث توصياتك الآن — يتم عرض آخر توصيات."
 }

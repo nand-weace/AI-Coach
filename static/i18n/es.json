@@ -442,5 +442,8 @@
  "Thanks — we'll let you know about next steps with {name}.": "Gracias — te informaremos de los próximos pasos con {name}.",
  "{role} at {company}": "{role} en {company}",
  "Finding the best coach for you…": "Buscando el mejor coach para ti…",
- "Best match for you": "Tu mejor opción"
+ "Best match for you": "Tu mejor opción",
+ "Refresh recommendations": "Actualizar recomendaciones",
+ "Updated {date}": "Actualizado el {date}",
+ "Couldn't refresh your recommendations just now — showing the last ones.": "No se pudieron actualizar tus recomendaciones ahora — se muestran las últimas."
 }

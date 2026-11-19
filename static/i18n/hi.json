@@ -442,5 +442,8 @@
  "Thanks — we'll let you know about next steps with {name}.": "धन्यवाद — हम आपको {name} के साथ अगले कदमों के बारे में बताएंगे।",
  "{role} at {company}": "{company} में {role}",
  "Finding the best coach for you…": "आपके लिए सबसे उपयुक्त कोच खोजा जा रहा है…",
- "Best match for you": "आपके लिए सबसे उपयुक्त"
+ "Best match for you": "आपके लिए सबसे उपयुक्त",
+ "Refresh recommendations": "सुझाव रीफ़्रेश करें",
+ "Updated {date}": "{date} को अपडेट किया गया",
+ "Couldn't refresh your recommendations just now — showing the last ones.": "अभी आपके सुझाव रीफ़्रेश नहीं हो सके — पिछले सुझाव दिखाए जा रहे हैं।"
 }

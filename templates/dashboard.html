@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="{{ asset('header.css') }}">
     <link rel="stylesheet" href="{{ asset('word-cloud.css') }}">
     <link rel="stylesheet" href="{{ asset('org-recommendations.css') }}">
+    {% if show_pulse %}<link rel="stylesheet" href="{{ asset('pulse-dashboard.css') }}">{% endif %}
     <link rel="icon" id="app-favicon" href="{{ branding.favicon_url }}">
     <style>
         :root {
@@ -951,9 +952,21 @@
         <div id="org-recommendations"></div>
     </div>
 
-    <!-- Team Pulse moved to its own page — a corporate super admin now finds
-         it at /pulse ("Pulse Dashboard" in the side panel), not tucked inside
-         Sentiment Intelligence. See pulse.html and pulse_page() in app.py. -->
+    {% if show_pulse %}
+    <!-- Pulse Dashboard (static/pulse-dashboard.js) — anonymous Daily Pulse
+         check-ins, org-wide. Nexa Pro only. Outside the gated sentiment
+         section: the pulse has its own anonymity rules server-side
+         (/api/pulse/aggregate), so it shows whatever the thresholds above say. -->
+    <div id="pulse-section">
+        <div class="section-row" style="margin-top:28px;">
+            <div>
+                <h3>Pulse Dashboard</h3>
+                <p>Anonymous daily check-ins — how {{ org_name }} is feeling, never individual notes</p>
+            </div>
+        </div>
+        <div id="pulse-dashboard" style="margin-bottom:28px;"></div>
+    </div>
+    {% endif %}
 
     <div class="table-card col-hidden">
         <div class="table-header">
@@ -984,6 +997,7 @@
 <script src="{{ asset('header.js') }}"></script>
 <script src="{{ asset('word-cloud.js') }}"></script>
 <script src="{{ asset('org-recommendations.js') }}"></script>
+{% if show_pulse %}<script src="{{ asset('pulse-dashboard.js') }}"></script>{% endif %}
 <script>
     // Sentiment Intelligence only opens up once an org is big enough and talkative
     // enough for the analysis to mean something — strictly more than these, so 20
@@ -1200,6 +1214,14 @@
 
     // Shared header — tabs, language picker, chip dropdown, Corporate Knowledge
     NexaHeader.init();
+
+    {% if show_pulse %}
+    // Pulse Dashboard — org-wide, so the filters above don't apply to it.
+    NexaPulseDashboard.create({
+        mount: document.getElementById('pulse-dashboard'),
+        headers: getAuthHeaders,
+    }).load();
+    {% endif %}
 
     // Smooth exit navigation — fade out then follow the link
     function smoothNavTo(url) {

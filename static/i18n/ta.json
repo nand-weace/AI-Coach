@@ -442,5 +442,8 @@
  "Thanks — we'll let you know about next steps with {name}.": "நன்றி — {name} உடனான அடுத்த படிகள் குறித்து உங்களுக்குத் தெரிவிப்போம்.",
  "{role} at {company}": "{company} இல் {role}",
  "Finding the best coach for you…": "உங்களுக்கான சிறந்த பயிற்சியாளரைத் தேடுகிறோம்…",
- "Best match for you": "உங்களுக்கு மிகப் பொருத்தமானவர்"
+ "Best match for you": "உங்களுக்கு மிகப் பொருத்தமானவர்",
+ "Refresh recommendations": "பரிந்துரைகளைப் புதுப்பிக்கவும்",
+ "Updated {date}": "{date} அன்று புதுப்பிக்கப்பட்டது",
+ "Couldn't refresh your recommendations just now — showing the last ones.": "இப்போது உங்கள் பரிந்துரைகளைப் புதுப்பிக்க முடியவில்லை — கடைசியாக உள்ளவை காட்டப்படுகின்றன."
 }

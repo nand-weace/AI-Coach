@@ -311,7 +311,7 @@ const NexaHeader = (() => {
     // Server-rendered pages get it from the template context instead.
     const DEFAULT_BRANDING = {
         logo_url: '/static/nexa-logo.png', favicon_url: '/static/favicon-wit.png',
-        name: 'Nexa', white_label: false,
+        name: 'Nexa', white_label: false, nexa_only: false,
     };
     function storedBranding() {
         try { return JSON.parse(localStorage.getItem('we_ace_branding') || 'null'); } catch (_) { return null; }
@@ -324,9 +324,10 @@ const NexaHeader = (() => {
         });
         const icon = $('app-favicon') || document.querySelector('link[rel="icon"]');
         if (icon && icon.getAttribute('href') !== b.favicon_url) icon.href = b.favicon_url;
-        // A white-labelled tenant's users shouldn't be sent to WeAce's platform.
+        // A white-labelled tenant's users shouldn't be sent to WeAce's platform,
+        // nor should an org whose moduleAccess is only Nexa (nothing there for them).
         const platform = $('btn-weace-coaching');
-        if (platform) platform.hidden = !!b.white_label;
+        if (platform) platform.hidden = !!(b.white_label || b.nexa_only);
         if (persist) {
             try { localStorage.setItem('we_ace_branding', JSON.stringify(b)); } catch (_) {}
         }
@@ -508,9 +509,6 @@ const NexaHeader = (() => {
         // Career Horoscope ships with Nexa Pro, same as Daily Pulse.
         show('career-horoscope-link', !isWeaceAdmin && !isOrgAdmin && hasPulse);
         show('career-subnav', !isWeaceAdmin && !isOrgAdmin && hasPulse);
-        // Only a corporate super admin keeps a pulse tab — the org-wide Pulse
-        // Dashboard. Everyone else checks in from the card on Today.
-        show('pulse-link', !isWeaceAdmin && isOrgAdmin && hasPulse);
         show('my-insights-subnav', !isWeaceAdmin && !isOrgAdmin);
         show('admin-subnav', isWeaceAdmin);
         show('btn-corp-content', isOrgAdmin && !isWeaceAdmin);

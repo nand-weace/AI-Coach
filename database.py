@@ -440,9 +440,9 @@ def init_db():
                     INDEX idx_org_status (org_slug, status)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """)
-            # The AI's pick of the best-fit coach for one coachee (coach_match.py).
-            # based_on fingerprints the coach list and the coachee context it was
-            # made from, so it is only re-run when one of them changes.
+            # The saved Coaches page for one coachee (coach_match.py): the AI's
+            # pick plus the coaches shown. based_on fingerprints what the model
+            # read, so an automatic rebuild can skip it when nothing changed.
             _execute(cur,"""
                 CREATE TABLE IF NOT EXISTS coach_matches (
                     user_id VARCHAR(64) PRIMARY KEY,
@@ -1360,13 +1360,13 @@ def get_coach_interest_ids(user_id: str) -> set:
 
 
 def get_coach_match(user_id: str) -> dict | None:
-    """The cached coach match {based_on, match} for one coachee, or None.
-    match itself is None when the last run found nothing to go on."""
+    """The saved Coaches-page result for one coachee — {based_on, data,
+    calculated_at} — or None. data is {match, coaches, language}."""
     conn = get_connection()
     try:
         with conn.cursor() as cur:
             _execute(cur,
-                "SELECT based_on, match_data FROM coach_matches WHERE user_id = %s",
+                "SELECT based_on, match_data, calculated_at FROM coach_matches WHERE user_id = %s",
                 (user_id,),
             )
             row = cur.fetchone()
@@ -1378,12 +1378,13 @@ def get_coach_match(user_id: str) -> dict | None:
                 data = json.loads(data)
             except (json.JSONDecodeError, ValueError):
                 data = None
-        return {'based_on': row['based_on'], 'match': data if isinstance(data, dict) else None}
+        return {'based_on': row['based_on'], 'data': data if isinstance(data, dict) else None,
+                'calculated_at': row['calculated_at']}
     finally:
         conn.close()
 
 
-def upsert_coach_match(user_id: str, based_on: str, match: dict | None):
+def upsert_coach_match(user_id: str, based_on: str, data: dict):
     conn = get_connection()
     try:
         with conn.cursor() as cur:
@@ -1394,7 +1395,7 @@ def upsert_coach_match(user_id: str, based_on: str, match: dict | None):
                 ON DUPLICATE KEY UPDATE based_on = VALUES(based_on),
                     match_data = VALUES(match_data), calculated_at = NOW()
                 """,
-                (user_id, based_on, json.dumps(match) if match else None),
+                (user_id, based_on, json.dumps(data)),
             )
         conn.commit()
     finally:
