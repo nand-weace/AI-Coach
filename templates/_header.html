@@ -134,7 +134,7 @@
         <a id="coaches-link" href="/coaches"
            class="app-tab{% if active_tab == 'coaches' %} active{% endif %}"
            {% if active_tab == 'coaches' %}aria-current="page"{% endif %}
-           {% if show_admin or show_org_tabs %}style="display:none;"{% endif %}>
+           {% if show_admin or show_org_tabs %}style="display:none;"{% endif %} hidden>
             <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="12" cy="7" r="4"/><path d="M5.5 21a6.5 6.5 0 0 1 13 0"/><path d="M17 3.5l1 2 2 .3-1.5 1.4.4 2-1.9-1-1.9 1 .4-2L14 5.8l2-.3z"/>
             </svg>
@@ -212,10 +212,10 @@
             </div>
         </div>
 
-        {# Hidden for a white-labelled tenant — their users see their brand,
-           not WeAce's. header.js keeps this in step on the chat page, which
+        {# Shown only to Employees (roleId 7) with Nexa access, and hidden for a
+           white-labelled tenant — their users see their brand, not WeAce's. header.js keeps this in step on the chat page, which
            is served before the tenant is known. #}
-        <button type="button" class="app-tab" id="btn-weace-coaching"{% if branding.white_label %} hidden{% endif %}>
+        <button type="button" class="app-tab" id="btn-weace-coaching"{% if branding.white_label or not show_weace_platform %} hidden{% endif %}>
             <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
                 <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>

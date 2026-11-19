@@ -94,6 +94,9 @@ def get_connection():
         database=os.environ.get('DB_NAME', 'ai_coach'),
         charset='utf8mb4',
         cursorclass=pymysql.cursors.DictCursor,
+        # Store and compare every DATETIME in UTC regardless of the server's
+        # default; the API tags created_at as UTC on the way out.
+        init_command="SET time_zone = '+00:00'",
     )
 
 
@@ -112,6 +115,9 @@ def get_reader_connection():
         database=os.environ.get('DB_NAME', 'ai_coach'),
         charset='utf8mb4',
         cursorclass=pymysql.cursors.DictCursor,
+        # Store and compare every DATETIME in UTC regardless of the server's
+        # default; the API tags created_at as UTC on the way out.
+        init_command="SET time_zone = '+00:00'",
     )
 
 

@@ -421,14 +421,10 @@
  "{n} back-to-back": "{n} लगातार मीटिंग",
  "{n} back-to-backs": "{n} लगातार मीटिंग",
  "No meetings today — room for deep work.": "आज कोई मीटिंग नहीं — गहन काम का समय।",
- "Free": "खाली",
  "Slightly busy": "थोड़ा व्यस्त",
  "Very busy": "बहुत व्यस्त",
- "Over busy": "अत्यधिक व्यस्त",
  "busy": "व्यस्त",
  "{busy} busy of {total}": "{total} में से {busy} व्यस्त",
- "This week: {pct} busy": "इस सप्ताह: {pct} व्यस्त",
- "busiest on {day} ({pct})": "सबसे व्यस्त {day} ({pct})",
  "Coaches": "कोच",
  "Experts available through your organisation. Tell us who you'd like to work with and we'll help set it up.": "आपके संगठन के माध्यम से उपलब्ध विशेषज्ञ। हमें बताएं कि आप किसके साथ काम करना चाहेंगे और हम इसे व्यवस्थित करने में मदद करेंगे।",
  "Search coaches…": "कोच खोजें…",
@@ -445,5 +441,10 @@
  "Best match for you": "आपके लिए सबसे उपयुक्त",
  "Refresh recommendations": "सुझाव रीफ़्रेश करें",
  "Updated {date}": "{date} को अपडेट किया गया",
- "Couldn't refresh your recommendations just now — showing the last ones.": "अभी आपके सुझाव रीफ़्रेश नहीं हो सके — पिछले सुझाव दिखाए जा रहे हैं।"
+ "Couldn't refresh your recommendations just now — showing the last ones.": "अभी आपके सुझाव रीफ़्रेश नहीं हो सके — पिछले सुझाव दिखाए जा रहे हैं।",
+ "This week: {pct} busy ({label})": "इस सप्ताह: {pct} व्यस्त ({label})",
+ "busiest on {day} ({pct})": "सबसे व्यस्त {day} ({pct})",
+ "Busy Bee Index (Today)": "बिज़ी बी इंडेक्स (आज)",
+ "Available": "उपलब्ध",
+ "Over loaded": "अत्यधिक व्यस्त"
 }

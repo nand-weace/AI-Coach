@@ -425,8 +425,9 @@ def busy_score(day_events: list, day: date, tz) -> dict | None:
 
 
 def week_busy_score(events: list, today: date, tz, days: int = 7) -> dict | None:
-    """Busy hours over working hours, summed across the working days from
-    today on (days off and empty weekends skipped)."""
+    """Busy hours ÷ working hours across today and the following days, as a
+    percentage. Days off and empty weekends are skipped; a weekend with events
+    counts as a working day. None when every day is skipped."""
     by_day: dict = {}
     for e in events:
         by_day.setdefault(e['start'].date(), []).append(e)
@@ -448,6 +449,7 @@ def week_busy_score(events: list, today: date, tz, days: int = 7) -> dict | None
         'busy_pct': pct,
         'busy_hours': round(busy, 1),
         'total_hours': round(total, 1),
+        'days': len(scored),
         'label': busy_label(pct),
         'busiest_day': busiest_day,
         'busiest_pct': busiest['busy_pct'],
@@ -486,9 +488,15 @@ def summarise(events: list, now: datetime | None = None) -> dict | None:
         return scored[0][1]
 
     next_important = pick(upcoming)
-    # The important meeting that's imminent — today or tomorrow — which beats a
-    # higher-scoring one later in the week when deciding what to prepare for.
-    soon_important = pick([e for e in upcoming if e['start'].date() <= today + timedelta(days=1)])
+    # The most important meeting on the nearest day that has one: today's best
+    # still-to-come meeting, else tomorrow's best, and so on through the week.
+    # A nearer day always beats a higher-scoring meeting later on.
+    soon_important = None
+    for offset in range((week_end - today).days + 1):
+        day = today + timedelta(days=offset)
+        soon_important = pick([e for e in upcoming if e['start'].date() == day])
+        if soon_important:
+            break
     recent_important = pick(past, reverse=True)
 
     day_hours = _hours(todays)

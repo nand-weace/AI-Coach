@@ -82,6 +82,9 @@ const NexaHeader = (() => {
     // Exported as well as used here: a page can have its own link back to the
     // chat (Daily Pulse's "Back to Chat"), and one that skips this marker sends
     // the user into a brand-new conversation instead of the one they left.
+    // Tabs whose click only opens their sub-nav instead of navigating.
+    const DROPDOWN_ONLY_TABS = ['my-insights-link', 'career-horoscope-link'];
+
     function markTabNav() {
         try { sessionStorage.setItem('we_ace_tab_nav', String(Date.now())); } catch (_) {}
     }
@@ -97,6 +100,11 @@ const NexaHeader = (() => {
         const chip = $('user-chip-wrap');
         const lang = $('language-menu-wrap');
         if (chip) chip.classList.remove('open');
+        document.querySelectorAll('.app-tab-group.open').forEach(g => {
+            g.classList.remove('open');
+            const t = g.querySelector('.app-tab');
+            if (t) t.setAttribute('aria-expanded', 'false');
+        });
         setLanguageOpen(false);
     }
 
@@ -313,6 +321,26 @@ const NexaHeader = (() => {
         logo_url: '/static/nexa-logo.png', favicon_url: '/static/favicon-wit.png',
         name: 'Nexa', white_label: false, nexa_only: false,
     };
+    // ── "WeAce Platform" link ───────────────────────────────────────────────
+    // Only for users with the Employee role (roleId 7) AND Nexa access — other
+    // roles (Coach, Coachee, admins) never see it. Server-rendered pages get
+    // the initial state from the template; the chat page settles it once
+    // /session reports roles (applyRoles) and access (setNexaAccess).
+    const EMPLOYEE_ROLE_ID = 7;
+    let platformBlockedByBranding = false;
+    let platformIsEmployee = null;   // null until applyRoles runs
+    let platformNexaAccess = null;   // null until setNexaAccess runs
+    function hasRoleId(roleVal, id) {
+        return Array.isArray(roleVal) && roleVal.some(r => r && Number(r.roleId) === id);
+    }
+    function syncPlatformLink() {
+        const btn = $('btn-weace-coaching');
+        if (!btn) return;
+        if (platformBlockedByBranding) { btn.hidden = true; return; }
+        // Not known client-side yet: keep what the server rendered.
+        if (platformIsEmployee === null || platformNexaAccess === null) return;
+        btn.hidden = !(platformIsEmployee && platformNexaAccess);
+    }
     function storedBranding() {
         try { return JSON.parse(localStorage.getItem('we_ace_branding') || 'null'); } catch (_) { return null; }
     }
@@ -326,8 +354,8 @@ const NexaHeader = (() => {
         if (icon && icon.getAttribute('href') !== b.favicon_url) icon.href = b.favicon_url;
         // A white-labelled tenant's users shouldn't be sent to WeAce's platform,
         // nor should an org whose moduleAccess is only Nexa (nothing there for them).
-        const platform = $('btn-weace-coaching');
-        if (platform) platform.hidden = !!(b.white_label || b.nexa_only);
+        platformBlockedByBranding = !!(b.white_label || b.nexa_only);
+        syncPlatformLink();
         if (persist) {
             try { localStorage.setItem('we_ace_branding', JSON.stringify(b)); } catch (_) {}
         }
@@ -402,6 +430,7 @@ const NexaHeader = (() => {
         // conversation over instead of starting a new session. Anything else
         // (refresh, fresh visit, new login) leaves no marker.
         document.querySelectorAll('.app-tab[href], .logo-home').forEach(tab => {
+            if (DROPDOWN_ONLY_TABS.includes(tab.id)) return;
             tab.addEventListener('click', () => {
                 markTabNav();
                 document.querySelectorAll('.app-tab').forEach(t => t.classList.remove('active'));
@@ -409,8 +438,30 @@ const NexaHeader = (() => {
             });
         });
 
+        // My Insights and Career only open their sub-nav on click; the
+        // destinations are the entries inside it, so the tab itself never
+        // navigates. A second click closes it again.
+        DROPDOWN_ONLY_TABS.forEach(id => {
+            const tab = $(id);
+            const group = tab && tab.closest('.app-tab-group');
+            if (!group) return;
+            tab.setAttribute('aria-haspopup', 'true');
+            tab.setAttribute('aria-expanded', 'false');
+            tab.addEventListener('click', e => {
+                e.preventDefault();
+                e.stopPropagation();
+                const open = !group.classList.contains('open');
+                closeMenus();
+                group.classList.toggle('open', open);
+                tab.setAttribute('aria-expanded', open ? 'true' : 'false');
+                // Otherwise :focus-within keeps a just-closed menu showing.
+                if (!open) tab.blur();
+            });
+        });
+
         // Any nav choice dismisses the drawer on narrow screens.
         document.querySelectorAll('.app-tab, .app-subtab').forEach(tab => {
+            if (DROPDOWN_ONLY_TABS.includes(tab.id)) return;
             tab.addEventListener('click', () => setDrawer(false));
         });
 
@@ -422,6 +473,7 @@ const NexaHeader = (() => {
         document.querySelectorAll('.app-subtab').forEach(link => {
             link.addEventListener('click', () => {
                 markTabNav();
+                closeMenus();
                 link.blur();
                 requestAnimationFrame(syncSubnav);
             });
@@ -485,6 +537,8 @@ const NexaHeader = (() => {
     // `opts.pulseAccess` is the org's licence, not a role — Daily Pulse ships
     // with Nexa Pro, so a Regular org never sees the tab whatever its roles.
     function applyRoles(role, opts) {
+        platformIsEmployee = hasRoleId(role, EMPLOYEE_ROLE_ID);
+        syncPlatformLink();
         const isOrgAdmin = hasRole(role, 'corporate_super_admin');
         const isWeaceAdmin = hasRole(role, 'weace_super_admin');
         const hasPulse = !!(opts && opts.pulseAccess);
@@ -518,10 +572,8 @@ const NexaHeader = (() => {
     }
 
     function setNexaAccess(allowed) {
-        const btn = $('btn-weace-coaching');
-        if (!btn) return;
-        btn.disabled = !allowed;
-        if (!allowed) btn.title = 'Access required to use Weace Coaching';
+        platformNexaAccess = allowed === true;
+        syncPlatformLink();
     }
 
     return { init, applyRoles, setNexaAccess, renderLanguageMenu, getLanguage, syncLanguage, hasRole,

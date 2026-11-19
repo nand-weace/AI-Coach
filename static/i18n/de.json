@@ -421,14 +421,10 @@
  "{n} back-to-back": "{n} Meeting direkt hintereinander",
  "{n} back-to-backs": "{n} Meetings direkt hintereinander",
  "No meetings today — room for deep work.": "Heute keine Meetings – Zeit für konzentriertes Arbeiten.",
- "Free": "Frei",
  "Slightly busy": "Etwas beschäftigt",
  "Very busy": "Sehr beschäftigt",
- "Over busy": "Überlastet",
  "busy": "beschäftigt",
  "{busy} busy of {total}": "{busy} belegt von {total}",
- "This week: {pct} busy": "Diese Woche: {pct} belegt",
- "busiest on {day} ({pct})": "am vollsten am {day} ({pct})",
  "Coaches": "Coaches",
  "Experts available through your organisation. Tell us who you'd like to work with and we'll help set it up.": "Expertinnen und Experten, die Ihnen über Ihre Organisation zur Verfügung stehen. Sagen Sie uns, mit wem Sie arbeiten möchten, und wir helfen bei der Einrichtung.",
  "Search coaches…": "Coaches suchen…",
@@ -445,5 +441,10 @@
  "Best match for you": "Ihre beste Wahl",
  "Refresh recommendations": "Empfehlungen aktualisieren",
  "Updated {date}": "Aktualisiert am {date}",
- "Couldn't refresh your recommendations just now — showing the last ones.": "Ihre Empfehlungen konnten gerade nicht aktualisiert werden — es werden die letzten angezeigt."
+ "Couldn't refresh your recommendations just now — showing the last ones.": "Ihre Empfehlungen konnten gerade nicht aktualisiert werden — es werden die letzten angezeigt.",
+ "This week: {pct} busy ({label})": "Diese Woche: {pct} belegt ({label})",
+ "busiest on {day} ({pct})": "am vollsten am {day} ({pct})",
+ "Busy Bee Index (Today)": "Busy-Bee-Index (heute)",
+ "Available": "Verfügbar",
+ "Over loaded": "Überlastet"
 }

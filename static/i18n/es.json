@@ -421,14 +421,10 @@
  "{n} back-to-back": "{n} reunión seguida",
  "{n} back-to-backs": "{n} reuniones seguidas",
  "No meetings today — room for deep work.": "Sin reuniones hoy: espacio para trabajo profundo.",
- "Free": "Libre",
  "Slightly busy": "Algo ocupado",
  "Very busy": "Muy ocupado",
- "Over busy": "Sobrecargado",
  "busy": "ocupado",
  "{busy} busy of {total}": "{busy} ocupadas de {total}",
- "This week: {pct} busy": "Esta semana: {pct} ocupado",
- "busiest on {day} ({pct})": "más ocupado el {day} ({pct})",
  "Coaches": "Coaches",
  "Experts available through your organisation. Tell us who you'd like to work with and we'll help set it up.": "Expertos disponibles a través de tu organización. Dinos con quién te gustaría trabajar y te ayudaremos a organizarlo.",
  "Search coaches…": "Buscar coaches…",
@@ -445,5 +441,10 @@
  "Best match for you": "Tu mejor opción",
  "Refresh recommendations": "Actualizar recomendaciones",
  "Updated {date}": "Actualizado el {date}",
- "Couldn't refresh your recommendations just now — showing the last ones.": "No se pudieron actualizar tus recomendaciones ahora — se muestran las últimas."
+ "Couldn't refresh your recommendations just now — showing the last ones.": "No se pudieron actualizar tus recomendaciones ahora — se muestran las últimas.",
+ "This week: {pct} busy ({label})": "Esta semana: {pct} ocupado ({label})",
+ "busiest on {day} ({pct})": "más ocupado el {day} ({pct})",
+ "Busy Bee Index (Today)": "Índice Abeja Ocupada (hoy)",
+ "Available": "Disponible",
+ "Over loaded": "Sobrecargado"
 }

@@ -220,6 +220,7 @@
         .busy-bar { margin-top: 8px; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.22); overflow: hidden; }
         .busy-bar span { display: block; height: 100%; border-radius: 3px; background: #fff; transition: width 0.4s ease; }
         .calendar-feature p.busy-detail { margin-top: 8px; font-size: 12.5px; -webkit-line-clamp: 2; }
+        .calendar-feature p.busy-week { margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(255, 255, 255, 0.15); }
 
         /* ── Daily Horoscope: one compact row under the ask box ── */
         .horoscope-card { display: flex; align-items: flex-start; gap: 14px; }
@@ -741,7 +742,7 @@
         document.getElementById('prep-btn').addEventListener('click', () => prepMeeting(m));
     }
 
-    // ── Busy Bee Index ─────────────────────────────────────────────────────
+    // ── Busy Bee Index (Today) ─────────────────────────────────────────────────────
     // Busy % = busy hours ÷ working hours (9h). The bee shows the band:
     // 0–25 free, 25–50 slightly busy, 50–75 very busy, 75+ over busy.
     const BEES = {
@@ -769,13 +770,12 @@
     function renderBusy(busy) {
         const el = document.getElementById('calendar-busy');
         const day = busy && busy.today;
-        const week = busy && busy.week;
-        if (!day && !week) { el.hidden = true; el.innerHTML = ''; return; }
+        if (!day && !(busy && busy.day_off)) { el.hidden = true; el.innerHTML = ''; return; }
 
         // On a day off the bee is free; the label says why.
         const bee = BEES[day ? day.label : 'available'] || BEES.available;
         const beeLabel = day ? tr(bee.label) : tr('Day off');
-        let main = `<span class="busy-kicker">${esc(tr('Busy Bee Index'))}</span>`;
+        let main = `<span class="busy-kicker">${esc(tr('Busy Bee Index (Today)'))}</span>`;
         if (day) {
             const details = [tr('{busy} busy of {total}',
                                 { busy: fmtHours(day.busy_hours), total: fmtHours(day.total_hours) })];
@@ -792,19 +792,23 @@
             }
             main += `<div class="busy-score">${esc(fmtPct(day.busy_pct))}<small> ${esc(tr('busy'))}</small><span class="busy-label">${esc(beeLabel)}</span></div>
                 <div class="busy-bar" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.min(100, day.busy_pct)}"
-                     aria-label="${esc(tr('Busy Bee Index'))}"><span style="width:${Math.max(2, Math.min(100, day.busy_pct))}%"></span></div>
+                     aria-label="${esc(tr('Busy Bee Index (Today)'))}"><span style="width:${Math.max(2, Math.min(100, day.busy_pct))}%"></span></div>
                 <p class="busy-detail">${esc(details.join(' · '))}</p>`;
         } else {
             main += `<div class="busy-score"><span class="busy-label">${esc(beeLabel)}</span></div>`;
         }
+        const week = busy && busy.week;
         if (week) {
-            const busiest = new Date(week.busiest_day + 'T00:00:00')
-                .toLocaleDateString(NexaI18n.locale, { weekday: 'long' });
-            const weekText = tr('This week: {pct} busy', { pct: fmtPct(week.busy_pct) });
-            // Flag the busiest day when it's very busy or worse and busier than today.
-            const peakText = week.busiest_pct >= 50 && (!day || week.busiest_pct > day.busy_pct)
-                ? ' · ' + tr('busiest on {day} ({pct})', { day: busiest, pct: fmtPct(week.busiest_pct) }) : '';
-            main += `<p class="busy-detail">${esc(weekText + peakText)}</p>`;
+            const weekBee = BEES[week.label] || BEES.available;
+            let weekText = tr('This week: {pct} busy ({label})',
+                              { pct: fmtPct(week.busy_pct), label: tr(weekBee.label) });
+            // Name the busiest day when it's very busy or worse and busier than today.
+            if (week.busiest_pct >= 50 && (!day || week.busiest_pct > day.busy_pct)) {
+                const busiest = new Date(week.busiest_day + 'T00:00:00')
+                    .toLocaleDateString(NexaI18n.locale, { weekday: 'long' });
+                weekText += ' · ' + tr('busiest on {day} ({pct})', { day: busiest, pct: fmtPct(week.busiest_pct) });
+            }
+            main += `<p class="busy-detail busy-week">${esc(weekText)}</p>`;
         }
         el.innerHTML = `<img class="busy-bee" src="${bee.src}" alt="${esc(beeLabel)}" width="64" height="64">
             <div class="busy-main">${main}</div>`;

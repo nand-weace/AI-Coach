@@ -5,6 +5,7 @@ import uuid
 import logging
 import threading
 import requests as http_requests
+from datetime import timezone
 from functools import wraps
 from flask import Flask, request, jsonify, render_template, session, redirect, g
 from dotenv import load_dotenv
@@ -117,7 +118,11 @@ def _serialize_messages(user_id: str, rows: list) -> list[dict]:
     """Shape history rows for the client, including any thumbs the user already
     left on Nexa's replies so restored messages render in the rated state.
     Rows that already carry `feedback` (joined in by the query) skip the
-    separate ratings lookup."""
+    separate ratings lookup.
+
+    created_at is stored as a naive UTC DATETIME (the DB connection is pinned
+    to UTC), so it is tagged +00:00 here; without an offset the browser would
+    read it as local time and show restored messages hours off."""
     if rows and all('feedback' in r for r in rows):
         ratings = {r['id']: r['feedback'] for r in rows}
     else:
@@ -127,7 +132,8 @@ def _serialize_messages(user_id: str, rows: list) -> list[dict]:
     return [
         {'id': r['id'], 'role': r['role'], 'content': r['content'],
          'language': r.get('language') or DEFAULT_LANGUAGE,
-         'created_at': r['created_at'].isoformat() if r.get('created_at') else None,
+         'created_at': (r['created_at'].replace(tzinfo=timezone.utc).isoformat()
+                        if r.get('created_at') else None),
          'feedback': ratings.get(r['id'], 0)}
         for r in rows
     ]
@@ -311,7 +317,10 @@ def _inject_branding():
     Read from the Flask session, where /session stored it at login; Nexa's own
     assets before login or for tenants without white-labelling.
     """
-    return {'branding': session.get('branding') or DEFAULT_BRANDING}
+    return {
+        'branding': session.get('branding') or DEFAULT_BRANDING,
+        'show_weace_platform': not _can_open_weace_platform(session.get('role'), session.get('nexa_access')),
+    }
 
 
 @app.template_global()
@@ -482,6 +491,29 @@ def _has_role(role_val, *slugs) -> bool:
     for s in list(user_slugs):
         user_slugs.update(_ROLE_ALIASES.get(s, ()))
     return any(s in user_slugs for s in slugs)
+
+
+# The "WeAce Platform" link is only for users holding the Employee role
+# (roleId 7 in /api/v1/users/profile) who also have Nexa access. Coach,
+# Coachee or admin roles on their own don't qualify.
+EMPLOYEE_ROLE_ID = 7
+
+
+def _has_role_id(role_val, role_id: int) -> bool:
+    if not isinstance(role_val, list):
+        return False
+    for r in role_val:
+        if isinstance(r, dict):
+            try:
+                if int(r.get('roleId')) == role_id:
+                    return True
+            except (TypeError, ValueError):
+                pass
+    return False
+
+
+def _can_open_weace_platform(role_val, nexa_access) -> bool:
+    return nexa_access is True and _has_role_id(role_val, EMPLOYEE_ROLE_ID)
 
 
 # Verifying a token is a round trip to the we-ace API (~0.5s), and it was paid
@@ -1543,6 +1575,7 @@ def create_session():
         logger.info("[create_session] nexa_access=%s (source=%s) resolved in %s",
                     nexa_access, 'super_admin_role' if is_super_admin else 'user-config API',
                     _elapsed(t0))
+        session['nexa_access'] = nexa_access
         t0 = time.perf_counter()
         settings = upsert_user_login(
             user_id,
@@ -1693,6 +1726,8 @@ def resume_session():
         language = normalize_language(get_user_language(user_id))
         mode = get_user_mode(user_id) or DEFAULT_MODE
 
+        session['nexa_access'] = nexa_access
+
         # Keep Flask session (server-rendered pages) and the token cache (/chat)
         # pointing at this same conversation.
         session['user_id'] = user_id
@@ -1834,6 +1869,7 @@ def new_session():
 
         auth_tokens[g.access_token]['session_uuid'] = session_uuid
         auth_tokens[g.access_token]['nexa_access'] = nexa_access
+        session['nexa_access'] = nexa_access
         auth_tokens[g.access_token]['access_last_date'] = access_last_date
 
         initials = ''.join(w[0].upper() for w in user_name.split()[:2])
@@ -2952,10 +2988,10 @@ def _today_meeting(summary: dict | None) -> dict | None:
 
 
 def _today_busy(summary: dict | None, reachable: bool = False) -> dict | None:
-    """Today's and this week's busy percentage — busy hours ÷ working hours (see
-    calendar_context.busy_score). None when there's no calendar; today's part
-    is None on a day off. A calendar that answered with no events at all is a
-    free day and a free week, not a missing calendar."""
+    """Today's and this week's busy percentage — busy hours ÷ working hours
+    (see calendar_context.busy_score / week_busy_score). None when there's no
+    calendar; `today` is None (and `day_off` set) on a day off. A calendar that
+    answered with no events at all is a free day and week, not a missing one."""
     if not summary:
         if not reachable:
             return None
@@ -2965,9 +3001,11 @@ def _today_busy(summary: dict | None, reachable: bool = False) -> dict | None:
         today = datetime.now(tz).date()
         summary = {'today_busy': calendar_context.busy_score([], today, tz),
                    'week_busy': calendar_context.week_busy_score([], today, tz)}
+    day = summary.get('today_busy')
     week = summary.get('week_busy')
     return {
-        'today': summary.get('today_busy'),
+        'today': day,
+        'day_off': day is None,
         'week': dict(week, busiest_day=week['busiest_day'].isoformat()) if week else None,
     }
 

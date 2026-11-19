@@ -191,12 +191,14 @@ body {
 /* An inline display:none (role-hidden) still wins over these, so a hidden
    sub-nav stays hidden on hover. */
 .app-tab-group:hover .app-subnav,
-.app-tab-group:focus-within .app-subnav {
+.app-tab-group:focus-within .app-subnav,
+.app-tab-group.open .app-subnav {
     display: flex;
 }
 
 .app-tab-group:hover .tab-caret,
-.app-tab-group:focus-within .tab-caret {
+.app-tab-group:focus-within .tab-caret,
+.app-tab-group.open .tab-caret {
     transform: rotate(180deg);
 }
 

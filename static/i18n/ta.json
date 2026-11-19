@@ -421,14 +421,10 @@
  "{n} back-to-back": "{n} தொடர் கூட்டம்",
  "{n} back-to-backs": "{n} தொடர் கூட்டங்கள்",
  "No meetings today — room for deep work.": "இன்று கூட்டங்கள் இல்லை — ஆழ்ந்த பணிக்கு நேரம்.",
- "Free": "இலவசம்",
  "Slightly busy": "சற்று பரபரப்பு",
  "Very busy": "மிகவும் பரபரப்பு",
- "Over busy": "அளவுக்கு மீறிய பரபரப்பு",
  "busy": "பரபரப்பு",
  "{busy} busy of {total}": "{total} இல் {busy} பரபரப்பு",
- "This week: {pct} busy": "இந்த வாரம்: {pct} பரபரப்பு",
- "busiest on {day} ({pct})": "அதிக பரபரப்பு {day} ({pct})",
  "Coaches": "பயிற்சியாளர்கள்",
  "Experts available through your organisation. Tell us who you'd like to work with and we'll help set it up.": "உங்கள் நிறுவனத்தின் மூலம் கிடைக்கும் நிபுணர்கள். யாருடன் பணியாற்ற விரும்புகிறீர்கள் என்று சொல்லுங்கள், நாங்கள் ஏற்பாடு செய்ய உதவுவோம்.",
  "Search coaches…": "பயிற்சியாளர்களைத் தேடுங்கள்…",
@@ -445,5 +441,10 @@
  "Best match for you": "உங்களுக்கு மிகப் பொருத்தமானவர்",
  "Refresh recommendations": "பரிந்துரைகளைப் புதுப்பிக்கவும்",
  "Updated {date}": "{date} அன்று புதுப்பிக்கப்பட்டது",
- "Couldn't refresh your recommendations just now — showing the last ones.": "இப்போது உங்கள் பரிந்துரைகளைப் புதுப்பிக்க முடியவில்லை — கடைசியாக உள்ளவை காட்டப்படுகின்றன."
+ "Couldn't refresh your recommendations just now — showing the last ones.": "இப்போது உங்கள் பரிந்துரைகளைப் புதுப்பிக்க முடியவில்லை — கடைசியாக உள்ளவை காட்டப்படுகின்றன.",
+ "This week: {pct} busy ({label})": "இந்த வாரம்: {pct} பரபரப்பு ({label})",
+ "busiest on {day} ({pct})": "அதிக பரபரப்பு {day} ({pct})",
+ "Busy Bee Index (Today)": "பிஸி பீ குறியீடு (இன்று)",
+ "Available": "கிடைக்கிறது",
+ "Over loaded": "அதிகச் சுமை"
 }

@@ -421,14 +421,10 @@
  "{n} back-to-back": "{n} اجتماع متتالٍ",
  "{n} back-to-backs": "{n} اجتماعات متتالية",
  "No meetings today — room for deep work.": "لا اجتماعات اليوم — وقت للعمل العميق.",
- "Free": "متاح",
  "Slightly busy": "مشغول قليلًا",
  "Very busy": "مشغول جدًا",
- "Over busy": "مشغول أكثر من اللازم",
  "busy": "مشغول",
  "{busy} busy of {total}": "{busy} مشغولة من {total}",
- "This week: {pct} busy": "هذا الأسبوع: {pct} مشغول",
- "busiest on {day} ({pct})": "الأكثر انشغالًا يوم {day} ({pct})",
  "Coaches": "المدربون",
  "Experts available through your organisation. Tell us who you'd like to work with and we'll help set it up.": "خبراء متاحون من خلال مؤسستك. أخبرنا بمن ترغب في العمل معه وسنساعدك في ترتيب ذلك.",
  "Search coaches…": "ابحث عن مدربين…",
@@ -445,5 +441,10 @@
  "Best match for you": "الأنسب لك",
  "Refresh recommendations": "تحديث التوصيات",
  "Updated {date}": "تم التحديث في {date}",
- "Couldn't refresh your recommendations just now — showing the last ones.": "تعذّر تحديث توصياتك الآن — يتم عرض آخر توصيات."
+ "Couldn't refresh your recommendations just now — showing the last ones.": "تعذّر تحديث توصياتك الآن — يتم عرض آخر توصيات.",
+ "This week: {pct} busy ({label})": "هذا الأسبوع: {pct} مشغول ({label})",
+ "busiest on {day} ({pct})": "الأكثر انشغالًا يوم {day} ({pct})",
+ "Busy Bee Index (Today)": "مؤشر النحلة المشغولة (اليوم)",
+ "Available": "متاح",
+ "Over loaded": "مثقل بالعمل"
 }
